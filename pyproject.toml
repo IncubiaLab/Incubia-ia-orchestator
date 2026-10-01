@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "incubia-orchestrator"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["langgraph==1.2.12", "httpx==0.28.1"]
+
+[project.optional-dependencies]
+test = ["pytest==8.4.2"]
+
+[project.scripts]
+incubia = "incubia_orchestrator.interfaces.cli.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/incubia_orchestrator"]

@@ -4,7 +4,7 @@ Estas specs convierten la documentación de Linear en criterios verificables par
 
 ## Precedencia y estado
 
-1. ADRs aceptados: [ADR-ORCH-001](https://linear.app/hector-cruz/document/adr-orch-001-langgraph-como-runtime-reemplazable-de-orquestacion-7991e40eb0c2) y [ADR-ORCH-007](https://linear.app/hector-cruz/document/adr-orch-007-execution-contract-independiente-del-runtime-75eb46c3d112).
+1. ADRs aceptados: [ADR-ORCH-001](https://linear.app/hector-cruz/document/adr-orch-001-langgraph-como-runtime-reemplazable-de-orquestacion-7991e40eb0c2), [ADR-ORCH-006](https://linear.app/hector-cruz/document/adr-orch-006-policy-engine-and-guardrails-78ffd068145a) y [ADR-ORCH-007](https://linear.app/hector-cruz/document/adr-orch-007-execution-contract-independiente-del-runtime-75eb46c3d112).
 2. ADRs propuestos: 013, 017, 018, 019 y 020. Son guías de diseño sujetas a ratificación.
 3. [Borrador de estructura](https://linear.app/hector-cruz/document/draft-estructura-del-repositorio-incubia-ai-orchestrator-084204cfd1bf), [SAD v1.1](https://linear.app/hector-cruz/document/borrador-sad-agente-orquestador-de-ia-mvp-v11-acd47cd9eb13), [NFRs](https://linear.app/hector-cruz/document/incubia-mvp-nfrs-f626bdd0b279) e issues describen intención y alcance. Cuando difieran de un ADR aceptado, prevalece el ADR.
 

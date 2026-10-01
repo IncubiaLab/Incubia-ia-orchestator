@@ -6,6 +6,14 @@ Un chatbot local ejecutado desde la terminal que recibe texto, elige una de hast
 
 Esta etapa acota el MVP amplio descrito en [las specs](../../specs/README.md). La entrada HTTP de la spec 05 se difiere; el contrato de ejecución del ADR-ORCH-007 y el aislamiento de LangGraph del ADR-ORCH-001 siguen vigentes. No se implementan tools, RAG, base de datos, autenticación, persistencia, handoff ni canales externos.
 
+## Cómo construir la base
+
+El primer entregable es un mensaje de extremo a extremo por `HandleMessage → WorkflowRuntimePort.start → LangGraphRuntimeAdapter → LLMPort → FakeLLM`, con retorno como `ExecutionOutcome`. El grafo inicial es `START → generate_response → END`.
+
+[BASE.md](BASE.md) define responsabilidades, contratos y pruebas para cerrar el **Gate 0 técnico**, que abarca los hitos 0 y 1 de este roadmap. El grafo aislado con tres perfiles no acredita ese gate. La conversación y la selección de especialistas se incorporan después de verificar las fronteras.
+
+[AUTOPLAN-REVIEW.md](AUTOPLAN-REVIEW.md) complementa este orden con decisiones pendientes, errores, evaluación y trazabilidad hacia [GOALS.md](GOALS.md). Todos son documentos de planificación; los gates se cierran con evidencia de implementación. Los ADR propuestos conservan su estado aunque se adopten provisionalmente sus diseños.
+
 ## Stack inicial propuesto
 
 | Pieza | Elección para esta etapa | Motivo |
@@ -22,38 +30,43 @@ Las versiones de paquetes y los identificadores de modelos se fijan y bloquean a
 
 | Hito | Entregable | Criterio de salida |
 | --- | --- | --- |
-| 0. Decisiones | ADRs incorporados y stack inicial documentado | Se distingue qué decisiones están aceptadas, propuestas y abiertas; el alcance CLI queda explícito. |
-| 1. Contratos y composición | Paquete Python, tipos de ejecución del ADR-ORCH-007, `WorkflowRuntimePort`, `LLMPort`, configuración y bootstrap | Application no importa LangGraph ni SDK del proveedor; arranque sin secretos en el repositorio. |
-| 2. Conversación en terminal | Comando `incubia chat`, lectura de texto, salida, `/help`, `/exit`, errores seguros e historial de sesión en memoria | Varios turnos funcionan en un proceso; reiniciar descarta la sesión. |
-| 3. Orquestación especialista | Grafo LangGraph con selección y hasta tres perfiles; una sola invocación especialista por turno | Casos representativos se enrutan al perfil correcto; casos ambiguos usan una regla explícita. |
-| 4. Verificación de etapa | Tests de contratos, routing, graph y CLI con LLM falso; prueba manual optativa con proveedor configurado | La suite local pasa sin red; la salida identifica la especialidad y no revela secretos ni estado interno de LangGraph. |
+| 0. Decisiones | ADRs incorporados, stack y decisiones mínimas de BASE documentados | Estados aceptado/propuesto explícitos; scope local, Policy PEP/PDP y recorte de lifecycle registrados. Historial/especialidad se deciden en sus hitos. |
+| 1. Contratos y composición | Paquete, contratos ADR-007, PolicyEnginePort y adapter in-process, PEP antes de inferencia, LLMPort, mappers, grafo mínimo, FakeLLM y bootstrap | Evidencias de BASE completas: enforcement probado para ALLOW/DENY/INDETERMINATE, recorrido por puertos, outcomes seguros, serialización y fronteras. Cierra Gate 0 técnico. REQUIRE_APPROVAL y resume funcional quedan explícitamente fuera del alcance acreditado. |
+| 2. Conversación en terminal | Contrato de contexto resuelto; `incubia chat`, `/help`, `/exit`, historial en memoria, logs mínimos y adapter real configurable | Al menos tres turnos con fake; límites de historial y fallos del proveedor probados; reiniciar descarta sesión. |
+| 3. Orquestación especialista | Selección tipada, router puro y nodo de generación parametrizado; 1–3 perfiles y eval versionado | Una generación por turno, especialidad visible y ≥80 % de aciertos en validación, con ambiguos y fallback explícitos. |
+| 4. Verificación de etapa | Suite sin red, guía de arranque e informe manual de latencia/costo con proveedor real | GOALS completo; logs/diagnósticos sin contenido ni secretos; si falta medición real, el cierre queda pendiente. |
 
 ## Secuencia de implementación
 
-1. Definir el contrato de generación, los IDs y los errores; implementar un adapter LLM falso.
-2. Componer el grafo: entrada → selección de especialidad → generación → salida. El routing inicial será determinista y verificable. Registrar la decisión de routing antes de adoptar un clasificador LLM.
-3. Crear el adapter del proveedor y configurar por entorno los modelos permitidos, límites de salida y timeout.
-4. Exponer el caso de uso en la CLI, manteniendo el historial únicamente en memoria durante el proceso.
-5. Probar solicitudes de cada especialidad, ambigüedad, entrada vacía, fallo del proveedor, salida y continuidad de varios turnos.
+1. Construir y comprobar la base de un mensaje según BASE: contratos → puertos → caso de uso → FakeLLM → adapter LangGraph → bootstrap → entrada mínima. Cerrar el Gate 0 técnico.
+2. Resolver el transporte tipado del contexto conversacional y documentar cualquier evolución del ADR-007; añadir REPL e historial acotado en Application.
+3. Crear el adapter real y configurar modelos, límites, timeout e intentos; probar errores con transporte simulado antes de usar credenciales reales.
+4. Resolver especialidad tipada y routing determinista; añadir selección antes de generación y evaluar con ejemplos versionados. ADR-003 permanece pendiente.
+5. Verificar GOALS, registrar mediciones reales y completar la guía de arranque. Las llamadas reales se mantienen fuera de la suite local.
 
 ## Criterios de aceptación de la etapa
 
-- Desde una terminal se puede iniciar el chat y mantener una conversación de varios turnos.
+- Desde una terminal se puede iniciar el chat y mantener una conversación de al menos tres turnos.
 - Hay entre uno y tres perfiles activos; cada perfil tiene propósito, instrucciones y modelo configurado. No se invocan más de tres configuraciones de modelo distintas.
-- Cada turno produce una respuesta o un error legible, con especialidad seleccionada y `request_id` para diagnóstico.
+- Cada turno produce una respuesta o un error legible, con `request_id` para diagnóstico y especialidad cuando se haya seleccionado; un fallo anterior al routing no inventa un perfil.
 - No hay ejecución de herramientas, acceso a archivos del usuario, consultas a bases de datos ni llamadas a sistemas externos excepto al proveedor LLM configurado.
 - El historial existe solo durante el proceso y tiene un límite configurable de turnos o tokens para controlar costo y contexto.
 - Tests locales con fake LLM cubren routing, contrato, errores y conversación; no necesitan credenciales ni red.
+- El dataset de routing está versionado y obtiene ≥80 % en su partición de validación; se registran fallos por categoría y latencia sin contenido ni secretos en logs.
+- Existe guía de arranque e informe manual de latencia/costo con modelos reales. Las mediciones del fake no sustituyen esa evidencia.
 
-## Decisiones pendientes antes de construir
+## Decisiones pendientes por hito
 
 | Decisión | Propuesta para esta etapa |
 | --- | --- |
+| Base (hito 0) | Tipos mínimos, firmas, scope local y limitación de resume descritos en BASE. No presentar el recorte como cumplimiento completo de suspensión/reanudación del ADR-007. |
+| Contexto (antes del hito 2) | Historial en Application y transporte tipado hasta generación; registrar la evolución del contrato si corresponde. |
+| Especialidad en el contrato (antes del hito 3) | Representación propia tipada de la selección y su ausencia antes de routing; sin metadata libre. |
 | Especialidades | General, arquitectura y programación; son perfiles de trabajo iniciales, ajustables tras probar solicitudes reales. |
 | Routing | Reglas deterministas con fallback a General; documentar y probar ejemplos. El ADR-ORCH-003 permanece pendiente. |
 | Proveedor y modelos | Adapter OpenAI previsto por ADR-ORCH-013, aún propuesto. Elegir IDs concretos por configuración y medir costo, calidad y latencia antes de fijarlos. |
 | Formato de mensajes | Texto plano; salida opcional de metadatos mínimos. |
-| Gestión de contexto | Historial efímero limitado; no hay memoria persistente ni checkpoints durables. |
+| Gestión de contexto | Propuesta: ventana por pares completos en memoria, compartida entre perfiles; sin checkpoints durables. Concretar límites en hito 2. |
 
 ## Después de esta etapa
 

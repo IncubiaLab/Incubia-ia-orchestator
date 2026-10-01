@@ -5,6 +5,7 @@ Copias de los ADR de Linear que figuran como **Accepted** o **Proposed** en el [
 | ADR | Estado | Tema |
 | --- | --- | --- |
 | [ORCH-001](ADR-ORCH-001.md) | Accepted | LangGraph como runtime reemplazable |
+| [ORCH-006](ADR-ORCH-006.md) | Accepted | Kernel invariants, Policy Engine y Guardrails |
 | [ORCH-007](ADR-ORCH-007.md) | Accepted | Contrato de ejecución independiente |
 | [ORCH-013](ADR-ORCH-013.md) | Proposed | LLMPort |
 | [ORCH-017](ADR-ORCH-017.md) | Proposed | Estructura por módulo y contexto |
@@ -12,4 +13,4 @@ Copias de los ADR de Linear que figuran como **Accepted** o **Proposed** en el [
 | [ORCH-019](ADR-ORCH-019.md) | Proposed | Conversation State y GraphState |
 | [ORCH-020](ADR-ORCH-020.md) | Proposed | Tests arquitectónicos y de contrato |
 
-La serie general del MVP contiene otros estados, entre ellos «Aceptado provisionalmente». Este índice se limita a los siete ADR-ORCH con estado literal Accepted o Proposed; no convierte decisiones provisionales en aceptadas.
+La serie general del MVP contiene otros estados, entre ellos «Aceptado provisionalmente». Este índice incluye ADR-ORCH con estado literal Accepted o Proposed; no convierte decisiones provisionales en aceptadas.
