@@ -1,0 +1,22 @@
+Incubia AI Orchestrator — contexto de implementación
+
+Objetivo actual: chatbot local en terminal con LangGraph y hasta tres perfiles especialistas. Consultar ROADMAP.md, GOALS.md y AGENTES.md antes de implementar.
+
+Restricciones de esta etapa:
+- Texto de entrada y salida; historial efímero y acotado en memoria.
+- Sin tools, RAG, bases de datos, API HTTP ni interfaces gráficas.
+- Un especialista responde por turno; General resuelve casos ambiguos.
+- Las credenciales se cargan desde el entorno y nunca se registran.
+
+Arquitectura:
+- ADR-ORCH-001 (Accepted): LangGraph es un runtime reemplazable detrás de WorkflowRuntimePort. GraphState y APIs del runtime permanecen en el adapter.
+- ADR-ORCH-007 (Accepted): usar StartExecutionRequest, ResumeExecutionRequest y ExecutionOutcome; conservar request_id, execution_id y conversation_id con significados distintos.
+- ADR-ORCH-013, 017, 018, 019 y 020 son Proposed: guían el diseño, pero no son decisiones ratificadas.
+- Los ADR originales están copiados en ../../adr/ con enlace a Linear y estado de origen.
+
+Stack inicial propuesto:
+- Python 3.12, pyproject.toml, argparse de la biblioteca estándar y LangGraph. Fijar y bloquear versiones de paquetes al iniciar la implementación.
+- Puerto LLM propio y adapter de proveedor; OpenAI es la implementación prevista por ADR-ORCH-013, aún Proposed.
+- pytest para pruebas locales; fake LLM para ejecutar sin red.
+
+Precedencia: ADR aceptado > alcance explícito de esta etapa > ADR propuesto > specs del MVP amplio. Si una spec menciona HTTP como primer slice, aplicar terminal para esta etapa y conservar HTTP como trabajo futuro.
