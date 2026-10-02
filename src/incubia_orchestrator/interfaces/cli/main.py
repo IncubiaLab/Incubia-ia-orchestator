@@ -1,5 +1,4 @@
 import argparse
-import logging
 import sys
 import time
 from incubia_orchestrator.bootstrap.composition import compose
@@ -38,14 +37,18 @@ def main(argv=None) -> int:
             return 2
         if isinstance(outcome, CompletedExecution):
             print(outcome.output.text)
+            specialty = outcome.output.specialty
             code = 0
         elif isinstance(outcome, FailedExecution):
             print(f"Error: {outcome.error.code}", file=sys.stderr)
+            specialty = outcome.error.specialty
             code = 3
         else:
             print("Ejecución suspendida", file=sys.stderr)
+            specialty = None
             code = 3
-        print(f"request_id={outcome.request_id} status={outcome.status} latency_ms={int((time.monotonic()-started)*1000)}", file=sys.stderr)
+        profile_text = f" specialty={specialty.value}" if specialty else ""
+        print(f"request_id={outcome.request_id} status={outcome.status}{profile_text} latency_ms={int((time.monotonic()-started)*1000)}", file=sys.stderr)
         return code
 
     if args.message is not None:

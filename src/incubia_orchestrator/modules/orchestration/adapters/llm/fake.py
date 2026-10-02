@@ -10,4 +10,4 @@ class FakeLLM:
         self.calls.append(request)
         if self.failure:
             raise GenerationFailure(self.failure)
-        return GenerationResponse(f"[fake] {request.text}")
+        return GenerationResponse(f"Hola, el enrutador me escogió y soy el especialista en {request.specialty.value}. [fake] {request.text}")

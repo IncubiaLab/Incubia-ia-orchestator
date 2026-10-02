@@ -1,19 +1,15 @@
 # Perfiles especialistas del chatbot
 
-Este archivo describe los perfiles que el orquestador podrá seleccionar. Un perfil no es un proceso autónomo: es una configuración de instrucciones y modelo invocada para responder un turno. El máximo es **tres perfiles activos** y **tres configuraciones de modelo distintas**; se permite que varios perfiles compartan el mismo modelo.
+Un especialista es un perfil de instrucciones; los tres comparten el modelo configurado. El valor inicial para pruebas con API es `gpt-4o-mini`, reemplazable con `--model` o `INCUBIA_MODEL`. El modo `--fake` no llama al modelo ni requiere credenciales.
 
-| Perfil | Responsabilidad | Enviar aquí cuando | No asumir |
-| --- | --- | --- | --- |
-| General | Conversación, explicación y clasificación de solicitudes ambiguas | La solicitud no pertenece claramente a las otras dos áreas | Acceso a datos empresariales o memoria persistente |
-| Arquitectura | Diseño de componentes, contratos, tradeoffs y roadmap técnico | Se pide diseñar o evaluar arquitectura | Que una propuesta de ADR está aceptada |
-| Programación | Explicación de código, implementación sugerida y depuración conceptual | Se pregunta por código o errores de programación | Capacidad de ejecutar código o leer el repositorio mediante tools |
+| Perfil | Propósito | Selección inicial |
+| --- | --- | --- |
+| General | Saludos, consultas generales y solicitudes ambiguas | Fallback o coincidencia con más de un área. |
+| Ventas | Clientes, prospectos, cotizaciones, negociación y cierre | Términos de ventas sin coincidencia de marketing. |
+| Marketing | Campañas, publicidad, audiencias, marca y SEO | Términos de marketing sin coincidencia de ventas. |
 
-## Política de selección inicial
+El router es determinista y puro. Evalúa el mensaje actual, no el historial; usa palabras completas sin distinguir mayúsculas ni tildes. Si encuentra señales de ventas y marketing, elige General. La selección es visible en el outcome y la CLI. El conjunto inicial de ejemplos está en `evals/routing-v1.jsonl`; ampliar ese conjunto antes de afinar reglas con solicitudes reales.
 
-La selección ocurre antes de invocar el modelo especialista. Reglas simples y ejemplos versionados determinan el perfil; ante empate o baja confianza se usa General. Solo se invoca un perfil por turno. El selector no puede activar tools ni acceder a una base de datos. Se registra el perfil escogido para evaluación.
+Cada perfil tiene instrucciones distintas y pide comenzar con un saludo identificable. El fake devuelve de forma determinista `Hola, el enrutador me escogió y soy el especialista en <perfil>` para comprobar el flujo. El texto generado por el proveedor real puede variar; la especialidad estructurada del outcome es la fuente fiable para verificar el routing.
 
-La conversación conserva los turnos en memoria del proceso con un límite configurable. La propuesta de etapa 1 es pasar la misma ventana acotada de pares usuario/asistente a todos los perfiles; no se presupone un selector de relevancia. El transporte tipado del historial se resuelve antes del hito 2, según [AUTOPLAN-REVIEW.md](AUTOPLAN-REVIEW.md). Las instrucciones de cada perfil no conceden permisos adicionales.
-
-## Configuración pendiente
-
-Las instrucciones finales, los identificadores de modelo, temperatura y límite de salida se fijarán en configuración y se evaluarán con solicitudes reales. Los nombres anteriores son una hipótesis inicial para esta primera etapa, no una taxonomía permanente del producto.
+No hay tools, acceso a datos empresariales, agentes autónomos ni permisos adicionales por perfil. La policy de inferencia se aplica después de seleccionar y antes de llamar al LLM.

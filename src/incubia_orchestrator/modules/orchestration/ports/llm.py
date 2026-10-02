@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Protocol
 from incubia_orchestrator.foundation.contracts.execution import ConversationTurn
+from incubia_orchestrator.foundation.contracts.specialty import Specialty
 
 
 @dataclass(frozen=True)
@@ -9,6 +10,8 @@ class GenerationRequest:
     history: tuple[ConversationTurn, ...]
     instructions: str
     max_output_tokens: int
+    model: str = ""
+    specialty: Specialty = Specialty.GENERAL
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,7 @@
 """Product-owned, JSON-compatible execution contract."""
 from dataclasses import asdict, dataclass
 from typing import Literal, TypeAlias
+from incubia_orchestrator.foundation.contracts.specialty import Specialty
 
 
 @dataclass(frozen=True)
@@ -44,12 +45,14 @@ class ResumeExecutionRequest:
 class ExecutionOutput:
     text: str
     kind: Literal["message", "policy_denied"] = "message"
+    specialty: Specialty | None = None
 
 
 @dataclass(frozen=True)
 class ExecutionError:
     code: str
     message: str
+    specialty: Specialty | None = None
 
 
 @dataclass(frozen=True)
@@ -97,10 +100,14 @@ def outcome_from_dict(data: dict) -> ExecutionOutcome:
     ids = (data["request_id"], data["execution_id"])
     match data["status"]:
         case "completed":
-            return CompletedExecution(*ids, ExecutionOutput(**data["output"]))
+            output = data["output"]
+            return CompletedExecution(*ids, ExecutionOutput(output["text"], output.get("kind", "message"),
+                                                       Specialty(output["specialty"]) if output.get("specialty") else None))
         case "suspended":
             return SuspendedExecution(*ids, data["continuation_id"])
         case "failed":
-            return FailedExecution(*ids, ExecutionError(**data["error"]))
+            error = data["error"]
+            return FailedExecution(*ids, ExecutionError(error["code"], error["message"],
+                                                   Specialty(error["specialty"]) if error.get("specialty") else None))
         case _:
             raise ValueError("Unknown execution status")

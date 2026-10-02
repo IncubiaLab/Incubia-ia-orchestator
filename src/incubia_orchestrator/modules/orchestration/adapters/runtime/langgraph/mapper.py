@@ -12,6 +12,7 @@ def to_state(request: StartExecutionRequest) -> GraphState:
 def to_outcome(request: StartExecutionRequest, state: GraphState):
     if code := state.get("error_code"):
         return FailedExecution(request.request_id, request.execution_id,
-                               ExecutionError(code, "Generation unavailable"))
+                               ExecutionError(code, "Generation unavailable", state.get("specialty")))
     return CompletedExecution(request.request_id, request.execution_id,
-                              ExecutionOutput(state["reply"], "policy_denied" if state.get("denied") else "message"))
+                              ExecutionOutput(state["reply"], "policy_denied" if state.get("denied") else "message",
+                                              state.get("specialty")))

@@ -3,12 +3,15 @@ from incubia_orchestrator.modules.governance.domain.policy import Effect, Policy
 from incubia_orchestrator.modules.governance.ports.policy_engine import PolicyEnginePort
 from incubia_orchestrator.modules.orchestration.ports.llm import GenerationFailure, GenerationRequest, LLMPort
 from incubia_orchestrator.modules.orchestration.adapters.runtime.langgraph.state import GraphState
+from incubia_orchestrator.modules.orchestration.domain.specialty import Profile, Specialty
 
 LOG = logging.getLogger(__name__)
 
 
-def make_node(llm: LLMPort, policy: PolicyEnginePort, max_output_tokens: int):
+def make_node(llm: LLMPort, policy: PolicyEnginePort, max_output_tokens: int,
+              profiles: dict[Specialty, Profile] | None = None):
     def generate(state: GraphState) -> GraphState:
+        profile = profiles[state["specialty"]] if profiles else None
         scope = state["scope"]
         try:
             decision = policy.evaluate(PolicyQuery(scope.actor_id, "llm.generate", "configured-llm",
@@ -25,7 +28,9 @@ def make_node(llm: LLMPort, policy: PolicyEnginePort, max_output_tokens: int):
             return {"error_code": "POLICY_INDETERMINATE"}
         try:
             response = llm.generate(GenerationRequest(state["text"], state["history"],
-                                                      "Responde de forma clara y breve.", max_output_tokens))
+                                                      profile.instructions if profile else "Responde de forma clara y breve.",
+                                                      max_output_tokens, profile.model if profile else "",
+                                                      profile.specialty if profile else Specialty.GENERAL))
             if not response.text.strip():
                 return {"error_code": "EMPTY_RESPONSE"}
             return {"reply": response.text}

@@ -19,7 +19,7 @@ class OpenAILLM:
             messages.extend(({"role": "user", "content": turn.user},
                              {"role": "assistant", "content": turn.assistant}))
         messages.append({"role": "user", "content": request.text})
-        body = {"model": self.model, "instructions": request.instructions, "input": messages,
+        body = {"model": request.model or self.model, "instructions": request.instructions, "input": messages,
                 "max_output_tokens": request.max_output_tokens, "store": False}
         for attempt in range(self.retries + 1):
             try:

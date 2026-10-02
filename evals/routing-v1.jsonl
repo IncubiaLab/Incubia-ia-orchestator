@@ -1,0 +1,15 @@
+{"text":"hola","expected":"general","category":"fallback"}
+{"text":"¿Cómo estás?","expected":"general","category":"fallback"}
+{"text":"Explícame este concepto","expected":"general","category":"fallback"}
+{"text":"Necesito vender más","expected":"ventas","category":"sales"}
+{"text":"Ayúdame con una cotización","expected":"ventas","category":"sales"}
+{"text":"¿Cómo mejorar el cierre comercial?","expected":"ventas","category":"sales"}
+{"text":"Tengo un prospecto nuevo","expected":"ventas","category":"sales"}
+{"text":"¿Cómo negociar con un cliente?","expected":"ventas","category":"sales"}
+{"text":"Diseña una campaña de marketing","expected":"marketing","category":"marketing"}
+{"text":"¿Qué anuncios publicar?","expected":"marketing","category":"marketing"}
+{"text":"Quiero segmentar mi audiencia","expected":"marketing","category":"marketing"}
+{"text":"Mejora el posicionamiento SEO","expected":"marketing","category":"marketing"}
+{"text":"¿Cómo fortalecer la marca?","expected":"marketing","category":"marketing"}
+{"text":"Necesito una campaña para vender más","expected":"general","category":"ambiguous"}
+{"text":"¿Publicidad o hablar con clientes?","expected":"general","category":"ambiguous"}
