@@ -1,0 +1,5 @@
+contract_version: 1
+capabilities:
+  - conversation.assistance
+  - sales.advice
+  - marketing.planning

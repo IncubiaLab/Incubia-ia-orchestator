@@ -49,3 +49,9 @@ Con D2, las filas «Concurrencia» y «sync/async» de la tabla anterior quedan 
 - [ ] Gate A: suite sin red completa y fallos de inbox/outbox reproducibles; ninguna dependencia del canal en core.
 - [ ] Gate B: piloto autorizado y acotado con transporte real, scopes aislados y procedimiento de recuperación.
 - [ ] Gate C: evaluaciones reales, costo/latencia y limitaciones con evidencia; pendientes no marcados como terminados.
+
+## ADRs locales de desbloqueo
+
+- [ADR-E2-001](../../adr/ADR-E2-001-DURABLE-LEDGER-GATE-A.md): ledger durable, retención y recuperación de Gate A.
+- [ADR-E2-002](../../adr/ADR-E2-002-TELEGRAM-PILOT-GATE-B.md): autorización y runbook del piloto Telegram para Gate B.
+- [ADR-E2-003](../../adr/ADR-E2-003-EVALUATION-BUDGET-GATE-C.md): tope de costo y evidencia real para Gate C.

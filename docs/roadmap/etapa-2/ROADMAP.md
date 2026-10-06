@@ -40,6 +40,10 @@ Se propone almacenamiento local durable detrás de puertos para conversación, i
 | H4. Telegram piloto | Adapter de entrada/salida y runner por long polling | **Gate B:** tres turnos desde Telegram, aislamiento entre dos chats autorizados, fallos y replay controlados; primero con LLM fake. |
 | H5. Evaluación y cierre | Calidad con proveedor real, informe E2E y operación reproducible | **Gate C:** GOALS completo, evidencias con fecha/configuración y restricciones explícitas. |
 
+## Decisiones separadas para desbloquear gates
+
+Los bloqueantes operativos se gestionan como ADRs locales propuestos, sin promover los ADR globales que siguen abiertos: [ADR-E2-001](../../adr/ADR-E2-001-DURABLE-LEDGER-GATE-A.md) para Gate A, [ADR-E2-002](../../adr/ADR-E2-002-TELEGRAM-PILOT-GATE-B.md) para Gate B y [ADR-E2-003](../../adr/ADR-E2-003-EVALUATION-BUDGET-GATE-C.md) para Gate C. Ningún gate se considera cerrado mientras su ADR local permanezca Proposed.
+
 Secuencia: H0 → H1 → H2 → H3 → H4 → H5. El diseño del canal puede precisarse mientras se caracterizan perfiles, pero no se activa entrega real antes del Gate A. El primer incremento implementable es E2-01/E2-02 en IMPLEMENTACION, no la conexión del bot.
 
 ## Fuera de alcance

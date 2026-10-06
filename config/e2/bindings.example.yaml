@@ -1,0 +1,10 @@
+contract_version: 1
+bindings:
+  - channel: telegram
+    channel_account_ref: test-bot
+    external_chat_ref: pseudonymous-chat
+    external_sender_ref: pseudonymous-sender
+    deployment_id: pilot
+    tenant_id: pilot
+    conversation_id: conversation-1
+    actor_id: actor-1

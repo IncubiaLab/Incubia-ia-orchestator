@@ -1,0 +1,9 @@
+contract_version: 1
+budgets:
+  cli:
+    max_calls_per_month: 6
+    max_output_tokens: 128
+  eval-e2:
+    max_calls_per_month: 150
+    max_output_tokens: 400
+    usd_cap: null

@@ -5,8 +5,11 @@ from incubia_orchestrator.modules.orchestration.adapters.runtime.langgraph.state
 
 
 def to_state(request: StartExecutionRequest) -> GraphState:
-    return {"text": request.input.content, "history": request.input.history,
-            "scope": request.scope, "execution_id": request.execution_id}
+    state = {"text": request.input.content, "history": request.input.history,
+             "scope": request.scope, "execution_id": request.execution_id}
+    if request.selection is not None:
+        state["specialty"] = request.selection
+    return state
 
 
 def to_outcome(request: StartExecutionRequest, state: GraphState):

@@ -31,6 +31,7 @@ class StartExecutionRequest:
     execution_id: str
     scope: ExecutionScope
     input: ExecutionInput
+    selection: Specialty | None = None
 
 
 @dataclass(frozen=True)
@@ -100,7 +101,8 @@ def request_from_dict(data: dict) -> StartExecutionRequest | ResumeExecutionRequ
     raw = data["input"]
     input_ = ExecutionInput(raw["content"], raw.get("content_type", "text"),
                             tuple(ConversationTurn(**turn) for turn in raw.get("history", ())))
-    return StartExecutionRequest(data["request_id"], data["execution_id"], scope, input_)
+    selection = Specialty(data["selection"]) if data.get("selection") else None
+    return StartExecutionRequest(data["request_id"], data["execution_id"], scope, input_, selection)
 
 
 def outcome_from_dict(data: dict) -> ExecutionOutcome:

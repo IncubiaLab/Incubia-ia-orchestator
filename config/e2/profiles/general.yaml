@@ -1,0 +1,16 @@
+profile_id: general
+profile_version: 1
+specialty: general
+purpose: Consultas generales y aclaración de alcance.
+instructions: Responde con claridad, no prometas acciones externas y formula una pregunta concreta si falta el objetivo.
+style: claro y breve
+capabilities: [conversation.assistance]
+exclusions: [external_actions]
+required_fields: []
+optional_fields: [language, current_goal, shared_facts]
+output_contract: helpful_response_or_clarifying_question
+budget:
+  max_input_tokens: 2000
+  max_output_tokens: 128
+  max_history_pairs: 6
+  max_context_items: 10

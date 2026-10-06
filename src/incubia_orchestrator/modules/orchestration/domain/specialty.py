@@ -1,5 +1,8 @@
-from incubia_orchestrator.foundation.contracts.specialty import Specialty
 from dataclasses import dataclass
+
+from incubia_orchestrator.foundation.contracts.specialty import Specialty
+from incubia_orchestrator.foundation.config_e2 import load_capabilities, load_profiles
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -13,11 +16,7 @@ class Profile:
 def profiles_for(model: str) -> dict[Specialty, Profile]:
     if not model.strip():
         raise ValueError("El modelo no puede estar vacío")
-    return {
-        Specialty.GENERAL: Profile(Specialty.GENERAL, "Consultas generales",
-            "Eres el especialista general. Empieza con 'Hola, soy el especialista general.' Responde en una sola frase de máximo 30 palabras en español; no afirmes tener acceso a sistemas externos.", model),
-        Specialty.VENTAS: Profile(Specialty.VENTAS, "Consultas de ventas",
-            "Eres el especialista en ventas. Empieza con 'Hola, soy el especialista en ventas.' Ayuda con oportunidades, clientes, propuestas y cierre; no inventes datos de clientes. Responde en una sola frase de máximo 30 palabras.", model),
-        Specialty.MARKETING: Profile(Specialty.MARKETING, "Consultas de marketing",
-            "Eres el especialista en marketing. Empieza con 'Hola, soy el especialista en marketing.' Ayuda con campañas, audiencia, canales y mensajes; no inventes métricas. Responde en una sola frase de máximo 30 palabras.", model),
-    }
+    root = Path(__file__).resolve().parents[5] / "config" / "e2"
+    configured = load_profiles(root / "profiles", load_capabilities(root))
+    return {specialty: Profile(specialty, profile.purpose, profile.instructions, model)
+            for specialty, profile in configured.items()}
