@@ -18,7 +18,7 @@ Estas carpetas pertenecen a la estructura objetivo. Se crean e implementan al ab
 
 ## Decisiones aún abiertas
 
-El [registro de ADRs](https://linear.app/hector-cruz/document/incubia-mvp-adr-register-3fce75c3bbce) deja pendientes routing, agent/tool registries, policy engine, persistencia, memoria, RAG, handoff, intervención humana, observabilidad y fallbacks. Estas capacidades no se convierten en contratos definitivos ni en código hasta que su decisión se cierre. Cualquier tool que modifique sistemas externos requiere autorización explícita; las operaciones de mutación permanecen deshabilitadas por defecto en el MVP.
+Revisión del 2026-10-06: routing por capacidades (ADR-ORCH-003), agent/tool registries (004/005) y policy engine (006) ya están aceptados en el [registro de ADRs](https://linear.app/hector-cruz/document/incubia-mvp-adr-register-3fce75c3bbce). Persistencia, memoria, RAG, handoff, intervención humana, observabilidad y fallbacks conservan decisiones abiertas. La [etapa 2](../roadmap/etapa-2/ROADMAP.md) propone un corte de especialistas, contexto y adaptador Telegram; su [revisión de fuentes](../roadmap/etapa-2/LINEAR-ADR.md) distingue propuestas locales de ADR ratificados. Cualquier tool que modifique sistemas externos requiere autorización explícita; las operaciones de mutación permanecen deshabilitadas por defecto en el MVP.
 
 ## Fuente
 

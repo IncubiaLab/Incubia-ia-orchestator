@@ -5,6 +5,9 @@ Copias de los ADR de Linear que figuran como **Accepted** o **Proposed** en el [
 | ADR | Estado | Tema |
 | --- | --- | --- |
 | [ORCH-001](ADR-ORCH-001.md) | Accepted | LangGraph como runtime reemplazable |
+| [ORCH-003](ADR-ORCH-003.md) | Accepted | Routing por capacidades y DecisionModelPort |
+| [ORCH-004](ADR-ORCH-004.md) | Accepted | Agent Registry, Discovery y Selection |
+| [ORCH-005](ADR-ORCH-005.md) | Accepted | Tool Registry, Discovery y frontera de ejecución |
 | [ORCH-006](ADR-ORCH-006.md) | Accepted | Kernel invariants, Policy Engine y Guardrails |
 | [ORCH-007](ADR-ORCH-007.md) | Accepted | Contrato de ejecución independiente |
 | [ORCH-013](ADR-ORCH-013.md) | Proposed | LLMPort |
@@ -14,3 +17,5 @@ Copias de los ADR de Linear que figuran como **Accepted** o **Proposed** en el [
 | [ORCH-020](ADR-ORCH-020.md) | Proposed | Tests arquitectónicos y de contrato |
 
 La serie general del MVP contiene otros estados, entre ellos «Aceptado provisionalmente». Este índice incluye ADR-ORCH con estado literal Accepted o Proposed; no convierte decisiones provisionales en aceptadas.
+
+Actualización del 2026-10-06: se incorporaron las copias completas de ORCH-003/004/005, confirmadas como Accepted en sus documentos y Done en HEC-19/20/21. Los demás archivos conservan su fecha de sincronización. La [revisión de etapa 2](../roadmap/etapa-2/LINEAR-ADR.md) registra también los ADR abiertos 021–024 y las diferencias con la planificación histórica de etapa 1.
