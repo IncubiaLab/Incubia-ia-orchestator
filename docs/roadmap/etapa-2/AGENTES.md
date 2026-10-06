@@ -1,6 +1,6 @@
 # Especialistas — características, capacidades y contexto
 
-Estado: diseño propuesto. Los perfiles actuales siguen siendo los de etapa 1 hasta implementar H1/H2.
+Estado: diseño implementado (H1 completado 2026-10-06); perfiles versionados en `config/e2/profiles/` y tipos en `modules/orchestration/domain/profile.py`; perfiles de etapa 1 migrados a SpecialtyProfile.
 
 ## Modelo compartido
 
@@ -24,7 +24,7 @@ Cada `SpecialtyContext` contiene hechos tipados con origen, versión/fecha y sco
 
 Orden de construcción: invariantes e instrucciones de perfil → hechos aprobados pertinentes → objetivo y datos explícitos del usuario → pares recientes completos → mensaje actual. La prioridad de autoridad no depende del orden textual: datos del usuario o historia nunca reemplazan instrucciones ni policy. Marcar hechos del usuario como declarados, no verificados.
 
-Presupuesto propuesto: `max_input_tokens`, `max_output_tokens`, `max_history_pairs` y `max_context_items` por perfil, acotados por deployment. H0 fija valores y estrategia de conteo compatibles con el modelo y presupuesto real. Descartar primero contexto opcional antiguo; preservar mensaje actual y restricciones. Si lo obligatorio no cabe, producir error tipado o pedir reducción; no cortar silenciosamente instrucciones. No introducir resúmenes generados automáticamente en este corte.
+Presupuesto propuesto: `max_input_tokens`, `max_output_tokens`, `max_history_pairs` y `max_context_items` por perfil, acotados por deployment. Valores por defecto (revisables en H0, siempre por configuración): `max_input_tokens=2000`, `max_output_tokens=128` en CLI/piloto y `400` en el perfil `eval-e2`, `max_history_pairs=6`, `max_context_items=10`. Conteo: estimador conservador `ceil(len(texto_utf8_bytes)/3)` sin dependencia nueva; Gate C compara la estimación con `usage.input_tokens` real y documenta la desviación. Descartar primero contexto opcional antiguo; preservar mensaje actual y restricciones. Si lo obligatorio no cabe, producir error tipado o pedir reducción; no cortar silenciosamente instrucciones. No introducir resúmenes generados automáticamente en este corte.
 
 Al cambiar Ventas → Marketing conservar solo hechos compartidos pertinentes (producto/objetivo/idioma), seleccionar el brief de Marketing y excluir instrucciones internas del perfil anterior. Al volver a Ventas recuperar hechos comerciales autorizados de la conversación canónica, no GraphState. Cada chat mantiene estado separado aunque use el mismo actor; unir identidades entre Telegram y WhatsApp queda fuera de alcance.
 

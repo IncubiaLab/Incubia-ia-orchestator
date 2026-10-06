@@ -1,6 +1,6 @@
 # Revisión del plan — decisiones y límites
 
-Fecha: 2026-10-06 · Estado: revisión documental, sin gates técnicos cerrados.
+Fecha: 2026-10-06 · Estado: decisiones H0 concretadas e implementadas; gates A/B/C pendientes.
 
 ## Decisiones que concretar en H0
 
@@ -18,6 +18,17 @@ Fecha: 2026-10-06 · Estado: revisión documental, sin gates técnicos cerrados.
 | Rendimiento | Medir contra referencia de plataforma ≤5 s | Fijar umbral de piloto y tamaño de muestra antes de evaluación; reportar incumplimientos. |
 
 Estas son decisiones locales propuestas para un corte de implementación; no requieren cerrar todos los ADR globales para avanzar con fakes. Sí requieren un registro concreto y pruebas antes de habilitar el efecto externo. Si una decisión contradice un ADR aceptado, se ajusta el diseño o se tramita su evolución; no se presenta la excepción como cumplimiento.
+
+## Decisiones cerradas en la revisión de ingeniería (2026-10-06)
+
+| ID | Decisión | Dónde se concreta |
+| --- | --- | --- |
+| D1 | Presupuesto `eval-e2` separado (150 llamadas, 400 tokens, tope USD a registrar) | GOALS § Definición de terminado |
+| D2 | Runner síncrono de un solo proceso e hilo; sin asyncio; puertos siguen síncronos | TELEGRAM § Runner |
+| D3 | Decision Model = OpenAI con salida JSON schema; benchmark = keywords vs. adapter sobre `routing-v2` `val` | IMPLEMENTACION E2-05 |
+| D4 | Terminología normativa | GLOSARIO |
+
+Con D2, las filas «Concurrencia» y «sync/async» de la tabla anterior quedan resueltas. «Doble worker» se prueba como dos conexiones SQLite compitiendo por la misma reserva, no como dos runners.
 
 ## Riesgos y mitigaciones verificables
 

@@ -1,6 +1,6 @@
 # Base — capacidades, contexto y frontera multicanal
 
-Estado: contratos propuestos para H0; nombres orientativos, no APIs ya implementadas.
+Estado: contratos validados e implementados (H0 completado 2026-10-06); APIs activas en `modules/orchestration/domain/` y `foundation/config_e2.py`.
 
 ## Punto de partida comprobado
 
@@ -51,6 +51,22 @@ Schema desconocido se rechaza de manera segura; campos requeridos no pasan como 
 
 ## Persistencia mínima propuesta
 
-SQLite detrás de repositorios, un runner por bot y serialización de procesamiento por conversación. Guardar inbox, IDs, outcome terminal, revisión de contexto/perfil y outbox. Actualizar conversación, outcome y outbox en una transacción; no mantenerla abierta durante llamadas de red. Claves únicas y control de versión protegen duplicados y turnos concurrentes. Si el proceso cae durante inferencia o envío, recuperar un estado explícito de incertidumbre; no inferir que la ausencia de resultado autoriza repetir.
+Scope = `ExecutionScope` existente (`foundation/contracts/execution.py`); no se crea un tipo nuevo. La CLI construye un `InboundMessage` con `channel="cli"`, `external_event_id="cli:<uuid4>"` y un binding fijo `local/local/local-user`; la conversación CLI se reinicia en cada proceso, como en etapa 1.
+
+Tablas mínimas (SQLite, `sqlite3` de la stdlib, `journal_mode=WAL`, ruta `INCUBIA_DB_PATH`, por defecto `~/.local/state/incubia/e2.sqlite3`):
+
+| Tabla | Clave única | Columnas clave |
+| --- | --- | --- |
+| `bindings` | `(channel, channel_account_ref, external_chat_ref, external_sender_ref)` | `binding_id`, campos de `ExecutionScope`, `enabled`. |
+| `inbox_events` | `(deployment_id, tenant_id, channel_account_ref, external_event_id)` | `payload_hash` (sha256 del JSON canónico de `InboundMessage`), `request_id`, `execution_id`, `state`, `error_code`, `received_at`. |
+| `conversations` | `conversation_id` | `revision` (entero), `active_capability`, `facts_json`. |
+| `turns` | `(conversation_id, execution_id)` | `user_text`, `assistant_text`, `capability`, `profile_version`, `created_at`. |
+| `outcomes` | `execution_id` | JSON de `ExecutionOutcome` con `to_dict`. |
+| `deliveries` | `(execution_id, response_id, destination_ref)` | `payload_json`, `state`, `attempts`, `next_attempt_at`, `external_message_id`. |
+| `runner_state` | `channel_account_ref` | `last_offset`. |
+
+Esquema versionado con `PRAGMA user_version` y migraciones numeradas en `adapters/persistence/sqlite/migrations/`.
+
+Retención por defecto: 30 días para `inbox_events`, `turns`, `outcomes` y `deliveries`. Purga con `incubia-bot purge --before <fecha>`. La ventana de replay de Telegram (24 h) queda cubierta. Un evento cuyo `update_id` sea ≤ `last_offset` y no esté en inbox se descarta como `STALE`. Un runner por bot; el procesamiento queda serializado por el loop síncrono (ver TELEGRAM § Runner). Guardar inbox, IDs, outcome terminal, revisión de contexto/perfil y outbox. Actualizar conversación, outcome y outbox en una transacción; no mantenerla abierta durante llamadas de red. Claves únicas y control de versión protegen duplicados y turnos concurrentes. Si el proceso cae durante inferencia o envío, recuperar un estado explícito de incertidumbre; no inferir que la ausencia de resultado autoriza repetir.
 
 La retención del ledger debe cubrir como mínimo toda la ventana de replay admitida; eventos anteriores al corte de retención se rechazan o se revisan, nunca se tratan silenciosamente como nuevos. Definir duración, borrado y acceso en H0. Persistencia de piloto no acredita aislamiento productivo ni memoria de largo plazo.

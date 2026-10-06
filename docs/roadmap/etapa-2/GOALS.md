@@ -1,6 +1,6 @@
 # Objetivos — etapa 2
 
-Estado: propuestos el 2026-10-06; todos pendientes de implementación/verificación.
+Estado: propuestos el 2026-10-06; G1–G2 en implementación, G3–G7 pendientes de verificación (H2+ activos).
 
 ## Objetivo principal
 
@@ -26,4 +26,6 @@ El objetivo ≤5 s de la plataforma se mantiene como referencia de medición: re
 
 ## Definición de terminado
 
-G1–G7 con evidencia enlazada en VERIFICACION, gates A/B/C cerrados, CLI sin regresión y límites conocidos documentados. El contexto ampliado requiere revisar el presupuesto real de etapa 1 (128 tokens, dos pares, seis intentos mensuales); este roadmap no lo modifica ni autoriza evadir el contador. Si el cupo impide la evaluación, Gate C queda pendiente hasta disponer de presupuesto configurado legítimamente.
+G1–G7 con evidencia enlazada en VERIFICACION, gates A/B/C cerrados, CLI sin regresión y límites conocidos documentados. El contexto ampliado requiere revisar el presupuesto real de etapa 1 (128 tokens, dos pares, seis intentos mensuales); este roadmap no lo modifica ni autoriza evadir el contador. Decisión H0: se crea el presupuesto `eval-e2` con su propio archivo de contador (`INCUBIA_EVAL_BUDGET_FILE`): 150 llamadas como tope (~72 necesarias + repeticiones), `max_output_tokens=400` y un tope de costo en USD definido por el responsable del presupuesto antes de E2-12. El cupo CLI de 6 llamadas/mes y 128 tokens no se toca ni se reinicia. Gate C no puede cerrarse sin ese tope de USD registrado.
+
+Dataset de routing v2: `evals/routing-v2.jsonl`, una línea por caso: `{"id","text","history":[...],"expected_status","expected_capability","split":"dev|val","tags":[...]}`. Los umbrales se ajustan solo con `dev`; G3 se mide solo con `val`.

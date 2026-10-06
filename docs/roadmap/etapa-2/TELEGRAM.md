@@ -1,6 +1,6 @@
 # Telegram — primer adaptador E2E
 
-Estado: propuesta del piloto; no hay bot conectado ni mensajes enviados por esta planificación.
+Estado: propuesta del piloto validada (H0); adapters en desarrollo (H4 activo); no hay bot conectado a producción ni flujo E2E completo.
 
 ## Corte inicial
 
@@ -18,14 +18,27 @@ Destinos externos quedan detrás de una referencia opaca resuelta por el adapter
 
 Clave propuesta: `(deployment_id, tenant_id, channel_account_ref, external_event_id)`, con `external_event_id` mapeado desde update_id. Guardar hash canónico del mensaje normalizado y su identidad, no solo el texto. El mismo texto con otro evento es un nuevo turno; misma clave con payload distinto es conflicto.
 
-| Estado de inbox | Evento repetido | Recuperación |
+| Estado de inbox | Evento repetido | Transición permitida |
 | --- | --- | --- |
-| RECEIVED | Recuperar registro e IDs existentes | Procesar una sola vez mediante reserva atómica. |
-| PROCESSING | No iniciar otra inferencia | Esperar resultado; al reiniciar marcar para revisión si no puede saberse si la inferencia ocurrió. |
-| COMPLETED | Reutilizar outcome y entrega existente | No volver a generar ni agregar el mismo par al historial. |
-| FAILED | Devolver estado seguro persistido | Reintento explícito según causa/policy; no una ejecución nueva por replay. |
+| RECEIVED | Devolver IDs existentes; no insertar | → PROCESSING mediante `UPDATE ... WHERE state='RECEIVED'` (afecta 1 fila o no se procesa). |
+| PROCESSING | No iniciar otra inferencia | → COMPLETED / FAILED. Al arrancar el runner, todo PROCESSING pasa a NEEDS_INSPECTION (no se sabe si hubo llamada al LLM). |
+| COMPLETED | Reutilizar outcome y entrega existente | Terminal. No regenera ni agrega el par al historial. |
+| FAILED | Devolver estado seguro persistido | Terminal para replay. Solo `incubia-bot inspect --retry <event>` lo devuelve a RECEIVED, y solo si `error_code` es transitorio. |
+| NEEDS_INSPECTION | No procesar | Solo por comando de inspección: → RECEIVED (reprocesar) o → FAILED (cerrar). |
+| DISCARDED | No procesar | Terminal. Tipos no soportados (adjuntos, ediciones, callbacks, grupos), remitente sin binding. |
 
-Persistir cada update del lote en inbox antes de avanzar offset; los no soportados se registran como descartados. No confirmar por encima de un evento aún no persistido. El consumidor interno procesa registros durables, por lo que confirmar recepción no depende de que el LLM haya terminado. Probar caída entre persistencia y confirmación. Un lock/reserva por conversación evita que dos turnos lean y sobrescriban la misma revisión; conversaciones distintas pueden avanzar sin mezclar estado.
+Mismo `external_event_id` con `payload_hash` distinto → `IdempotencyConflict`; el evento no se procesa y se registra como incidente.
+
+## Runner (decisión H0: loop síncrono único)
+
+Un proceso, un hilo y sin asyncio. Cada iteración hace, en este orden:
+
+1. `getUpdates(offset=last_offset+1, timeout=30, allowed_updates=["message"])`.
+2. En una transacción: insertar cada update en `inbox_events` (RECEIVED o DISCARDED) y guardar `last_offset = max(update_id)` en `runner_state`.
+3. Procesar en orden de `received_at` cada evento RECEIVED: reservar → construir contexto → runtime → `contextualize` → transacción {turno + outcome + `deliveries` PENDING + inbox COMPLETED}.
+4. Despachar `deliveries` PENDING (y FAILED con reintento vencido): marcar SENDING y hacer commit → `sendMessage` → SENT / FAILED / UNKNOWN_EFFECT.
+
+El offset se confirma ante Telegram en la siguiente llamada a `getUpdates`, después del commit del paso 2. Una caída entre los pasos 2 y 3 deja eventos RECEIVED que se procesan al reiniciar. La serialización por conversación es consecuencia del hilo único. El control optimista (`revision`) sigue existiendo para detectar escrituras desde la CLI u otro proceso. Un solo consumidor por bot: lock de archivo exclusivo `<db>.runner.lock`; además, un HTTP 409 de `getUpdates` detiene el runner con un error explícito.
 
 ## Idempotencia de salida
 
@@ -41,7 +54,19 @@ Persistir una entrega por `(execution_id, response_id, destination_ref)` con uni
 
 El contrato consultado de sendMessage no ofrece una idempotency key del cliente; esta propuesta **no promete exactly-once externo**. La deduplicación local no elimina la ventana entre éxito remoto y confirmación local. Al reiniciar, una entrega SENDING sin resultado pasa a UNKNOWN_EFFECT. Mantener la respuesta pendiente de revisión evita duplicarla a costa de una posible entrega perdida. El piloto necesita un procedimiento de revisión que preserve el estado incierto cuando no se pueda confirmar; no simular éxito.
 
-No reintentar el workflow entero porque falló la entrega. Respetar rate limits y deadlines mediante clasificación del adapter; cada retry seguro reutiliza la misma entrega lógica. Cero reintentos ciegos ante incertidumbre. El detalle general de side effects sigue abierto en ADR-021/023; estas reglas son un recorte propuesto para el piloto.
+Clasificación de errores de `sendMessage` (implementada en el adapter):
+
+| Respuesta | Estado | Reintento |
+| --- | --- | --- |
+| 200 `ok:true` | SENT, guarda `message_id` | — |
+| 429 con `retry_after` | FAILED transitorio | `next_attempt_at = now + retry_after`. |
+| 5xx o error de conexión antes de enviar el request | FAILED transitorio | Backoff 2/8/30 s; máximo 3 intentos y deadline de 10 min desde `created_at`. Después, FAILED terminal. |
+| 400/403 (chat inválido, bot bloqueado) | FAILED terminal | No. |
+| Timeout de lectura o desconexión después de enviar | UNKNOWN_EFFECT | No. |
+
+Inspección manual: `incubia-bot inspect` lista los eventos NEEDS_INSPECTION y las entregas UNKNOWN_EFFECT. `--mark-sent <id>` y `--mark-failed <id>` cierran una entrega tras verificarla en el chat de prueba. `--resend <id>` crea un intento nuevo y deja constancia de la acción y del operador. Nada de esto se ejecuta automáticamente.
+
+No reintentar el workflow entero porque falló la entrega. Cada retry seguro reutiliza la misma entrega lógica. Cero reintentos ciegos ante incertidumbre. Formato de salida: texto plano sin `parse_mode`. Si el texto supera 4096 caracteres, se trunca a 4090 y se añade « […]»; la fragmentación queda fuera de etapa 2. El detalle general de side effects sigue abierto en ADR-021/023; estas reglas son un recorte propuesto para el piloto.
 
 ## Relación con tools y Policy
 

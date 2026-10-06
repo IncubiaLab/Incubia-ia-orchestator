@@ -1,6 +1,6 @@
 # Roadmap — etapa 2: especialistas y primer canal E2E
 
-Fecha: 2026-10-06 · Estado: planificación propuesta; implementación pendiente.
+Fecha: 2026-10-06 · Estado: implementación en curso (H0–H2 completados, H3+ activos).
 
 ## Resultado buscado
 
@@ -12,6 +12,8 @@ La [etapa 1](../etapa-1/VERIFICACION.md) está cerrada para su alcance local. Es
 
 | Documento | Uso |
 | --- | --- |
+| [GLOSARIO](GLOSARIO.md) | Terminología normativa; prevalece sobre los demás documentos. |
+| [PLAN-E2](PLAN-E2.md) | Plan ejecutable por tareas: archivos, pruebas y comandos. |
 | [GOALS](GOALS.md) | Objetivos medibles y definición de terminado. |
 | [BASE](BASE.md) | Fronteras, puertos y contratos propuestos. |
 | [AGENTES](AGENTES.md) | Caracterización de General, Ventas y Marketing; contexto y evaluación. |

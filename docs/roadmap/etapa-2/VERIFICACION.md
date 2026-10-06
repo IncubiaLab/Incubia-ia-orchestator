@@ -1,6 +1,6 @@
 # Verificación — etapa 2
 
-Estado al 2026-10-06: **planificación creada; implementación y gates A/B/C pendientes**. No se ejecutaron pruebas E2E, modelos ni envíos de Telegram como parte de la planificación.
+Estado al 2026-10-06: **H0–H1 verificados por tests unitarios; H2 en validación; gates A/B/C pendientes**. Pruebas E2E, modelos reales y envíos de Telegram sin ejecutar en este hito.
 
 ## Matriz de pruebas prevista
 
