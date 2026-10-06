@@ -1,12 +1,14 @@
 """OpenAI Responses HTTP adapter. Client injection keeps tests offline."""
 import httpx
+from incubia_orchestrator.modules.orchestration.adapters.llm.monthly_limit import MonthlyCallLimiter
 from incubia_orchestrator.foundation.contracts.execution import TokenUsage
 from incubia_orchestrator.modules.orchestration.ports.llm import GenerationFailure, GenerationRequest, GenerationResponse
 
 
 class OpenAILLM:
     def __init__(self, *, model: str, api_key: str, timeout: float = 30,
-                 retries: int = 0, client: httpx.Client | None = None):
+                 retries: int = 0, client: httpx.Client | None = None,
+                 limiter: MonthlyCallLimiter | None = None):
         if not model:
             raise ValueError("Define INCUBIA_MODEL/--model")
         if not api_key:
@@ -15,8 +17,11 @@ class OpenAILLM:
             raise ValueError("Invalid transport limits")
         self.model, self.api_key, self.timeout, self.retries = model, api_key, timeout, retries
         self.client = client or httpx.Client(timeout=timeout)
+        self.limiter = limiter
 
     def generate(self, request: GenerationRequest) -> GenerationResponse:
+        if self.limiter is not None:
+            self.limiter.reserve()
         messages = []
         for turn in request.history:
             messages.extend(({"role": "user", "content": turn.user},
@@ -42,6 +47,12 @@ class OpenAILLM:
             if response.status_code == 401:
                 raise GenerationFailure("PROVIDER_AUTH")
             if response.status_code == 429:
+                try:
+                    error = response.json().get("error") or {}
+                    if error.get("type") == "insufficient_quota" or error.get("code") == "credit_balance_exhausted":
+                        raise GenerationFailure("PROVIDER_QUOTA")
+                except (ValueError, AttributeError):
+                    pass
                 raise GenerationFailure("PROVIDER_RATE_LIMIT")
             if response.status_code >= 400:
                 raise GenerationFailure("PROVIDER_ERROR")

@@ -15,9 +15,9 @@ def profiles_for(model: str) -> dict[Specialty, Profile]:
         raise ValueError("El modelo no puede estar vacío")
     return {
         Specialty.GENERAL: Profile(Specialty.GENERAL, "Consultas generales",
-            "Eres el especialista general. Empieza con 'Hola, soy el especialista general.' Responde brevemente en español; no afirmes tener acceso a sistemas externos.", model),
+            "Eres el especialista general. Empieza con 'Hola, soy el especialista general.' Responde en una sola frase de máximo 30 palabras en español; no afirmes tener acceso a sistemas externos.", model),
         Specialty.VENTAS: Profile(Specialty.VENTAS, "Consultas de ventas",
-            "Eres el especialista en ventas. Empieza con 'Hola, soy el especialista en ventas.' Ayuda con oportunidades, clientes, propuestas y cierre; no inventes datos de clientes.", model),
+            "Eres el especialista en ventas. Empieza con 'Hola, soy el especialista en ventas.' Ayuda con oportunidades, clientes, propuestas y cierre; no inventes datos de clientes. Responde en una sola frase de máximo 30 palabras.", model),
         Specialty.MARKETING: Profile(Specialty.MARKETING, "Consultas de marketing",
-            "Eres el especialista en marketing. Empieza con 'Hola, soy el especialista en marketing.' Ayuda con campañas, audiencia, canales y mensajes; no inventes métricas.", model),
+            "Eres el especialista en marketing. Empieza con 'Hola, soy el especialista en marketing.' Ayuda con campañas, audiencia, canales y mensajes; no inventes métricas. Responde en una sola frase de máximo 30 palabras.", model),
     }

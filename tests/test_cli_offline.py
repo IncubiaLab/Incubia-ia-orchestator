@@ -15,6 +15,7 @@ def run_cli(*args, input_text=None, api_key=None):
         env["OPENAI_API_KEY"] = api_key
     env["PYTHONPATH"] = str(ROOT / "tests" / "no_network")
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["INCUBIA_ENV_FILE"] = str(ROOT / "tests" / "no_network" / "missing.env")
     return subprocess.run([sys.executable, "-m", "incubia_orchestrator.interfaces.cli.main", "chat", *args],
                           input=input_text, capture_output=True, text=True, env=env, timeout=15)
 
@@ -48,6 +49,15 @@ def test_no_key_and_invalid_input_are_safe():
     result = run_cli("--fake", "-m", "")
     assert result.returncode == 2
     assert "Entrada inválida" in result.stderr
+
+
+def test_real_limits_reject_expensive_settings_before_call():
+    result = run_cli("--max-output-tokens", "1000", "-m", "hola", api_key="test-key")
+    assert result.returncode == 2
+    assert "hasta 128 tokens" in result.stderr
+    result = run_cli("--retries", "1", "-m", "hola", api_key="test-key")
+    assert result.returncode == 2
+    assert "cero reintentos" in result.stderr
 
 
 def test_canaries_stay_out_of_diagnostics():

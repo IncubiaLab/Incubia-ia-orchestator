@@ -125,6 +125,14 @@ class FlowTests(unittest.TestCase):
                 provider.generate(GenerationRequest('x', (), 'i', 1))
             self.assertEqual(caught.exception.code, code)
 
+    def test_provider_quota_is_distinct_from_rate_limit(self):
+        client = httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(
+            429, json={'error': {'type': 'insufficient_quota', 'code': 'credit_balance_exhausted'}})))
+        provider = OpenAILLM(model='chosen-model', api_key='secret', client=client)
+        with self.assertRaises(GenerationFailure) as caught:
+            provider.generate(GenerationRequest('x', (), 'i', 1))
+        self.assertEqual(caught.exception.code, 'PROVIDER_QUOTA')
+
     def test_provider_invalid_payload_is_safe(self):
         client = httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200, json=[])))
         provider = OpenAILLM(model='chosen-model', api_key='secret', client=client)

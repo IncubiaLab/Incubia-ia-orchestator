@@ -42,4 +42,12 @@ PYTHONPATH=src python -m incubia_orchestrator.interfaces.cli.main chat --fake -m
 
 ## Verificación de cierre local (2026-10-02)
 
-La instalación bloqueada, la suite sin red y la CLI de tres turnos se documentan en [VERIFICACION.md](VERIFICACION.md). El Gate 0 técnico está cerrado para la ruta local permitida. La medición con el proveedor real sigue pendiente por falta de credenciales de API.
+La instalación bloqueada, la suite sin red y la CLI de tres turnos se documentan en [VERIFICACION.md](VERIFICACION.md). El Gate 0 técnico está cerrado para la ruta local permitida. En ese momento, la medición con el proveedor real seguía pendiente por `credit_balance_exhausted`. El cierre posterior está documentado al final de este archivo y en el informe.
+
+## Límite conservador y segundo intento real (2026-10-06)
+
+Temporalmente, el modelo compartido pasó a `gpt-5.4-mini`, configurado en `.env`. El modo real reserva antes de cada llamada uno de seis intentos mensuales (UTC) en `~/.local/state/incubia/api-budget.json`, con diez segundos de separación. La CLI impone además 64 tokens máximos de salida, 500 caracteres por mensaje, dos pares de historial y cero reintentos. Los límites del fake no cambian. La llamada General con el modelo nuevo devolvió `PROVIDER_QUOTA` en 1764 ms; no hubo salida ni tokens de uso. Véase [VERIFICACION.md](VERIFICACION.md).
+
+## Cierre local de etapa 1 (2026-10-06)
+
+Con saldo de API disponible se obtuvieron respuestas reales de General, Ventas y Marketing usando `gpt-4o-mini`. Se elevó el límite de salida real a 128 tokens tras observar una respuesta incompleta a 64 tokens, y las instrucciones se acotaron a una frase de hasta 30 palabras. El cupo local quedó en 6/6 intentos para octubre de 2026. Las latencias, tokens, costos estimados y fallos observados están en [VERIFICACION.md](VERIFICACION.md).

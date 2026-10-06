@@ -24,7 +24,7 @@ El primer entregable es un mensaje de extremo a extremo por `HandleMessage → W
 | Modelos | `LLMPort` y adapter OpenAI configurable | Permite sustituir proveedor; ADR-ORCH-013 sigue propuesto. |
 | Pruebas | `pytest` y fake LLM | Verificación local sin red ni credenciales. |
 
-Las versiones de paquetes están fijadas en `requirements.lock`. El modelo inicial compartido es `gpt-4o-mini`, configurable; la validación real de latencia y costo sigue pendiente. El programa se distribuye como comando de consola `incubia`.
+Las versiones de paquetes están fijadas en `requirements.lock`. El modelo compartido actual es `gpt-4o-mini`, configurable; la validación real mínima está en VERIFICACION.md. El programa se distribuye como comando de consola `incubia`.
 
 ## Hitos y entregables
 
@@ -64,7 +64,7 @@ Las versiones de paquetes están fijadas en `requirements.lock`. El modelo inici
 | Especialidad en el contrato (antes del hito 3) | Representación propia tipada de la selección y su ausencia antes de routing; sin metadata libre. |
 | Especialidades | General, Ventas y Marketing, según la prueba mínima acordada; son perfiles iniciales ajustables. |
 | Routing | Reglas deterministas con fallback a General; documentar y probar ejemplos. El ADR-ORCH-003 permanece pendiente. |
-| Proveedor y modelos | Adapter OpenAI implementado provisionalmente; `gpt-4o-mini` compartido y reemplazable por configuración. Costo, calidad y latencia reales pendientes. |
+| Proveedor y modelos | Adapter OpenAI implementado provisionalmente; `gpt-4o-mini` compartido y reemplazable por configuración. Costo, calidad y latencia reales medidos en VERIFICACION.md. |
 | Formato de mensajes | Texto plano; salida opcional de metadatos mínimos. |
 | Gestión de contexto | Propuesta: ventana por pares completos en memoria, compartida entre perfiles; sin checkpoints durables. Concretar límites en hito 2. |
 
@@ -72,6 +72,8 @@ Las versiones de paquetes están fijadas en `requirements.lock`. El modelo inici
 
 La API HTTP, identidad y tenant, persistencia, RAG, herramientas, auditoría, observabilidad de producción y handoff se priorizan en un roadmap posterior con sus ADR y requisitos propios. Los objetivos de carga y aislamiento multi-tenant de [spec 06](../../specs/06-pruebas-y-nfr.md) no son criterios de cierre de este prototipo local.
 
-## Estado de verificación (2026-10-02)
+## Estado de verificación (2026-10-06)
 
-Se completaron los pasos 1 a 4 y la verificación local del paso 5. El [informe](VERIFICACION.md) registra instalación limpia, suite sin red, tres turnos y evaluación de routing. Gate 0 técnico cerrado para la ruta local permitida. El cierre completo de la etapa queda pendiente de mediciones reales con facturación de API; no hay credenciales disponibles en este entorno.
+Se completaron los pasos 1 a 5 dentro del alcance del prototipo local. El [informe](VERIFICACION.md) registra instalación limpia, suite sin red, tres turnos de prueba y una respuesta real por cada perfil, con latencia, tokens y costo estimado. Gate 0 técnico cerrado para la ruta local permitida; etapa 1 cerrada con las limitaciones indicadas en el informe.
+
+Antes de añadir saldo de API, las llamadas con `gpt-4o-mini` y `gpt-5.4-mini` devolvieron `credit_balance_exhausted`. Tras añadir saldo, las tres pruebas reales terminaron con `gpt-4o-mini`. El cupo local conservador para llamadas reales quedó en 6/6 intentos en octubre de 2026.

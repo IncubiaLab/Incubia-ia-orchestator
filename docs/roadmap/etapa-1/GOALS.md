@@ -26,3 +26,7 @@ API HTTP, UI web, WhatsApp, RAG, búsqueda, ejecución de herramientas, persiste
 ## Definición de terminado
 
 Se cumplen los seis objetivos verificables, el conjunto de evaluación está versionado, las pruebas locales pasan y existe una guía de arranque con variables de entorno y ejemplo de sesión. Ningún ADR propuesto se presenta como aceptado por haber implementado una variante.
+
+## Estado de cierre (2026-10-06)
+
+Los seis objetivos verificables y la medición manual mínima se completaron para el prototipo local. La evidencia, costos estimados y límites de la muestra están en [VERIFICACION.md](VERIFICACION.md).
