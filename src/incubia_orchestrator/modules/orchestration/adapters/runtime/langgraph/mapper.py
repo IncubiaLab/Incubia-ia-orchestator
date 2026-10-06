@@ -15,4 +15,4 @@ def to_outcome(request: StartExecutionRequest, state: GraphState):
                                ExecutionError(code, "Generation unavailable", state.get("specialty")))
     return CompletedExecution(request.request_id, request.execution_id,
                               ExecutionOutput(state["reply"], "policy_denied" if state.get("denied") else "message",
-                                              state.get("specialty")))
+                                              state.get("specialty"), state.get("usage")))

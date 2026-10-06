@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Protocol
-from incubia_orchestrator.foundation.contracts.execution import ConversationTurn
+from incubia_orchestrator.foundation.contracts.execution import ConversationTurn, TokenUsage
 from incubia_orchestrator.foundation.contracts.specialty import Specialty
 
 
@@ -17,6 +17,7 @@ class GenerationRequest:
 @dataclass(frozen=True)
 class GenerationResponse:
     text: str
+    usage: TokenUsage | None = None
 
 
 class GenerationFailure(Exception):

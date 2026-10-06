@@ -1,13 +1,16 @@
 """OpenAI Responses HTTP adapter. Client injection keeps tests offline."""
 import httpx
+from incubia_orchestrator.foundation.contracts.execution import TokenUsage
 from incubia_orchestrator.modules.orchestration.ports.llm import GenerationFailure, GenerationRequest, GenerationResponse
 
 
 class OpenAILLM:
     def __init__(self, *, model: str, api_key: str, timeout: float = 30,
                  retries: int = 0, client: httpx.Client | None = None):
-        if not model or not api_key:
-            raise ValueError("Define INCUBIA_MODEL/--model y OPENAI_API_KEY; usa --fake sin credenciales")
+        if not model:
+            raise ValueError("Define INCUBIA_MODEL/--model")
+        if not api_key:
+            raise ValueError("Define OPENAI_API_KEY; usa --fake sin credenciales")
         if timeout <= 0 or retries < 0:
             raise ValueError("Invalid transport limits")
         self.model, self.api_key, self.timeout, self.retries = model, api_key, timeout, retries
@@ -51,7 +54,11 @@ class OpenAILLM:
                                for part in item.get("content", []) if part.get("type") == "output_text")
                 if not text.strip():
                     raise GenerationFailure("EMPTY_RESPONSE")
-                return GenerationResponse(text)
-            except (ValueError, KeyError, TypeError):
+                raw_usage = data.get("usage")
+                usage = None
+                if isinstance(raw_usage, dict) and isinstance(raw_usage.get("input_tokens"), int) and isinstance(raw_usage.get("output_tokens"), int):
+                    usage = TokenUsage(raw_usage["input_tokens"], raw_usage["output_tokens"])
+                return GenerationResponse(text, usage)
+            except (ValueError, KeyError, TypeError, AttributeError):
                 raise GenerationFailure("PROVIDER_INVALID_RESPONSE") from None
         raise AssertionError("Unreachable")

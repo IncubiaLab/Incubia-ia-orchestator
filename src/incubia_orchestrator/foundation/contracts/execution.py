@@ -42,10 +42,17 @@ class ResumeExecutionRequest:
 
 
 @dataclass(frozen=True)
+class TokenUsage:
+    input_tokens: int
+    output_tokens: int
+
+
+@dataclass(frozen=True)
 class ExecutionOutput:
     text: str
     kind: Literal["message", "policy_denied"] = "message"
     specialty: Specialty | None = None
+    usage: TokenUsage | None = None
 
 
 @dataclass(frozen=True)
@@ -101,8 +108,10 @@ def outcome_from_dict(data: dict) -> ExecutionOutcome:
     match data["status"]:
         case "completed":
             output = data["output"]
+            usage = TokenUsage(**output["usage"]) if output.get("usage") else None
             return CompletedExecution(*ids, ExecutionOutput(output["text"], output.get("kind", "message"),
-                                                       Specialty(output["specialty"]) if output.get("specialty") else None))
+                                                       Specialty(output["specialty"]) if output.get("specialty") else None,
+                                                       usage))
         case "suspended":
             return SuspendedExecution(*ids, data["continuation_id"])
         case "failed":

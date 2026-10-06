@@ -1,6 +1,6 @@
 # Base de la etapa 1 — Gate 0 técnico
 
-Fecha: 2026-10-01 · Estado: **propuesta de implementación; gate pendiente**.
+Fecha: 2026-10-01 · Estado inicial: propuesta de implementación. **Gate 0 técnico cerrado para la ruta local permitida el 2026-10-02**, con evidencia en [VERIFICACION.md](VERIFICACION.md).
 
 ## Propósito
 
@@ -89,20 +89,20 @@ Registrar decisiones locales y límites en el hito 0. El PEP no se omite solo po
 
 ## Evidencias para cerrar el gate
 
-Todas las casillas siguen pendientes hasta implementar y ejecutar las comprobaciones.
+Las evidencias siguientes se comprobaron en la implementación local y en la suite sin red; el resultado y sus límites están en [VERIFICACION.md](VERIFICACION.md).
 
-- [ ] El comando instalado produce CompletedExecution pasando por HandleMessage, puerto, LangGraph y FakeLLM.
-- [ ] La generación exitosa llama una vez al LLM con la entrada esperada y devuelve su texto mediante el mapper.
-- [ ] Fallos controlados del LLM y del runtime producen FailedExecution con IDs conservados, sin excepciones ni objetos internos expuestos.
-- [ ] La PolicyQuery/Decision y PolicyEnginePort son contratos del producto; ALLOW permite una generación y DENY/INDETERMINATE no llaman LLMPort. El PEP está cerca de la inferencia y registra revision/decision sin texto del usuario.
-- [ ] La autoridad local se configura explícitamente y no se amplía por tenant, actor, nodo ni sugerencia de LLM; business rules y guardrails no se mezclan en el Policy Engine.
-- [ ] Requests y outcomes admiten ida y vuelta JSON preservando variantes e IDs; suspended se prueba como representación, sin afirmar pausa/reanudación funcional.
-- [ ] Resume tiene comportamiento explícito, probado y documentado para este runtime sin suspensión.
-- [ ] Application funciona con runtime falso; la integración usa el mismo caso de uso con LangGraph.
-- [ ] Tests de arquitectura impiden infraestructura en contratos, puertos, Domain y Application; CLI no importa LangGraph ni SDK del proveedor. Se consideran imports transitivos locales que evadan la frontera.
-- [ ] GraphState y grafo compilado permanecen dentro del adapter; conversiones al contrato público centralizadas en mappers.
-- [ ] Suite sin credenciales, con red bloqueada y comprobación del bloqueo, también en subprocesos si los tests los usan.
-- [ ] Guía de ejecución, Python y dependencias bloqueadas; instalación y comando de un turno reproducibles.
+- [x] El comando instalado produce CompletedExecution pasando por HandleMessage, puerto, LangGraph y FakeLLM.
+- [x] La generación exitosa llama una vez al LLM con la entrada esperada y devuelve su texto mediante el mapper.
+- [x] Fallos controlados del LLM y del runtime producen FailedExecution con IDs conservados, sin excepciones ni objetos internos expuestos.
+- [x] La PolicyQuery/Decision y PolicyEnginePort son contratos del producto; ALLOW permite una generación y DENY/INDETERMINATE no llaman LLMPort. El PEP está cerca de la inferencia y registra revision/decision sin texto del usuario.
+- [x] La autoridad local se configura explícitamente y no se amplía por tenant, actor, nodo ni sugerencia de LLM; business rules y guardrails no se mezclan en el Policy Engine.
+- [x] Requests y outcomes admiten ida y vuelta JSON preservando variantes e IDs; suspended se prueba como representación, sin afirmar pausa/reanudación funcional.
+- [x] Resume tiene comportamiento explícito, probado y documentado para este runtime sin suspensión.
+- [x] Application funciona con runtime falso; la integración usa el mismo caso de uso con LangGraph.
+- [x] Tests de arquitectura impiden infraestructura en contratos, puertos, Domain y Application; CLI no importa LangGraph ni SDK del proveedor. Se consideran imports transitivos locales que evadan la frontera.
+- [x] GraphState y grafo compilado permanecen dentro del adapter; conversiones al contrato público centralizadas en mappers.
+- [x] Suite sin credenciales, con red bloqueada y comprobación del bloqueo, también en subprocesos si los tests los usan.
+- [x] Guía de ejecución, Python y dependencias bloqueadas; instalación y comando de un turno reproducibles.
 
 Cerrar el gate acredita el recorrido permitido inicial y la frontera básica de enforcement. Quedan pendientes el lifecycle REQUIRE_APPROVAL/SuspendedExecution con reevaluación tras resume, guardrails de contenido, policies configurables completas, identidad multi-tenant y capacidades del adapter OpenAI. No se puede presentar la verificación de esta ruta básica como validación completa de ADR-006.
 
@@ -114,4 +114,4 @@ Cerrar el gate acredita el recorrido permitido inicial y la frontera básica de 
 | Hito 3 | Router puro, perfiles, especialidad visible y eval; resolver primero representación tipada de selección. |
 | Hito 4 | Suite completa, medición real de latencia/costo y guía final. |
 
-El [graph.py actual](../../../src/incubia_orchestrator/graph.py) es un experimento de selección explícita de perfil y respuestas fijas. Al implementar la base se sustituye su entrada por este recorrido y la topología pasa al adapter. Su ejecución aislada no cierra el gate. Esta revisión documental no modifica el código.
+El experimento `graph.py` se sustituyó por el adapter de LangGraph. La base se verificó primero con un nodo de generación; el grafo actual añade selección de especialidad antes de generar. El cierre del gate se limita a la ruta local sin suspensión funcional.

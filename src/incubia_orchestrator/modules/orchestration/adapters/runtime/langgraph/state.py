@@ -1,5 +1,5 @@
 from typing import TypedDict
-from incubia_orchestrator.foundation.contracts.execution import ConversationTurn, ExecutionScope
+from incubia_orchestrator.foundation.contracts.execution import ConversationTurn, ExecutionScope, TokenUsage
 from incubia_orchestrator.foundation.contracts.specialty import Specialty
 
 
@@ -13,3 +13,4 @@ class GraphState(TypedDict, total=False):
     error_code: str
     specialty: Specialty
     route_reason: str
+    usage: TokenUsage | None

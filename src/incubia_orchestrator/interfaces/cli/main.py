@@ -25,7 +25,7 @@ def main(argv=None) -> int:
                                               timeout=args.timeout, retries=args.retries),
                                       args.max_turns, args.max_message_chars)
     except ValueError as exc:
-        print(f"Configuración inválida: {exc}", file=sys.stderr)
+        print(f"category=config Configuración inválida: {exc}", file=sys.stderr)
         return 2
 
     def send(message):
@@ -33,22 +33,31 @@ def main(argv=None) -> int:
         try:
             outcome = session.send(message)
         except ValueError as exc:
-            print(f"Entrada inválida: {exc}", file=sys.stderr)
+            print(f"category=input Entrada inválida: {exc}", file=sys.stderr)
             return 2
         if isinstance(outcome, CompletedExecution):
             print(outcome.output.text)
             specialty = outcome.output.specialty
+            usage = outcome.output.usage
             code = 0
         elif isinstance(outcome, FailedExecution):
             print(f"Error: {outcome.error.code}", file=sys.stderr)
             specialty = outcome.error.specialty
+            usage = None
+            category = ("provider" if outcome.error.code.startswith(("PROVIDER_", "EMPTY_RESPONSE"))
+                        else "policy" if outcome.error.code.startswith(("POLICY_", "APPROVAL_"))
+                        else "runtime")
             code = 3
         else:
             print("Ejecución suspendida", file=sys.stderr)
             specialty = None
+            usage = None
+            category = "runtime"
             code = 3
         profile_text = f" specialty={specialty.value}" if specialty else ""
-        print(f"request_id={outcome.request_id} status={outcome.status}{profile_text} latency_ms={int((time.monotonic()-started)*1000)}", file=sys.stderr)
+        usage_text = f" input_tokens={usage.input_tokens} output_tokens={usage.output_tokens}" if usage else ""
+        category_text = f" category={category}" if code else ""
+        print(f"request_id={outcome.request_id} status={outcome.status}{profile_text}{category_text} latency_ms={int((time.monotonic()-started)*1000)}{usage_text}", file=sys.stderr)
         return code
 
     if args.message is not None:
@@ -62,7 +71,7 @@ def main(argv=None) -> int:
                 print("Comandos: /help, /exit")
                 continue
             if message.startswith("/"):
-                print("Comando desconocido", file=sys.stderr)
+                print("category=input Comando desconocido", file=sys.stderr)
                 continue
             send(message)
     except KeyboardInterrupt:

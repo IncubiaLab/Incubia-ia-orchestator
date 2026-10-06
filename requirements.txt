@@ -1,1 +1,2 @@
-langgraph==1.2.12
+# Dependencias bloqueadas para Python 3.12; instalar el paquete después con --no-deps.
+-r requirements.lock

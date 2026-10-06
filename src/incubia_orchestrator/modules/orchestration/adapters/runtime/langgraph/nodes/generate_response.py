@@ -33,7 +33,7 @@ def make_node(llm: LLMPort, policy: PolicyEnginePort, max_output_tokens: int,
                                                       profile.specialty if profile else Specialty.GENERAL))
             if not response.text.strip():
                 return {"error_code": "EMPTY_RESPONSE"}
-            return {"reply": response.text}
+            return {"reply": response.text, "usage": response.usage}
         except GenerationFailure as exc:
             return {"error_code": exc.code}
     return generate

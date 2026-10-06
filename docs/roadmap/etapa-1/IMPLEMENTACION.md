@@ -1,4 +1,4 @@
-# Implementación hasta la decisión de modelos
+# Implementación de la etapa 1
 
 Fecha: 2026-10-01. La base de un mensaje, la conversación local y el adapter HTTP para OpenAI Responses están implementados. El ID de modelo se decidió provisionalmente el 2026-10-02; véase la sección final. No se han hecho llamadas con credenciales.
 
@@ -39,3 +39,7 @@ PYTHONPATH=src python -m incubia_orchestrator.interfaces.cli.main chat --fake -m
 ```
 
 **Facturación:** la suscripción a ChatGPT/Codex no cubre automáticamente las llamadas de esta aplicación a `api.openai.com`. Para el modo real hace falta una clave de API con facturación o crédito de API propio. La demo `--fake` funciona sin ello. No se realizaron llamadas reales ni mediciones de costo/latencia.
+
+## Verificación de cierre local (2026-10-02)
+
+La instalación bloqueada, la suite sin red y la CLI de tres turnos se documentan en [VERIFICACION.md](VERIFICACION.md). El Gate 0 técnico está cerrado para la ruta local permitida. La medición con el proveedor real sigue pendiente por falta de credenciales de API.
