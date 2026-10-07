@@ -6,4 +6,4 @@ budgets:
   eval-e2:
     max_calls_per_month: 150
     max_output_tokens: 400
-    usd_cap: null
+    usd_cap: 5.00

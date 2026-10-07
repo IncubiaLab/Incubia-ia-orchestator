@@ -46,7 +46,7 @@ Con D2, las filas «Concurrencia» y «sync/async» de la tabla anterior quedan 
 ## Revisión previa a cada gate
 
 - [ ] H0: decisiones locales y configuración registradas; schemas y criterios de evaluación congelados.
-- [ ] Gate A: suite sin red completa y fallos de inbox/outbox reproducibles; ninguna dependencia del canal en core.
+- [x] Gate A: suite sin red completa y fallos de inbox/outbox reproducibles; ninguna dependencia del canal en core.
 - [ ] Gate B: piloto autorizado y acotado con transporte real, scopes aislados y procedimiento de recuperación.
 - [ ] Gate C: evaluaciones reales, costo/latencia y limitaciones con evidencia; pendientes no marcados como terminados.
 

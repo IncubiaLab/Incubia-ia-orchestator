@@ -13,7 +13,7 @@ El piloto requiere un efecto externo y no puede habilitarse solo con código. De
 Autorizar y registrar, fuera del repositorio:
 
 - una cuenta de bot de prueba y `TELEGRAM_BOT_TOKEN` en infraestructura;
-- exactamente dos chats/remitentes privados vinculados a scopes distintos;
+- exactamente dos chats/remitentes privados vinculados a tenants y scopes distintos, con FakeLLM exclusivo;
 - ausencia de webhook y de otro consumidor antes de iniciar long polling;
 - responsables del comando `inspect` y de resolución manual de `UNKNOWN_EFFECT`.
 

@@ -13,6 +13,7 @@ test = ["pytest==8.4.2"]
 
 [project.scripts]
 incubia = "incubia_orchestrator.interfaces.cli.main:main"
+incubia-bot = "incubia_orchestrator.interfaces.cli.bot:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/incubia_orchestrator"]

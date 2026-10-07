@@ -10,7 +10,7 @@ La calidad de routing y generación no se acredita con el fake. `eval-e2` reserv
 
 ## Decisión pendiente
 
-Registrar un `usd_cap` positivo para `eval-e2`, el archivo de contador `INCUBIA_EVAL_BUDGET_FILE`, el modelo/versión y la fuente vigente de precios. El cupo CLI de 6 llamadas no se reutiliza ni reinicia.
+Se registra un `usd_cap` de USD 5,00 por campaña; cada llamada deberá reservar presupuesto durable antes de ejecutarse. El archivo de contador es `INCUBIA_EVAL_BUDGET_FILE`; se registra también modelo/versión y fuente vigente de precios. El cupo CLI de 6 llamadas no se reutiliza ni reinicia.
 
 ## Criterio de resolución
 

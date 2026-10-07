@@ -27,8 +27,8 @@ La suite automatizada usa fakes y transporte simulado con bloqueo de red; los re
 
 | Gate | Estado | Evidencia que adjuntar |
 | --- | --- | --- |
-| A — core/canal sin red | Pendiente | Commit/configuración, comando de suite, resultado, pruebas de caídas y conteos de inferencia/entrega. |
-| B — Telegram + fake | Pendiente | Fecha, runner/configuración sin secretos, tres turnos, dos chats, rechazo de desconocidos, replay y reinicio. |
+| A — core/canal sin red | Cerrado — 2026-10-06 | `python -m pytest tests/integration/test_gate_a_e2e.py -q` y suite completa: entrada fake → inbox SQLite → runtime fake → respuesta pública → outbox → canal fake; duplicado/reinicio ejecutan y entregan una sola vez. `test_sqlite_ledger.py` cubre conflicto de hash, reserva concurrente, lock, `UNKNOWN_EFFECT`, bindings/offset, purga y backup/reapertura. |
+| B — Telegram + fake | En progreso | Runner y transporte simulado en `tests/integration/test_telegram_runner.py` y `tests/unit/test_telegram_adapter.py`; falta piloto con token y dos bindings privados reales. |
 | C — calidad/cierre | Pendiente | Modelos/versiones, datasets, matriz de confusión, rúbrica, muestras de latencia, tokens/costos y fuente de precios vigente. |
 
 Para latencia registrar por separado clasificación, generación y entrega; si se presentan percentiles, declarar número de muestras. Costo desconocido se registra como no disponible, no cero. Los IDs de Telegram se pseudonimizan en evidencia compartida. No incluir tokens, `.env`, transcripciones privadas ni URLs con credenciales.

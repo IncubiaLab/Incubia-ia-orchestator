@@ -33,8 +33,7 @@ def test_config_and_context_are_bounded_and_scoped():
     capabilities = load_capabilities(ROOT)
     profiles = load_profiles(ROOT / "profiles", capabilities)
     assert set(profiles) == set(Specialty)
-    with pytest.raises(InvalidE2Configuration):
-        load_budgets(ROOT / "budgets.yaml", mode="eval-e2")
+    assert load_budgets(ROOT / "budgets.yaml", mode="eval-e2")["eval-e2"].usd_cap == 5.0
     repo = InMemoryConversationRepository()
     repo._conversations[SCOPE] = repo.load(SCOPE).__class__(0, (), (ConversationFact("product", "x", "user", SCOPE),))
     context = ContextBuilder(repo).build(SCOPE, profiles[Specialty.VENTAS], "ayuda")
