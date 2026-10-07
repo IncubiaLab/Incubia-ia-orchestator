@@ -53,8 +53,8 @@ class SqliteLedger:
 
     def _migrate(self):
         self._connection.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY)")
-        if self._connection.execute("SELECT 1 FROM schema_migrations WHERE version=1").fetchone(): return
-        self._connection.executescript("""
+        if not self._connection.execute("SELECT 1 FROM schema_migrations WHERE version=1").fetchone():
+            self._connection.executescript("""
 CREATE TABLE bindings (channel TEXT NOT NULL,channel_account_ref TEXT NOT NULL,external_chat_ref TEXT NOT NULL,external_sender_ref TEXT NOT NULL,deployment_id TEXT NOT NULL,tenant_id TEXT NOT NULL,conversation_id TEXT NOT NULL,actor_id TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 1,PRIMARY KEY(channel,channel_account_ref,external_chat_ref,external_sender_ref));
 CREATE TABLE inbox_events (deployment_id TEXT NOT NULL,tenant_id TEXT NOT NULL,channel TEXT NOT NULL,channel_account_ref TEXT NOT NULL,external_event_id TEXT NOT NULL,payload_hash TEXT NOT NULL,payload_json TEXT,request_id TEXT NOT NULL,execution_id TEXT NOT NULL UNIQUE,state TEXT NOT NULL,received_at TEXT NOT NULL,terminal_at TEXT,PRIMARY KEY(deployment_id,tenant_id,channel,channel_account_ref,external_event_id));
 CREATE TABLE conversations (deployment_id TEXT NOT NULL,tenant_id TEXT NOT NULL,conversation_id TEXT NOT NULL,actor_id TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 0,facts_json TEXT NOT NULL DEFAULT '[]',PRIMARY KEY(deployment_id,tenant_id,conversation_id,actor_id));
@@ -63,6 +63,10 @@ CREATE TABLE outcomes (execution_id TEXT PRIMARY KEY,outcome_json TEXT NOT NULL,
 CREATE TABLE deliveries (execution_id TEXT NOT NULL,response_id TEXT NOT NULL,destination_ref TEXT NOT NULL,payload_json TEXT,state TEXT NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,next_attempt_at TEXT,external_message_id TEXT,created_at TEXT NOT NULL,PRIMARY KEY(execution_id,response_id,destination_ref));
 CREATE TABLE runner_state (channel_account_ref TEXT PRIMARY KEY,last_offset INTEGER NOT NULL DEFAULT 0);
 INSERT INTO schema_migrations(version) VALUES (1);""")
+        if not self._connection.execute("SELECT 1 FROM schema_migrations WHERE version=2").fetchone():
+            self._connection.executescript("""
+CREATE TABLE discarded_updates (channel_account_ref TEXT NOT NULL,external_event_id TEXT NOT NULL,payload_hash TEXT NOT NULL,reason TEXT NOT NULL,received_at TEXT NOT NULL,PRIMARY KEY(channel_account_ref,external_event_id));
+INSERT INTO schema_migrations(version) VALUES (2);""")
 
     @staticmethod
     def _hash(payload): return sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
@@ -104,6 +108,7 @@ INSERT INTO schema_migrations(version) VALUES (1);""")
                     self._connection.execute("INSERT INTO inbox_events VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL)", (*event_key, digest, json.dumps(payload, sort_keys=True), request_id, execution_id, "RECEIVED", self._now()))
                     reservation = InboxReservation(request_id, execution_id, "RECEIVED", True)
             else:
+                self._connection.execute("INSERT OR IGNORE INTO discarded_updates VALUES (?,?,?,?,?)", (account, str(update_id), self._hash(payload), "UNBOUND_OR_UNSUPPORTED", self._now()))
                 reservation = None
             self._connection.execute("INSERT INTO runner_state(channel_account_ref,last_offset) VALUES (?,?) ON CONFLICT(channel_account_ref) DO UPDATE SET last_offset=MAX(last_offset,excluded.last_offset)", (account, update_id))
             return reservation
