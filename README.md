@@ -24,6 +24,8 @@ python3.12 -m venv .venv
 
 El REPL acepta `/help`, `/exit` y EOF. Un proceso nuevo inicia una conversación vacía. El fake responde indicando el perfil elegido. Las solicitudes con señales de ventas y marketing, o sin señales, van a General.
 
+Para depuración en la terminal, toda respuesta con especialidad seleccionada se identifica con `[General.specialist]`, `[Sales.specialist]` o `[Marketing.specialist]` antes del texto generado.
+
 ## Proveedor real
 
 La API de OpenAI requiere `OPENAI_API_KEY` y saldo de API. La aplicación lee `OPENAI_API_KEY` e `INCUBIA_MODEL` desde `.env` en el directorio actual si no están definidos en la shell. La suscripción a ChatGPT/Codex no cubre esas llamadas. Ejemplo:
@@ -32,9 +34,9 @@ La API de OpenAI requiere `OPENAI_API_KEY` y saldo de API. La aplicación lee `O
 .venv/bin/incubia chat --model gpt-4o-mini -m "hola"
 ```
 
-`gpt-4o-mini` es el valor inicial; `INCUBIA_MODEL` o `--model` lo sustituyen para los tres perfiles. En modo real se aplican límites que la CLI no permite ampliar: **6 intentos de API por mes UTC**, **10 segundos entre intentos**, **128 tokens de salida**, **500 caracteres por mensaje**, **2 pares de historial** y **cero reintentos**. Los intentos fallidos también consumen el cupo local. El contador persiste en `~/.local/state/incubia/api-budget.json` y solo protege las llamadas hechas por esta aplicación; no representa el saldo ni el gasto de toda la cuenta. `--timeout` limita cada intento a 30 segundos por defecto. En `--fake` siguen disponibles los límites amplios de la demo.
+`gpt-4o-mini` es el valor inicial; `INCUBIA_MODEL` o `--model` lo sustituyen para los tres perfiles. En modo real se aplican límites que la CLI no permite ampliar: **20 intentos de API por mes UTC**, **10 segundos entre intentos**, **128 tokens de salida**, **500 caracteres por mensaje**, **2 pares de historial** y **cero reintentos**. Los intentos fallidos también consumen el cupo local. El contador persiste en `~/.local/state/incubia/api-budget.json` y solo protege las llamadas hechas por esta aplicación; no representa el saldo ni el gasto de toda la cuenta. `--timeout` limita cada intento a 30 segundos por defecto. En `--fake` siguen disponibles los límites amplios de la demo.
 
-Un `PROVIDER_QUOTA` indica saldo de API agotado; se distingue de `PROVIDER_RATE_LIMIT`. La respuesta va a stdout. stderr muestra `request_id`, estado, especialidad, latencia y tokens si el proveedor los informa. No se registran prompts, historial, respuestas ni claves. Para costo/latencia reales y estado de validación, véase [informe de etapa](docs/roadmap/etapa-1/VERIFICACION.md).
+Un `PROVIDER_QUOTA` indica saldo de API agotado; se distingue de `PROVIDER_RATE_LIMIT`. La terminal muestra sólo las respuestas del chat. Las métricas operativas (`request_id`, estado, especialidad, latencia y tokens) se guardan como JSON Lines en `logs/incubia-cli.log`, un directorio ignorado por Git; se puede cambiar la ubicación con `INCUBIA_LOG_FILE`. No se registran prompts, historial, respuestas ni claves. Para costo/latencia reales y estado de validación, véase [informe de etapa](docs/roadmap/etapa-1/VERIFICACION.md).
 
 ## Límites
 

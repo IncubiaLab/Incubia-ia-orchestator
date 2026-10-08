@@ -15,7 +15,8 @@ Copias de los ADR de Linear que figuran como **Accepted** o **Proposed** en el [
 | [ORCH-018](ADR-ORCH-018.md) | Proposed | Dependencias y composition root |
 | [ORCH-019](ADR-ORCH-019.md) | Proposed | Conversation State y GraphState |
 | [ORCH-020](ADR-ORCH-020.md) | Proposed | Tests arquitectónicos y de contrato |
+| [ORCH-025](ADR-ORCH-025-NEON-POSTGRESQL-TIER-3.md) | Accepted for Tier 3; rollout gated | PostgreSQL administrado con Neon |
 
-La serie general del MVP contiene otros estados, entre ellos «Aceptado provisionalmente». Este índice incluye ADR-ORCH con estado literal Accepted o Proposed; no convierte decisiones provisionales en aceptadas.
+La serie general del MVP contiene otros estados, entre ellos «Aceptado provisionalmente». Este índice conserva el estado de origen y alcance: ORCH-025 acepta la elección para Tier 3, con activación productiva condicionada por sus gates; no cambia SQLite para Gate A.
 
-Actualización del 2026-10-06: se incorporaron las copias completas de ORCH-003/004/005, confirmadas como Accepted en sus documentos y Done en HEC-19/20/21. Los demás archivos conservan su fecha de sincronización. La [revisión de etapa 2](../roadmap/etapa-2/LINEAR-ADR.md) registra también los ADR abiertos 021–024 y las diferencias con la planificación histórica de etapa 1.
+Actualización del 2026-10-07: se incorpora ORCH-025, decisión local de Tier 3 para Neon basada en el SAD y ADR-E2-001. La [planificación Tier 3](../roadmap/etapa-3/ROADMAP.md) define sus gates. La [revisión de etapa 2](../roadmap/etapa-2/LINEAR-ADR.md) registra el inventario de decisiones Linear y las diferencias con la planificación histórica de etapa 1.

@@ -11,7 +11,7 @@ from incubia_orchestrator.modules.orchestration.ports.llm import GenerationFailu
 
 
 class MonthlyCallLimiter:
-    def __init__(self, path: Path, *, max_calls: int = 6, min_interval_seconds: int = 10,
+    def __init__(self, path: Path, *, max_calls: int = 20, min_interval_seconds: int = 10,
                  clock: Callable[[], float] = time.time):
         self.path = path
         self.max_calls = max_calls

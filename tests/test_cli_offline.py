@@ -8,7 +8,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run_cli(*args, input_text=None, api_key=None):
+def run_cli(*args, input_text=None, api_key=None, log_file=None):
     env = os.environ.copy()
     env.pop("OPENAI_API_KEY", None)
     if api_key is not None:
@@ -16,6 +16,7 @@ def run_cli(*args, input_text=None, api_key=None):
     env["PYTHONPATH"] = str(ROOT / "tests" / "no_network")
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["INCUBIA_ENV_FILE"] = str(ROOT / "tests" / "no_network" / "missing.env")
+    env["INCUBIA_LOG_FILE"] = str(log_file) if log_file else os.devnull
     return subprocess.run([sys.executable, "-m", "incubia_orchestrator.interfaces.cli.main", "chat", *args],
                           input=input_text, capture_output=True, text=True, env=env, timeout=15)
 
@@ -35,11 +36,24 @@ def test_three_turn_repl_and_commands():
     result = run_cli("--fake", input_text="/help\nquiero vender\nnecesito una campaña\nhola\n/exit\n")
     assert result.returncode == 0
     assert "Comandos: /help, /exit" in result.stdout
+    assert "[Sales.specialist]:" in result.stdout
+    assert "[Marketing.specialist]:" in result.stdout
+    assert "[General.specialist]:" in result.stdout
     assert "especialista en ventas" in result.stdout
     assert "especialista en marketing" in result.stdout
     assert "especialista en general" in result.stdout
-    assert result.stderr.count("request_id=") == 3
-    assert "specialty=ventas" in result.stderr
+    assert result.stderr == ""
+
+
+def test_metrics_are_written_to_a_separate_log(tmp_path):
+    log_file = tmp_path / "logs" / "incubia-cli.log"
+    result = run_cli("--fake", "-m", "hola", log_file=log_file)
+    assert result.returncode == 0
+    assert result.stderr == ""
+    event = __import__("json").loads(log_file.read_text(encoding="utf-8"))
+    assert event["status"] == "completed"
+    assert event["specialty"] == "general"
+    assert event["input_tokens"] is None
 
 
 def test_no_key_and_invalid_input_are_safe():

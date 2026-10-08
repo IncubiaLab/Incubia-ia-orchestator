@@ -37,3 +37,15 @@ def test_two_bound_chats_and_unknown_sender_with_replay(tmp_path):
     assert len(sent) == 2
     assert ledger.last_offset("42") == 3
     ledger.close()
+
+
+def test_unknown_update_is_durably_discarded_before_offset_advances(tmp_path):
+    ledger = SqliteLedger(tmp_path / "e2.sqlite")
+    client = TelegramClient("secret", httpx.Client(transport=httpx.MockTransport(
+        lambda request: httpx.Response(200, json={"ok": True, "result": [_update(9, 999, "unknown")]})
+        if request.url.path.endswith("getUpdates") else httpx.Response(200, json={"ok": True, "result": {"message_id": 1}}))))
+    runner = TelegramRunner(ledger, client, account="42", generate=lambda text, scope: None)
+    runner.cycle()
+    assert ledger.last_offset("42") == 9
+    assert ledger._connection.execute("SELECT reason FROM discarded_updates").fetchone() == ("UNBOUND_OR_UNSUPPORTED",)
+    ledger.close()

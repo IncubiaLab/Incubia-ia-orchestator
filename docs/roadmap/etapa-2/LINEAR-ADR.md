@@ -2,6 +2,43 @@
 
 Consulta: 2026-10-06, America/Bogota. Se revisaron el proyecto, todas sus issues, los documentos ADR-003/004/005/023 y el registro de ADR; se leyeron las copias locales aceptadas 001/006/007. Estado de issue y estado arquitectónico se distinguen: Done no prueba implementación, y una propuesta implementada no queda ratificada automáticamente.
 
+## Actualización 2026-10-07 — corte para Tier 3
+
+Se consultaron nuevamente el proyecto, su registro y los documentos relacionados. El inventario siguiente sirve para planificación; Linear continúa como fuente de estado. Las issues pueden estar Done/In Progress sin que ello sea evidencia de implementación.
+
+### Decisiones aceptadas/cerradas que gobiernan el baseline
+
+| ADR | Estado/origen | Tema |
+| --- | --- | --- |
+| 001 / HEC-18 | Accepted / Done | LangGraph como runtime reemplazable. |
+| 003 / HEC-19 | Accepted / Done | Capability-first routing y Decision Model separado. |
+| 004 / HEC-20 | Accepted / Done | Agent Registry, discovery y selección. |
+| 005 / HEC-21 | Accepted / Done | Tool Registry, Tool Discovery y frontera ToolExecutor. |
+| 006 / HEC-22 | Accepted / Done | Policy Engine, PEP/PDP y guardrails. |
+| 007 / HEC-23 | Accepted / Done | Contratos de ejecución propios, independientes del runtime. |
+| ADR IA y Gestión del Conocimiento | Accepted | Estrategia por fases: LLM/RAG/tools mediante puertos; aislamiento tenant obligatorio; modelos reemplazables. |
+| E2-001 / HEC-40 | Decisión SQLite de Gate A registrada; issue sigue abierta hasta evidencia | Ledger local durable; PostgreSQL candidato al pasar a varios hosts/HA/contención. No equivale a cierre del Gate A. |
+
+### Decisiones abiertas relevantes para Tier 3
+
+| ADR | Estado observado | Trabajo que desbloquea |
+| --- | --- | --- |
+| 008/009/010 / HEC-33/34/35 | Backlog | Persistencia de conversación, memoria y RAG/vector store; resolver contratos, retención y aislamiento. |
+| 012 / HEC-24 | Proposed / In Progress | Intervención humana; necesario antes de aprobación/resume real. |
+| 013 / HEC-25 | Proposed / Todo | Gateway LLM cuando se requiera consolidar proveedores/configuración de producción. |
+| 014/015 / HEC-37/38 | Backlog | Trazabilidad/auditoría y políticas globales de retry/fallback/timeouts. |
+| 016 / HEC-39 | Backlog | Runtime multiagente; no es requisito para Tier 3 inicial. |
+| 017–020 / HEC-26–29 | Proposed / Todo | Estructura, composition root, Conversation State vs GraphState y estrategia de pruebas. |
+| 021 / HEC-30 | In discussion / Proposed; In Progress | Mutation safety, idempotencia y side-effect journal; requerido antes de activar mutations. |
+| 022 / HEC-31 | Proposed / In Progress | Patrón Monedas/Ejes/Círculos; lenguaje conceptual, sin abstraer genéricamente todavía. |
+| 023 | Proposed / Open for validation | Envelope de capabilities; llamadas locales en MVP; revisar junto con 007/019/021. |
+| 024 | Proposed / Open for validation | Topología: monolito modular propuesto, mediciones requeridas antes de ratificar despliegue. |
+| 025 (local) | Accepted para Tier 3; activación gated | Neon PostgreSQL como persistencia administrada compartida, preservando SQLite para Gate A y CLI. |
+
+### Lectura para planificación
+
+ADR-005 ya cierra la frontera arquitectónica de tooling, pero su implementación operativa debe construirse en Tier 3 y sus efectos quedan sujetos a ADR-021/006. El SAD requiere retrieval/tools aislados por tenant. La selección local de Neon se registra en [ADR-ORCH-025](../../adr/ADR-ORCH-025-NEON-POSTGRESQL-TIER-3.md); no se atribuye esa decisión a Linear ni se altera el ADR-E2-001. Ver [Roadmap Tier 3](../etapa-3/ROADMAP.md) para gates y prerrequisitos.
+
 ## Goals de plataforma y contribución de esta etapa
 
 El [proyecto Incubia Platform MVP](https://linear.app/hector-cruz/project/incubia-platform-mvp-67f3883cb76e) continúa In Progress. Busca integración externa, chat contextual, multi-organización, auditoría, leads y fallback a caso; referencia ≤5 s de respuesta. No se encontró una issue específica de Telegram entre las issues del proyecto consultadas. Los G1–G7 y E2-01–12 son planificación local nueva.

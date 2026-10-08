@@ -1,11 +1,50 @@
 import argparse
+import json
+import os
 import sys
 import time
+from datetime import datetime, timezone
+from pathlib import Path
 from incubia_orchestrator.bootstrap.composition import (
     REAL_MAX_MESSAGE_CHARS, REAL_MAX_OUTPUT_TOKENS, REAL_MAX_TURNS, compose,
 )
 from incubia_orchestrator.foundation.contracts.execution import CompletedExecution, FailedExecution
 from incubia_orchestrator.modules.orchestration.application.session import ConversationSession
+
+
+_SPECIALIST_IDS = {
+    "general": "General.specialist",
+    "ventas": "Sales.specialist",
+    "marketing": "Marketing.specialist",
+}
+
+
+def _display_response(text: str, specialty) -> str:
+    """Show the graph's selected specialist without changing the generated text."""
+    if specialty is None:
+        return text
+    return f"[{_SPECIALIST_IDS[specialty.value]}]: {text}"
+
+
+def _write_audit_event(*, request_id, status, specialty, category, latency_ms, usage) -> None:
+    """Persist operational metadata without interrupting the interactive chat."""
+    path = Path(os.getenv("INCUBIA_LOG_FILE", "logs/incubia-cli.log"))
+    event = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "request_id": request_id,
+        "status": status,
+        "specialty": specialty.value if specialty else None,
+        "category": category,
+        "latency_ms": latency_ms,
+        "input_tokens": usage.input_tokens if usage else None,
+        "output_tokens": usage.output_tokens if usage else None,
+    }
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as log_file:
+            log_file.write(json.dumps(event, separators=(",", ":")) + "\n")
+    except OSError:
+        pass
 
 
 def main(argv=None) -> int:
@@ -43,8 +82,8 @@ def main(argv=None) -> int:
             print(f"category=input Entrada inválida: {exc}", file=sys.stderr)
             return 2
         if isinstance(outcome, CompletedExecution):
-            print(outcome.output.text)
             specialty = outcome.output.specialty
+            print(_display_response(outcome.output.text, specialty))
             usage = outcome.output.usage
             code = 0
         elif isinstance(outcome, FailedExecution):
@@ -62,10 +101,9 @@ def main(argv=None) -> int:
             usage = None
             category = "runtime"
             code = 3
-        profile_text = f" specialty={specialty.value}" if specialty else ""
-        usage_text = f" input_tokens={usage.input_tokens} output_tokens={usage.output_tokens}" if usage else ""
-        category_text = f" category={category}" if code else ""
-        print(f"request_id={outcome.request_id} status={outcome.status}{profile_text}{category_text} latency_ms={int((time.monotonic()-started)*1000)}{usage_text}", file=sys.stderr)
+        _write_audit_event(request_id=outcome.request_id, status=outcome.status,
+                           specialty=specialty, category=category if code else None,
+                           latency_ms=int((time.monotonic()-started)*1000), usage=usage)
         return code
 
     if args.message is not None:
