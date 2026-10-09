@@ -5,11 +5,11 @@ Fecha: 2026-10-07. Esta planificación no ratifica ADR globales abiertos. Una re
 | Decisión | Propuesta / estado | Resolución necesaria |
 | --- | --- | --- |
 | D1 Persistencia | Neon seleccionado en ADR-025; implementación pendiente | Driver/migraciones, región, plan operativo, pool y restore antes de E3-1. |
-| D2 Estado canónico | Conversation autoridad; runtime privado | Resolver recorte ADR-008/019 y UoW, IDs y recovery en E3-02. |
+| D2 Estado canónico | ADR-008 Accepted: Conversation autoridad; runtime privado | Implementar UoW, IDs y recovery en E3-02; ADR-019 conserva la frontera GraphState. |
 | D3 Identidad | Bindings de canal + membresías server-side | Elegir proveedor auth solo si se habilita HTTP; no construir auth casero; E3-0/2. |
 | D4 Concurrencia | Claims/fencing y un consumidor por bot; workers condicionados a evidencia | Reservas multi-proceso y recovery E3-04/05. |
 | D5 Integración | Una fuente READ por Tool Layer | Elegir sistema/credenciales/fixture con responsable en E3-07. |
-| D6 RAG | Fake primero; store concreto pendiente ADR-010 | Dataset y benchmark en E3-10; fijar embedding antes de indexación. |
+| D6 RAG | ADR-010 Accepted: Neon/PostgreSQL + pgvector, una base por deployment | Fake primero; E3-10 fija embeddings/dimensión y acredita búsqueda exacta/HNSW, ingestión y operación. |
 | D7 Efectos | Mutations externas apagadas; leads/cases internos autorizados | No exigir ADR-021 para una READ, sí para efectos nuevos; inspección de entrega heredada de E2. |
 | D8 Infraestructura | Monolito modular; imagen única, sin broker inicialmente | Ratificar recorte ADR-024 tras carga/shutdown; HTTP/worker solo por necesidad medida. |
 | D9 Operación | RPO 24 h / RTO 1 h y latencia provisional de GOALS | Responsable ratifica SLO, retención, región/costo en E3-01. |

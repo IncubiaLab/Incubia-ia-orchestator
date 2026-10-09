@@ -10,17 +10,13 @@ from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
 
+from incubia_orchestrator.foundation.contracts.execution import ConversationTurn
+from incubia_orchestrator.modules.conversation.ports.ledger import (
+    ConversationCommit, IdempotencyConflict, InboxReservation, PendingInboxEvent,
+    RevisionConflict, ScopeConflict,
+)
 
-class IdempotencyConflict(RuntimeError): pass
 class RunnerAlreadyActive(RuntimeError): pass
-
-
-@dataclass(frozen=True)
-class InboxReservation:
-    request_id: str
-    execution_id: str
-    state: str
-    is_new: bool
 
 
 class SqliteLedger:
@@ -67,6 +63,10 @@ INSERT INTO schema_migrations(version) VALUES (1);""")
             self._connection.executescript("""
 CREATE TABLE discarded_updates (channel_account_ref TEXT NOT NULL,external_event_id TEXT NOT NULL,payload_hash TEXT NOT NULL,reason TEXT NOT NULL,received_at TEXT NOT NULL,PRIMARY KEY(channel_account_ref,external_event_id));
 INSERT INTO schema_migrations(version) VALUES (2);""")
+        if not self._connection.execute("SELECT 1 FROM schema_migrations WHERE version=3").fetchone():
+            self._connection.executescript("""
+ALTER TABLE turns ADD COLUMN actor_id TEXT NOT NULL DEFAULT '';
+INSERT INTO schema_migrations(version) VALUES (3);""")
 
     @staticmethod
     def _hash(payload): return sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
@@ -116,6 +116,13 @@ INSERT INTO schema_migrations(version) VALUES (2);""")
     def pending_events(self, account):
         return self._connection.execute("SELECT execution_id,payload_json FROM inbox_events WHERE channel='telegram' AND channel_account_ref=? AND state='RECEIVED' ORDER BY received_at,external_event_id", (account,)).fetchall()
 
+    def pending_inbox_events(self, account: str) -> tuple[PendingInboxEvent, ...]:
+        rows = self._connection.execute(
+            "SELECT request_id,execution_id,payload_json FROM inbox_events "
+            "WHERE channel='telegram' AND channel_account_ref=? AND state='RECEIVED' "
+            "ORDER BY received_at,external_event_id", (account,)).fetchall()
+        return tuple(PendingInboxEvent(*row) for row in rows)
+
     def pending_deliveries(self):
         return self._connection.execute("SELECT execution_id,response_id,destination_ref,payload_json FROM deliveries WHERE state='PENDING' ORDER BY created_at", ()).fetchall()
 
@@ -155,6 +162,59 @@ INSERT INTO schema_migrations(version) VALUES (2);""")
             if turn is not None: self._connection.execute("INSERT OR IGNORE INTO turns VALUES (?,?,?,?,?,?,?)", (execution_id,event[0],event[1],"",turn[0],turn[1],now))
             self._connection.execute("INSERT OR IGNORE INTO deliveries VALUES (?,?,?,?, 'PENDING',0,NULL,NULL,?)", (execution_id,response_id,destination_ref,json.dumps(public_payload, sort_keys=True),now))
             self._connection.execute("UPDATE inbox_events SET state='COMPLETED',terminal_at=? WHERE execution_id=?", (now,execution_id))
+
+    def conversation_revision(self, scope) -> int:
+        row = self._connection.execute(
+            "SELECT revision FROM conversations WHERE deployment_id=? AND tenant_id=? "
+            "AND conversation_id=? AND actor_id=?",
+            (scope.deployment_id, scope.tenant_id, scope.conversation_id, scope.actor_id),
+        ).fetchone()
+        return row[0] if row else 0
+
+    def commit_conversation(self, commit: ConversationCommit) -> int:
+        """Atomically finish a claimed event and its canonical conversation turn."""
+        with self._transaction():
+            event = self._connection.execute(
+                "SELECT deployment_id,tenant_id FROM inbox_events WHERE execution_id=? AND state='PROCESSING'",
+                (commit.execution_id,),
+            ).fetchone()
+            if event is None:
+                raise RuntimeError("Only a claimed event can complete")
+            if event != (commit.scope.deployment_id, commit.scope.tenant_id):
+                raise ScopeConflict("Execution scope does not match the accepted event")
+            current = self.conversation_revision(commit.scope)
+            if current != commit.expected_revision:
+                raise RevisionConflict("Conversation revision changed")
+            now = self._now()
+            self._connection.execute(
+                "INSERT OR IGNORE INTO conversations "
+                "(deployment_id,tenant_id,conversation_id,actor_id,revision,facts_json) VALUES (?,?,?,?,0,'[]')",
+                (commit.scope.deployment_id, commit.scope.tenant_id,
+                 commit.scope.conversation_id, commit.scope.actor_id),
+            )
+            updated = self._connection.execute(
+                "UPDATE conversations SET revision=revision+1 WHERE deployment_id=? AND tenant_id=? "
+                "AND conversation_id=? AND actor_id=? AND revision=?",
+                (commit.scope.deployment_id, commit.scope.tenant_id, commit.scope.conversation_id,
+                 commit.scope.actor_id, commit.expected_revision),
+            ).rowcount
+            if updated != 1:
+                raise RevisionConflict("Conversation revision changed")
+            self._connection.execute("INSERT INTO outcomes VALUES (?,?,?)", (commit.execution_id,
+                                     json.dumps(commit.outcome, sort_keys=True), now))
+            self._connection.execute(
+                "INSERT INTO turns (execution_id,deployment_id,tenant_id,conversation_id,user_text,assistant_text,created_at,actor_id) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (commit.execution_id, commit.scope.deployment_id, commit.scope.tenant_id,
+                 commit.scope.conversation_id, commit.turn.user, commit.turn.assistant, now,
+                 commit.scope.actor_id),
+            )
+            self._connection.execute("INSERT INTO deliveries VALUES (?,?,?,?, 'PENDING',0,NULL,NULL,?)",
+                                     (commit.execution_id, commit.response_id, commit.destination_ref,
+                                      json.dumps(commit.public_payload, sort_keys=True), now))
+            self._connection.execute("UPDATE inbox_events SET state='COMPLETED',terminal_at=? WHERE execution_id=?",
+                                     (now, commit.execution_id))
+            return commit.expected_revision + 1
 
     def recover(self):
         with self._transaction():

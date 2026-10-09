@@ -2,7 +2,7 @@
 import json
 from datetime import UTC, datetime, timedelta
 
-from incubia_orchestrator.foundation.contracts.execution import ExecutionScope
+from incubia_orchestrator.foundation.contracts.execution import ConversationTurn, ExecutionScope
 from incubia_orchestrator.foundation.contracts.specialty import Specialty
 from incubia_orchestrator.modules.conversation.adapters.channels.telegram.client import TelegramTransportError
 from incubia_orchestrator.modules.conversation.adapters.channels.telegram.inbound import normalize_update
@@ -10,6 +10,7 @@ from incubia_orchestrator.modules.conversation.adapters.channels.telegram.outbou
 from incubia_orchestrator.modules.conversation.application.response_context import InProcessResponseContext
 from incubia_orchestrator.modules.conversation.domain.messages import ContextualizedResponse
 from incubia_orchestrator.modules.conversation.ports.response_context import ResponseContextRequest
+from incubia_orchestrator.modules.conversation.ports.ledger import ConversationCommit
 
 
 class TelegramRunner:
@@ -37,24 +38,24 @@ class TelegramRunner:
             if inbound and len(inbound.text) > 2000:
                 binding = None
             self.ledger.accept_update(self.account, update_id, update, binding=binding)
-        for execution_id, raw_payload in self.ledger.pending_events(self.account):
-            inbound = normalize_update(json.loads(raw_payload), self.account)
+        for event in self.ledger.pending_inbox_events(self.account):
+            inbound = normalize_update(json.loads(event.payload_json), self.account)
             if inbound is None:
                 continue
             binding = self.ledger.resolve_binding(channel="telegram", account=self.account,
                        chat=inbound.external_chat_ref, sender=inbound.external_sender_ref)
-            if binding is None or not self.ledger.claim(execution_id):
+            if binding is None or not self.ledger.claim(event.execution_id):
                 continue
             scope = ExecutionScope(*binding)
-            row = self.ledger._connection.execute("SELECT request_id FROM inbox_events WHERE execution_id=?", (execution_id,)).fetchone()
-            request_id = row[0]
             result = self.generate(inbound.text, scope)
             response = InProcessResponseContext().contextualize(ResponseContextRequest(
-                "response-" + execution_id, request_id, execution_id, scope,
+                "response-" + event.execution_id, event.request_id, event.execution_id, scope,
                 "telegram:" + inbound.external_chat_ref + ":" + inbound.external_sender_ref,
                 result.text, result.specialty))
-            self.ledger.complete(execution_id, response.response_id, response.destination_ref, response.to_dict(),
-                                 outcome={"status": "completed"}, turn=(inbound.text, response.text))
+            self.ledger.commit_conversation(ConversationCommit(
+                event.execution_id, scope, self.ledger.conversation_revision(scope), response.response_id,
+                response.destination_ref, response.to_dict(), {"status": "completed"},
+                ConversationTurn(inbound.text, response.text)))
         self.dispatch()
 
     def dispatch(self):

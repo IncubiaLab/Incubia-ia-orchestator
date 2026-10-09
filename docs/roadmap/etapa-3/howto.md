@@ -99,9 +99,9 @@ Los retries se implementan en una sola capa. El límite propuesto de dos intento
 
 ## 6. Incorporar Knowledge y generación fundamentada: E3-09…11
 
-Definir puertos y fake antes del store. Crear corpus sintético y dataset con consultas, scope y fuentes relevantes esperadas; congelar val según [KNOWLEDGE](KNOWLEDGE.md). Seleccionar store y embeddings mediante D6/ADR-010, con versiones y dimensiones registradas. La elección relacional Neon no selecciona pgvector automáticamente.
+Definir puertos y fake antes de pgvector. Crear corpus sintético y dataset con consultas, scope y fuentes relevantes esperadas; congelar val según [KNOWLEDGE](KNOWLEDGE.md). ADR-010 ya selecciona Neon/PostgreSQL + pgvector y una base por deployment; E3-10 fija el modelo/dimensión de embeddings y acredita búsqueda exacta frente a HNSW, con versiones registradas.
 
-Implementar ingestión por hash/version, chunks scoped e índice nuevo invisible hasta completarlo. Revocar una fuente la excluye de retrieval y contexto pendiente antes de generar/entregar, aunque el borrado físico siga otro ciclo. Cache keys incluyen tenant, permisos aplicables y versiones de fuente/modelo.
+Implementar ingestión por hash/version, chunks y generación; una generación nueva es invisible hasta completarla y hacer el swap activo. Resolver la base, credenciales y pool desde `deployment_id` confiable, nunca desde texto, prompt o input de usuario. Revocar una fuente la excluye de retrieval y contexto pendiente antes de generar/entregar, aunque el borrado físico siga otro ciclo. Cache keys incluyen deployment, generación, policy y versiones de fuente/modelo.
 
 En Application, combinar evidencia de READ y retrieval con el perfil seleccionado. Definir un contrato de generación que transporte realmente las instrucciones y EvidenceItems permitidos; no asumir que añadirlos a `ContextBuilder` los hace llegar al adapter LLM. Los nodos del grafo reciben esos servicios por composición.
 

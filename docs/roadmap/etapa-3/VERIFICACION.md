@@ -16,13 +16,13 @@ Estado: no se ejecutaron pruebas del producto ni campañas E3. Esta carpeta acre
 
 Unitarias offline para invariantes, schemas, policy y presupuesto. Integración con fakes/HTTP simulado para errores y casos de uso. Suite PostgreSQL temporal prueba el contrato compartido con SQLite; suite Neon sintética separada comprueba roles, pooling y condiciones operativas. E2E CLI/Telegram se documenta con scopes sintéticos y red explícita. La carga fake distingue mecánica local del comportamiento LLM remoto.
 
-Pruebas de arquitectura protegen Domain/Application de SDK, SQL y LangGraph; runtime adapta contratos propios. Canarios detectan prompts/secretos/datos de tenant ajeno en respuestas, eventos y logs. Fallos inyectados alrededor de commit/reserva/envío prueban una incorporación lógica y recuperación incierta.
+Pruebas de arquitectura protegen Domain/Application de SDK, SQL y LangGraph; runtime adapta contratos propios. Canarios detectan prompts/secretos/datos de tenant o deployment ajeno en respuestas, eventos y logs. Fallos inyectados alrededor de commit/reserva/envío prueban una incorporación lógica y recuperación incierta.
 
 ## Informe por gate
 
 Registrar fecha/huso, commit, versiones de contratos/schema/perfil/modelo/adapter, configuración sanitizada y responsable; comando/procedimiento reproducible; dataset/hash/split; n, denominadores, latencias p50/p95/p99; intentos/errores/quota/tokens/costo; IDs correlacionados seudonimizados; límites y fallos críticos; enlace a artifact en evals/results; decisión cerrado/pendiente y motivo.
 
-G5 recall usa fuentes relevantes esperadas por query respondible; abstención usa conjunto sin respuesta. G6 cada afirmación verificable se juzga contra fuentes registradas y cada referencia contra permisos/existencia. Reportar métricas separadas por tenant/perfil y casos críticos aunque el promedio pase.
+G5 recall usa fuentes relevantes esperadas por query respondible; abstención usa conjunto sin respuesta. G6 cada afirmación verificable se juzga contra fuentes registradas y cada referencia contra permisos/existencia. Reportar métricas de Knowledge separadas por deployment/generación/perfil y casos críticos aunque el promedio pase.
 
 ## Comprobaciones documentales
 

@@ -112,23 +112,23 @@ Autorizar por operación/recurso, ejecutar catalog.lookup fake/fixture/real medi
 
 **Hito:** H4. **Goals:** G5/G6. **Dependencias:** 02/06.
 
-Crear Retrieval/Embedding/KnowledgeRepository y fuente/evidencia versionada; fake scoped. Dataset dev/val según KNOWLEDGE; corpus sintético de dos tenants, referencias relevantes y consultas sin respuesta.
+Crear Retrieval/Embedding/KnowledgeRepository y fuente/evidencia versionada; fake scoped. Dataset dev/val según KNOWLEDGE; corpus sintético de dos deployments, referencias relevantes y consultas sin respuesta.
 
 **Archivos objetivo:** `modules/knowledge/{domain,ports}/; modules/knowledge/adapters/retrieval/fake.py; evals/e3/retrieval.jsonl; evals/e3/response_cases.jsonl; tests/unit/test_knowledge_contracts.py`.
 
-**Validación y salida:** Source/version/tenant required, query/top_k/tokens limitados, fuente ajena excluida y val congelado con hash; ≥60 consultas y ≥24 escenarios de calidad.
+**Validación y salida:** Source/version/deployment required, query/top_k/tokens limitados, fuente de otro deployment excluida y val congelado con hash; ≥60 consultas y ≥24 escenarios de calidad.
 
 <a id="e3-10"></a>
 
-### E3-10 — Decisión vectorial e ingestión
+### E3-10 — pgvector e ingestión
 
 **Hito:** H4. **Goals:** G5. **Dependencias:** 09/03.
 
-Comparar candidato pgvector en PostgreSQL y alternativa de store usando pequeño benchmark/documentación vigente; ratificar ADR-010 aplicable y construir solo el elegido. Elegir embeddings/dimensión/model version, ingestión por hashes, versiones y swap de índice activo.
+Implementar el adapter pgvector de ADR-010 por deployment; elegir embeddings/dimensión/model version, ingestión por hashes, generaciones y swap de índice activo. Acreditar búsqueda exacta y evaluar HNSW por feature flag, sin reabrir la selección de backend.
 
 **Archivos objetivo:** `modules/knowledge/adapters/{embedding,persistence}/; modules/knowledge/application/ingest.py; interfaces/cli/knowledge.py; migrations/postgres/; docs/roadmap/etapa-3/AUTOPLAN-REVIEW.md`.
 
-**Validación y salida:** Reingesta idempotente, índice parcial invisible, dimensión inválida, fallo embedding, source revocada y borrar/reindex con lecturas. Llamadas reales solo con presupuesto eval-e3 configurado.
+**Validación y salida:** Reingesta idempotente, generación parcial invisible, dimensión inválida, fallo embedding, source revocada, aislamiento entre deployments y borrar/reindex con lecturas. Llamadas reales solo con presupuesto eval-e3 configurado.
 
 <a id="e3-11"></a>
 
@@ -140,7 +140,7 @@ Application coordina tool READ y retrieval con contexto/perfil, límites de paso
 
 **Archivos objetivo:** `modules/orchestration/application/context_builder.py; modules/orchestration/application/use_cases/handle_inbound.py; modules/conversation/application/response_context.py; modules/orchestration/adapters/runtime/langgraph/; tests/integration/test_grounded_conversation.py`.
 
-**Validación y salida:** Datos ausentes/conflictivos→abstención/caso; injection no cambia permisos; referencias seguras y sin canarios internos. Gate E3-4 mide G5/G6 y repite pruebas tenant sobre store real.
+**Validación y salida:** Datos ausentes/conflictivos→abstención/caso; injection no cambia permisos; referencias seguras y sin canarios internos. Gate E3-4 mide G5/G6 y repite pruebas cross-deployment sobre store real.
 
 <a id="e3-12"></a>
 

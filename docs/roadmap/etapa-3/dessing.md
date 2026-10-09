@@ -175,13 +175,13 @@ El deadline es absoluto para la ejecución. Cada paso calcula tiempo restante y 
 
 ## 8. Knowledge, contexto y salida pública
 
-Source → versión → chunks → índice activo son entidades de Knowledge. Mantener la versión anterior activa durante una ingestión nueva; publicar la nueva solo después de completarla. Validar hash, dimensión y modelo de embeddings; no mezclar espacios vectoriales incompatibles.
+ADR-010 fija Neon/PostgreSQL con pgvector y una base de Knowledge por deployment. Source → versión → chunks → generación de índice son entidades de esa base. Mantener la generación anterior activa durante una ingestión nueva; publicar la nueva solo después de completarla. Validar hash, dimensión y modelo de embeddings; no mezclar espacios vectoriales incompatibles. La búsqueda exacta por coseno es baseline; HNSW se habilita por feature flag sólo con evidencia.
 
-Filtrar tenant y permisos antes de seleccionar evidencia. Para caches, incluir scope/permisos aplicables y versiones; la revocación invalida resultados y exige revalidación antes de usar evidencia pendiente. La información confidencial deja de ser utilizable incluso si ya estaba en un snapshot de ejecución.
+Resolver el deployment confiable antes de abrir una conexión: la base, credenciales y pool son la frontera de aislamiento entre clientes. Filtrar permisos de documento, rol o departamento antes de seleccionar evidencia cuando apliquen. Para caches, incluir deployment, generación, policy y versiones; la revocación invalida resultados y exige revalidación antes de usar evidencia pendiente. La información confidencial deja de ser utilizable incluso si ya estaba en un snapshot de ejecución.
 
 `EvidenceItem` contiene referencia, versión, instante y contenido permitido. ContextBuilder asigna presupuesto a instrucciones, mensaje, hechos, evidencia y pares recientes. El contrato LLM transporta esos valores de forma explícita; la respuesta pública conserva solo texto y referencias permitidas. Citar una fuente no valida una afirmación: medir soporte de hechos con la rúbrica de [AGENTES](AGENTES.md).
 
-Sin evidencia suficiente o con fuentes incompatibles, devolver abstención o propuesta de caso. Un caso persistido no significa handoff humano ejecutado. La selección vectorial y métricas pertenecen a [KNOWLEDGE](KNOWLEDGE.md) y [GOALS](GOALS.md).
+Sin evidencia suficiente o con fuentes incompatibles, devolver abstención o propuesta de caso. Un caso persistido no significa handoff humano ejecutado. La operación pgvector y métricas pertenecen a [KNOWLEDGE](KNOWLEDGE.md) y [GOALS](GOALS.md).
 
 ## 9. Buenas prácticas de implementación y validación
 
@@ -202,6 +202,6 @@ La suite offline actual bloquea sockets y parte de los subprocesos. Configurar s
 
 ## 10. Decisiones y mantenimiento de las guías
 
-Neon relacional está seleccionado localmente; driver/migrador, store vectorial, embeddings, proveedor READ, auth HTTP y plataforma de despliegue siguen sus tareas/decisiones. Estas guías no eligen herramientas adicionales por anticipado. Un cambio de contrato se refleja en BASE/GLOSARIO, su tarea PLAN-E3 y sus pruebas; un cambio de umbral se refleja en GOALS/VERIFICACION con justificación.
+Neon relacional y pgvector por deployment están seleccionados por ADR-025/010; driver/migrador, embeddings, proveedor READ, auth HTTP y plataforma de despliegue siguen sus tareas/decisiones. Estas guías no eligen herramientas adicionales por anticipado. Un cambio de contrato se refleja en BASE/GLOSARIO, su tarea PLAN-E3 y sus pruebas; un cambio de umbral se refleja en GOALS/VERIFICACION con justificación.
 
 Los enlaces oficiales de PostgreSQL y Neon anteriores se consultaron al redactar. Verificar compatibilidad con la versión/plan elegidos durante E3-03. Para estado Linear usar [LINEAR-ADR](LINEAR-ADR.md); para operación y corte seguir [RUNBOOK](RUNBOOK.md). [howto.md](howto.md) conecta este diseño con el orden de implementación.

@@ -8,7 +8,7 @@ Estado: propuestos, pendientes de implementación y evidencia. Los umbrales de c
 | G2 | Neon preserva IDs, revisión y claves de deduplicación; duplicados concurrentes producen 1 turno/outcome/outbox; restore medido | H1 / E3-1 |
 | G3 | Dos tenants y dos actores por tenant: cero lectura, escritura, discovery o entrega cruzada; revocación efectiva antes de siguiente operación | H2 / E3-2 |
 | G4 | Al menos 1 integración externa READ por Tool Layer; DENY/INDETERMINATE/REQUIRE_APPROVAL producen 0 llamadas externas; payload inválido no ejecuta | H3 / E3-3 |
-| G5 | Retrieval multi-tenant sobre ≥40 consultas val y ≥20 dev: recall@5 ≥85% en casos respondibles, abstención ≥90% en no respondibles, cero fuga | H4 / E3-4 |
+| G5 | Retrieval pgvector aislado por deployment sobre ≥40 consultas val y ≥20 dev: recall@5 ≥85% en casos respondibles, abstención ≥90% en no respondibles, p95 ≤1 s bajo perfil MVP y cero fuga cross-deployment | H4 / E3-4 |
 | G6 | ≥24 escenarios de respuesta combinada: ≥85% afirmaciones verificables respaldadas, ≥95% referencias válidas, cero secretos/datos ajenos; rubricado manual | H4/H6 / E3-4/6 |
 | G7 | 100% ejecuciones de la campaña tienen IDs y eventos correlacionados de policy/tool/retrieval/outcome; logs sin secretos ni transcripciones por defecto | H5 / E3-5 |
 | G8 | Lead con consentimiento y fallback a caso internos: replay genera 1 registro; actor no autorizado no consulta; derivación externa desactivada en primer corte | H6 / E3-6 |

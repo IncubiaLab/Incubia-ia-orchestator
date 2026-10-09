@@ -17,7 +17,7 @@ CLI responde y Telegram está parcialmente funcional. Gate A E2 está cerrado se
 | [BASE](BASE.md) | Ownership, contratos, transacciones, claims y arquitectura. |
 | [AGENTES](AGENTES.md) | General/Ventas/Marketing con evidencia y límites de contexto. |
 | [TOOLING](TOOLING.md) | Registry/Discovery/Executor y primer conector READ. |
-| [KNOWLEDGE](KNOWLEDGE.md) | Retrieval, dataset, ingestión, versiones y decisión vectorial. |
+| [KNOWLEDGE](KNOWLEDGE.md) | Retrieval, dataset, ingestión, versiones y operación pgvector por deployment. |
 | [IMPLEMENTACION](IMPLEMENTACION.md) | Backlog E3-01…15 y dependencias. |
 | [PLAN-E3](PLAN-E3.md) | Archivos objetivo, trabajo y validación por tarea. |
 | [AUTOPLAN-REVIEW](AUTOPLAN-REVIEW.md) | Decisiones pendientes, responsables por designar y riesgos. |
@@ -28,7 +28,7 @@ CLI responde y Telegram está parcialmente funcional. Gate A E2 está cerrado se
 
 ## Alcance
 
-Monolito modular con contratos propios, PostgreSQL administrado en Neon para servicio compartido, identidad/tenant confiables, una integración externa READ gobernada, RetrievalPort multi-tenant con evidencia, audit y operación medidos. Leads y casos se registran internamente con autorización/consentimiento; exports externos son incrementos posteriores. CLI conserva modo offline y Telegram sus garantías de inbox/outbox.
+Monolito modular con contratos propios, PostgreSQL administrado en Neon para servicio compartido, identidad/tenant confiables, una integración externa READ gobernada y RetrievalPort sobre pgvector aislado por deployment, audit y operación medidos. Leads y casos se registran internamente con autorización/consentimiento; exports externos son incrementos posteriores. CLI conserva modo offline y Telegram sus garantías de inbox/outbox.
 
 ## Hitos y gates
 
@@ -38,7 +38,7 @@ Monolito modular con contratos propios, PostgreSQL administrado en Neon para ser
 | H1. Persistencia compartida | E3-03/04/05: adapter Neon, roles, migraciones, claims/fencing, restore | **E3-1:** IDs/atomicidad/deduplicación preservados, aislamiento con rol runtime, migración/restore medidos en Neon sintético. |
 | H2. Identidad y autorización | E3-06: membresías, bindings, revocación y policy scoped | **E3-2:** cero acceso/entrega cruzados entre dos tenants y dos actores por tenant; pool/RLS y discovery fake verificados. |
 | H3. Tooling gobernado | E3-07/08: Registry/Discovery/Executor y una READ externa | **E3-3:** lectura real controlada; denegaciones sin red, errores/límites y audit acreditados; mutations empresariales apagadas. |
-| H4. Knowledge y respuesta | E3-09/10/11: selección vectorial, ingestión, retrieval y evidencia combinada | **E3-4:** G5/G6 cumplen umbrales sobre val congelado; aislamiento, revocación/reindex e injection demostrados. |
+| H4. Knowledge y respuesta | E3-09/10/11: pgvector, ingestión, retrieval y evidencia combinada | **E3-4:** G5/G6 cumplen umbrales sobre val congelado; aislamiento entre deployments, revocación/reindex e injection demostrados. |
 | H5. Operación | E3-12/13: audit/métricas, deployment, carga, fallos y rollback | **E3-5:** G7/G9 y SLO acordados con mediciones; restore/shutdown y límites operativos reproducibles. |
 | H6. Validación integrada | E3-14/15: lead/case internos, evaluación real y expediente | **E3-6:** G1–G9 completos, cero fallos críticos, presupuesto reconciliado y decisión de release registrada. |
 
@@ -56,7 +56,7 @@ El grafo muestra dependencias de trabajo; PLAN-E3 detalla prerequisites. Diseña
 
 ## Decisiones por resolver
 
-Neon relacional está elegido, pero driver/migraciones, región/plan y operación se concretan en H0/H1. ADR-008/009/019 deben cerrar el recorte de conversación/memoria. ADR-010 selecciona store/embeddings en H4. ADR-014/015/024 delimitan audit, retries y topología en H5. ADR-005/006 gobiernan tooling/policy ya aceptados; ADR-021 sigue bloqueando mutations externas nuevas. ADR-012/resume no se implementa por declarar un caso interno.
+Neon relacional está elegido, pero driver/migraciones, región/plan y operación se concretan en H0/H1. ADR-008 ya fija Conversation/UoW; ADR-009/019 deben cerrar el recorte de memoria y su frontera con runtime. ADR-010 fija pgvector y una base por deployment para Knowledge; E3-10 concreta modelo, dimensión e índices. ADR-014/015/024 delimitan audit, retries y topología en H5. ADR-005/006 gobiernan tooling/policy ya aceptados; ADR-021 sigue bloqueando mutations externas nuevas. ADR-012/resume no se implementa por declarar un caso interno.
 
 Monolito modular como propuesta de trabajo: API/worker/broker se separan solo si mediciones y lifecycle lo justifican. No se requieren microservicios ni despliegues por capability.
 
