@@ -124,7 +124,8 @@ dc up -d app
 wait_status /healthz 200
 wait_ready
 [[ "$(dc exec -T app id -u)" == "10001" ]]
-[[ "$(docker network inspect --format '{{.Internal}}' "${task_project}_d0-internal")" == "true" ]]
+[[ "$(docker network inspect --format '{{.Internal}}' "${task_project}_d0-internal")" == "false" ]]
+[[ "$(docker network inspect --format '{{index .Options "com.docker.network.bridge.enable_ip_masquerade"}}' "${task_project}_d0-internal")" == "false" ]]
 
 # A reachable process is not ready while PostgreSQL is unavailable.
 dc stop postgres >/dev/null

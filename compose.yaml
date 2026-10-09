@@ -77,4 +77,9 @@ volumes:
 
 networks:
   d0-internal:
-    internal: true
+    # Docker 29 does not publish host ports for an `internal: true` bridge.
+    # Disable masquerading instead: loopback ingress works, while containers
+    # have no NAT path to external providers.
+    internal: false
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "false"
