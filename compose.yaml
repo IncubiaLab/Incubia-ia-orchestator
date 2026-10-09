@@ -1,0 +1,80 @@
+name: incubia-e3-d0
+
+services:
+  postgres:
+    image: postgres:16.6-alpine@sha256:1d04b9ba1d4996401f2552b51beda8187f175c0645c091e4781134fc9c9a3eef
+    environment:
+      POSTGRES_DB: incubia_d0
+      POSTGRES_USER: d0_migrator
+      POSTGRES_PASSWORD: ${D0_MIGRATOR_PASSWORD:?Set D0_MIGRATOR_PASSWORD in deploy/e3-d0.env}
+      D0_RUNTIME_PASSWORD: ${D0_RUNTIME_PASSWORD:?Set D0_RUNTIME_PASSWORD in deploy/e3-d0.env}
+    volumes:
+      - d0-postgres:/var/lib/postgresql/data
+      - ./deploy/postgres/10-create-runtime-role.sh:/docker-entrypoint-initdb.d/10-create-runtime-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U d0_migrator -d incubia_d0"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 3s
+    networks: [d0-internal]
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "incubia_orchestrator.interfaces.http.migrate"]
+    environment:
+      DATABASE_URL: postgresql://d0_migrator:${D0_MIGRATOR_PASSWORD}@postgres:5432/incubia_d0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    user: "10001:10001"
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    restart: "no"
+    networks: [d0-internal]
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "incubia_orchestrator.interfaces.http.main", "--host", "0.0.0.0", "--port", "8080"]
+    environment:
+      DATABASE_URL: postgresql://d0_runtime:${D0_RUNTIME_PASSWORD}@postgres:5432/incubia_d0
+      INCUBIA_D0_MODE: local
+      INCUBIA_D0_CONTAINER_BIND: "1"
+      INCUBIA_D0_DEPLOYMENT_ID: d0-local
+      INCUBIA_D0_TENANT_ID: d0-local-tenant
+      INCUBIA_D0_ACTOR_ID: d0-local-actor
+      INCUBIA_D0_ACCOUNT: d0-http
+      INCUBIA_D0_HISTORY_LIMIT: "20"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${INCUBIA_D0_PORT:-8080}:8080"
+    user: "10001:10001"
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8080/readyz', timeout=2).read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: "no"
+    networks: [d0-internal]
+
+volumes:
+  d0-postgres:
+
+networks:
+  d0-internal:
+    internal: true

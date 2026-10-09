@@ -2,6 +2,17 @@
 
 Estado: propuestos, pendientes de implementación y evidencia. Los umbrales de calidad son criterios de aceptación de este corte; los SLO productivos se ratifican en H0.
 
+## Baseline paralelo E3-D0
+
+E3-D0 no añade un `G0` ni cambia los objetivos G1–G9: es evidencia previa de deployment local y permanece separado de E3-0. Su salida no cierra H1–H5, no acredita Neon/RLS/pgvector/tooling real/LLM ni ratifica ADR-024.
+
+| Nivel | Resultado medible | Relación con goals/gates |
+| --- | --- | --- |
+| E3-D0-L | Imagen reproducible no-root, Compose local de instancia única, migración separada y app loopback con health/readiness; tres turnos encadenados, replay y reinicio conservan estado durable sin red a proveedores. | Evidencia local de empaquetado y recuperación básica; no sustituye G2, G3, G4, G5, G6, G7 ni G9. |
+| E3-D0-R | Misma imagen/contrato con Neon, pgvector, READ y LLM reales autorizados; gasto, audit y métricas registrados. | Posterior a H1–H4; sus mediciones alimentan, pero no reemplazan, la evidencia de G2–G9 y E3-1…E3-5. |
+
+El contrato D0-L sólo recibe `message` y `conversation_id`; el servidor genera cada `execution_id` y toma `deployment_id`/`tenant_id`/`actor_id` de la configuración sintética. El endpoint sin autenticación se limita a loopback y nunca es un mecanismo de identidad ni de acceso productivo.
+
 | Goal | Resultado medible | Hito / gate |
 | --- | --- | --- |
 | G1 | Contratos de persistencia/identidad versionados; inventario de E2 y ADR bloqueantes; A/B/C cerrados antes del piloto integrado E3 | H0 / E3-0 |
@@ -24,4 +35,4 @@ Propuesta inicial de ingeniería: RPO ≤24 h y RTO ≤1 h ante pérdida de alma
 
 ## Definición de terminado
 
-G1–G9 con evidencia fechada, gates E3-0…6 cerrados, decisiones aplicables ratificadas y limitaciones registradas. Una suite fake, una conexión Neon o un smoke de LLM aislado no acreditan calidad ni release productivo.
+G1–G9 con evidencia fechada, gates E3-0…6 cerrados, decisiones aplicables ratificadas y limitaciones registradas. E3-D0-L/R puede aportar evidencia operativa acotada, pero no reemplaza esa definición ni cierra por sí solo un gate H1–H5. Una suite fake, una conexión Neon o un smoke de LLM aislado no acreditan calidad ni release productivo.

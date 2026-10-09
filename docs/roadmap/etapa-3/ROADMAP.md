@@ -1,10 +1,12 @@
 # Roadmap — etapa 3: persistencia compartida, tooling y conocimiento
 
-Fecha: 2026-10-07. **Planificación completada; implementación pendiente.** Tier 3 significa tercera etapa de desarrollo. El resultado buscado es un piloto integrado que pueda acreditar condiciones de producción con evidencia.
+Fecha: 2026-10-08. Tier 3 significa tercera etapa de desarrollo. El resultado buscado es un piloto integrado que pueda acreditar condiciones de producción con evidencia. E3-D0 tiene implementación local lista y evidencia Compose pendiente; no modifica el estado pendiente de los gates arquitectónicos E3-0…E3-6.
 
 ## Punto de partida
 
 CLI responde y Telegram está parcialmente funcional. Gate A E2 está cerrado según su [VERIFICACION](../etapa-2/VERIFICACION.md); Gate B sigue en progreso y Gate C pendiente. El smoke real acredita una generación/contador, sin cerrar evaluación. Neon está seleccionado localmente en [ADR-025](../../adr/ADR-ORCH-025-NEON-POSTGRESQL-TIER-3.md); adapter y operación están pendientes. El baseline de Linear procede del corte heredado, que se revalida al iniciar E3-01.
+
+E3-D0 permite ensayar antes el ciclo de entrega local con Docker Compose, PostgreSQL local con volumen persistente y adapters deterministas. Es evidencia de empaquetado, migración y recuperación básica; PostgreSQL local no sustituye la evidencia de Neon requerida por H1.
 
 ## Documentos de trabajo
 
@@ -30,10 +32,39 @@ CLI responde y Telegram está parcialmente funcional. Gate A E2 está cerrado se
 
 Monolito modular con contratos propios, PostgreSQL administrado en Neon para servicio compartido, identidad/tenant confiables, una integración externa READ gobernada y RetrievalPort sobre pgvector aislado por deployment, audit y operación medidos. Leads y casos se registran internamente con autorización/consentimiento; exports externos son incrementos posteriores. CLI conserva modo offline y Telegram sus garantías de inbox/outbox.
 
+E3-D0 añade una instancia local única de la misma aplicación para el MVP. Docker Compose no aprueba una topología productiva: no decide Kubernetes, múltiples réplicas, broker, microservicios ni ratifica ADR-024. ADR-022 y ADR-024 continúan como decisiones propuestas; monedas, ejes y círculos son recorridos internos del monolito, nunca unidades de despliegue.
+
+## Baseline de deployment E3-D0
+
+**E3-D0 no es E3-0.** E3-0 es el gate arquitectónico de H0; E3-D0 es una pista preliminar y paralela de operación local. No cierra H1–H5, no acredita G2–G9 y no ratifica ADR-024.
+
+| Nivel | Alcance y salida | Límites de la evidencia |
+| --- | --- | --- |
+| **E3-D0-L** | Compose local: imagen Python 3.12 no-root, `postgres` local, migrador one-shot y `app` única; HTTP loopback, LLM falso y seams deterministas sin I/O para tool/retrieval; estado durable entre reinicios. | Sin Neon, pgvector, READ, LLM, Telegram ni tools de red. Los seams no acreditan contratos H3/H4; sólo se acredita el baseline local. |
+| **E3-D0-R** | Validación posterior que reutiliza imagen y contrato HTTP con Neon, pgvector, una READ y LLM reales autorizados, presupuesto, audit y métricas. | Sólo puede empezar después de H1–H4 y autorización de credenciales/presupuesto. Su éxito no sustituye G2–G9 ni los gates E3-1…E3-5. |
+
+### Loop operativo de Monedas / Ejes / Círculos
+
+```text
+turno HTTP entrante
+  → Contexto (scope sintético configurado + conversation_id)
+  → eje de routing
+  → capability / círculo seleccionado
+  → outcome
+  → commit durable (inbox, turno, outcome, outbox y revisión)
+  → siguiente turno HTTP
+       (mismo conversation_id, nuevo execution_id; puede elegir otra capability)
+```
+
+El loop es una cadena de solicitudes HTTP, no una iteración interna ilimitada. Cada `POST /v1/executions` crea un `execution_id` servidor nuevo, conserva el `conversation_id` indicado y termina tras un único outcome/commit. No se crea un contenedor por moneda, eje o círculo, ni se habilitan bucles internos sin límite.
+
+En E3-D0-L el ingress sólo se publica en `127.0.0.1`. Recibe mensaje y clave de conversación —más la clave de idempotencia del transporte cuando aplique— y rechaza `deployment_id`, `tenant_id` y `actor_id` en el payload. El scope sintético procede exclusivamente de configuración de entorno; este endpoint sin autenticación está prohibido en staging y producción.
+
 ## Hitos y gates
 
 | Hito | Entregable / tareas | Gate de salida |
 | --- | --- | --- |
+| E3-D0 (preliminar, paralelo) | Imagen/Compose local, migración one-shot, HTTP mínimo y recuperación local | **E3-D0-L:** build no-root, preflight/readiness, cadena durable/replay/reinicio y cero red externa acreditados. No cierra H1–H5. |
 | H0. Baseline y contratos | E3-01/02: inventario E2/ADR, identidad, persistencia/UoW, NFR | **E3-0:** A/B/C E2 acreditados; decisiones del recorte y contratos versionados; SLO/retención/responsables definidos. |
 | H1. Persistencia compartida | E3-03/04/05: adapter Neon, roles, migraciones, claims/fencing, restore | **E3-1:** IDs/atomicidad/deduplicación preservados, aislamiento con rol runtime, migración/restore medidos en Neon sintético. |
 | H2. Identidad y autorización | E3-06: membresías, bindings, revocación y policy scoped | **E3-2:** cero acceso/entrega cruzados entre dos tenants y dos actores por tenant; pool/RLS y discovery fake verificados. |
@@ -45,25 +76,28 @@ Monolito modular con contratos propios, PostgreSQL administrado en Neon para ser
 ## Dependencias
 
 ```text
+E3-D0-L ───────────────────────────────────────────────────────┐
+                                                               │ evidencia local paralela; no cierra H1–H5
 E3-01 → E3-02 → E3-03 → E3-04 → E3-05  [E3-1]
                     └→ E3-06 [E3-2] ┬→ E3-07 → E3-08 ─┐
                                      └→ E3-09 → E3-10 ─┴→ E3-11 [E3-4]
 E3-04 + E3-08 + E3-11 → E3-12 → E3-13 [E3-5]
 E3-06 + E3-11 → E3-14; E3-13 + E3-14 → E3-15 [E3-6]
+H1 + H2 + H3 + H4 + presupuesto/credenciales autorizados → E3-D0-R
 ```
 
-El grafo muestra dependencias de trabajo; PLAN-E3 detalla prerequisites. Diseñar identidad junto con esquema antes de Neon; probar con fakes antes de retrieval real. E3-0 completo requiere cierre de E2, pero inventario, contratos y código offline E3 pueden avanzar en paralelo con B/C. Staging Neon sintético tampoco implica permiso para migrar tráfico. Antes de conectores reales acreditar E3-1/2; antes del piloto integrado acreditar E3-0…5.
+El grafo muestra dependencias de trabajo; PLAN-E3 detalla prerequisites. E3-D0-L puede avanzar en paralelo con E3-02/03, pero no convierte PostgreSQL local en evidencia H1. Diseñar identidad junto con esquema antes de Neon; probar con fakes antes de retrieval real. E3-0 completo requiere cierre de E2, pero inventario, contratos y código offline E3 pueden avanzar en paralelo con B/C. Staging Neon sintético tampoco implica permiso para migrar tráfico. Antes de conectores reales acreditar E3-1/2; antes del piloto integrado acreditar E3-0…5.
 
 ## Decisiones por resolver
 
 Neon relacional está elegido, pero driver/migraciones, región/plan y operación se concretan en H0/H1. ADR-008 ya fija Conversation/UoW; ADR-009/019 deben cerrar el recorte de memoria y su frontera con runtime. ADR-010 fija pgvector y una base por deployment para Knowledge; E3-10 concreta modelo, dimensión e índices. ADR-014/015/024 delimitan audit, retries y topología en H5. ADR-005/006 gobiernan tooling/policy ya aceptados; ADR-021 sigue bloqueando mutations externas nuevas. ADR-012/resume no se implementa por declarar un caso interno.
 
-Monolito modular como propuesta de trabajo: API/worker/broker se separan solo si mediciones y lifecycle lo justifican. No se requieren microservicios ni despliegues por capability.
+Monolito modular como propuesta de trabajo: API/worker/broker se separan solo si mediciones y lifecycle lo justifican. No se requieren microservicios, despliegues por capability ni un proceso/contenedor por moneda, eje o círculo.
 
 ## Fuera de alcance
 
-Mutations externas empresariales, export a CRM/helpdesk, campañas/envíos proactivos, WhatsApp real, UI web, multi-agent runtime, model routing/LoRA, Kubernetes y multi-región. El servicio no recibe datos reales hasta completar el expediente de release y la autorización de operación correspondiente.
+Mutations externas empresariales, export a CRM/helpdesk, campañas/envíos proactivos, WhatsApp real, UI web, multi-agent runtime, model routing/LoRA, Kubernetes, múltiples réplicas, microservicios y multi-región. El servicio no recibe datos reales hasta completar el expediente de release y la autorización de operación correspondiente. El endpoint HTTP sin autenticación de E3-D0-L tampoco se promueve a staging/producción.
 
 ## Primer incremento y cierre
 
-Empezar E3-01 y E3-02: reconciliar estado E2 y definir identidad/UoW antes de adaptar PostgreSQL. Todas las tareas y gates E3 están pendientes al finalizar la planificación. El cierre técnico exige la evidencia de VERIFICACION; las fechas históricas de Linear y esta carpeta no fijan compromisos de entrega.
+Empezar E3-D0-L en paralelo con E3-01/E3-02 para disponer de una base de deployment reproducible, sin adelantar decisiones de producción. Continuar reconciliando E2 y definir identidad/UoW antes de adaptar Neon. Todos los gates arquitectónicos E3 permanecen pendientes; el cierre técnico exige la evidencia de VERIFICACION. Las fechas históricas de Linear y esta carpeta no fijan compromisos de entrega.

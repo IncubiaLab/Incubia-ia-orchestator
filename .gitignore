@@ -1,5 +1,6 @@
 .venv
 .env
+/deploy/e3-d0.env
 __pycache__/
 *.pyc
 logs/

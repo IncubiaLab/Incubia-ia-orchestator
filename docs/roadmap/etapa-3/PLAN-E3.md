@@ -1,6 +1,6 @@
 # Plan ejecutable — etapa 3
 
-Estado: planificación completa, ejecución pendiente. Seguir [BASE](BASE.md), [GOALS](GOALS.md) y [GLOSARIO](GLOSARIO.md). Implementar un slice por tarea, mantener modo offline y registrar evidencia en [VERIFICACION](VERIFICACION.md). No hacer commits, despliegues ni cierre de issues automáticamente por seguir este documento.
+Estado: planificación en ejecución. Seguir [BASE](BASE.md), [GOALS](GOALS.md) y [GLOSARIO](GLOSARIO.md). Implementar un slice por tarea, mantener modo offline y registrar evidencia en [VERIFICACION](VERIFICACION.md). No hacer commits, despliegues ni cierre de issues automáticamente por seguir este documento. E3-D0 es una pista preliminar de Docker Compose y no sustituye el gate E3-0 ni las tareas H1–H5.
 
 ## Entorno de ejecución previsto
 
@@ -9,6 +9,24 @@ Python ≥3.12 según pyproject.toml. Usar el entorno del proyecto, por ejemplo 
 Conservar red bloqueada en la suite offline. PostgreSQL local/Neon y proveedor real se prueban en suite o runner explícito con configuración sintética; nunca desbloquear toda la suite por defecto. Credenciales fuera de repo, logs y argumentos CLI. Seleccionar y fijar dependencias nuevas en la tarea que las requiere, tras consultar documentación oficial vigente.
 
 ## Tareas
+
+<a id="e3-d0"></a>
+
+### E3-D0 — Baseline de deployment Docker Compose
+
+**Pista:** preliminar y paralela a H0–H5; no es E3-0. **Goals:** evidencia local acotada, sin cierre de G1–G9. **Dependencias:** contratos E3-02 disponibles cuando se integren; puede iniciar con adapters deterministas antes de Neon.
+
+Crear una imagen Python 3.12 multi-stage, reproducible y sin secretos, que ejecute como usuario no-root y escriba logs sanitizados a stdout. Añadir Docker Compose con `postgres` local y volumen persistente, migrador one-shot con credenciales separadas y una sola `app` que espere DB saludable y migración completada. Publicar únicamente `127.0.0.1`; Compose es un baseline local de instancia única, no una decisión de Kubernetes, múltiples réplicas, microservicios ni aprobación de ADR-024.
+
+Exponer `GET /healthz`, `GET /readyz` y `POST /v1/executions`. Readiness exige configuración válida, migraciones aplicadas y PostgreSQL accesible. El `POST` local sin autenticación sólo acepta mensaje y clave de conversación; rechaza `deployment_id`, `tenant_id` y `actor_id` de cliente, pues toma un scope sintético fijo de configuración. Debe quedar prohibido fuera de loopback, staging y producción.
+
+El camino usa los puertos de conversación, policy, routing y runtime con LLM falso y seams deterministas sin I/O para tool/retrieval. Esos seams devuelven evidencia vacía y no implementan ni acreditan los contratos H3/H4 ni proveedores reales. Cada solicitud reserva/commitea inbox, revisión, turno, outcome y outbox en PostgreSQL; genera un `execution_id` nuevo y conserva el mismo `conversation_id` cuando el cliente encadena turnos. Un turno puede tomar otra capability/perfil, pero termina tras su commit: no hay bucles internos ilimitados ni un contenedor por moneda, eje o círculo.
+
+**Archivos objetivo:** `Dockerfile; .dockerignore; compose.yaml; deploy/; migrations/postgres/; src/incubia_orchestrator/interfaces/http/; src/incubia_orchestrator/bootstrap/; tests/{unit,integration}/; scripts/e3/` según el slice implementado.
+
+**Validación y salida E3-D0-L:** usar `docker compose --env-file deploy/e3-d0.env build` y `scripts/e3/d0_smoke.sh`; imagen/proceso no-root; readiness falla sin DB/schema y pasa tras preflight; tres solicitudes encadenadas conservan conversación, revisión e IDs y recorren ramas deterministas distintas; replay no duplica turno/outcome/entrega; reiniciar `app` conserva conversación; SIGTERM deja estado recuperable; logs/health no filtran secretos; y no hay red a LLM, Telegram, tools o Neon. Registrar artefacto y comandos en VERIFICACION. Esta salida no cierra H1–H5.
+
+**E3-D0-R diferido:** sólo después de H1–H4, credenciales y presupuesto aprobados, reutilizar la imagen y contrato HTTP para Neon, pgvector, una READ y LLM reales. Registrar presupuesto, audit y métricas en evidencia independiente; su éxito no sustituye G2–G9 ni los gates E3-1…E3-5.
 
 <a id="e3-01"></a>
 
@@ -148,7 +166,7 @@ Application coordina tool READ y retrieval con contexto/perfil, límites de paso
 
 **Hito:** H5. **Goals:** G7/G9. **Dependencias:** 04/08/11.
 
-Persistir eventos propios de audit y emitir métricas scoped de latencia/costo/errores/saturación. Imagen app única y health/readiness/graceful shutdown; telemetría concreta y hosting se registran en D8, no se eligen anticipadamente. Añadir HTTP/worker únicamente si mediciones lo requieren.
+Persistir eventos propios de audit y emitir métricas scoped de latencia/costo/errores/saturación. E3-D0 puede haber acreditado una imagen única, health/readiness y shutdown local; H5 amplía esa base con telemetría, carga, autoridad y hosting decididos en D8. Añadir HTTP/worker únicamente si mediciones lo requieren; no interpretar Compose local como ratificación de topología productiva.
 
 **Archivos objetivo:** `modules/audit/; foundation/telemetry.py; bootstrap/composition.py; deploy/; tests/integration/test_e3_shutdown.py`.
 
