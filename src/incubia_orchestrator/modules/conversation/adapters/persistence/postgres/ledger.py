@@ -1,4 +1,4 @@
-"""PostgreSQL adapter for the E3-D0 local deployment ledger.
+"""PostgreSQL adapter for the shared E3 Conversation ledger.
 
 The adapter is deliberately synchronous and opens only short transactions; no
 provider call may run while a transaction is held.
@@ -11,8 +11,8 @@ from uuid import uuid4
 
 from incubia_orchestrator.foundation.contracts.execution import ConversationTurn, ExecutionScope
 from incubia_orchestrator.modules.conversation.ports.ledger import (
-    ConversationCommit, IdempotencyConflict, InboxReservation, RevisionConflict,
-    ScopeConflict,
+    ClaimConflict, ClaimToken, ConversationCommit, IdempotencyConflict,
+    InboxReservation, RevisionConflict, ScopeConflict, conversation_claim_key,
 )
 
 
@@ -33,23 +33,49 @@ class PostgresLedger:
         return psycopg
 
     @contextmanager
-    def _transaction(self):
+    def _transaction(self, scope: ExecutionScope | tuple[str, str] | None = None):
         connection = self._driver().connect(
             self.database_url, connect_timeout=self.CONNECT_TIMEOUT_SECONDS
         )
         try:
             with connection.transaction():
+                if scope is not None:
+                    deployment_id, tenant_id = self._scope_values(scope)
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT set_config('app.deployment_id', %s, true), "
+                            "set_config('app.tenant_id', %s, true)",
+                            (deployment_id, tenant_id),
+                        )
                 yield connection
         finally:
             connection.close()
+
+    @staticmethod
+    def _scope_values(scope: ExecutionScope | tuple[str, str]) -> tuple[str, str]:
+        if isinstance(scope, tuple):
+            deployment_id, tenant_id = scope
+        else:
+            deployment_id, tenant_id = scope.deployment_id, scope.tenant_id
+        if not deployment_id or not tenant_id:
+            raise ValueError("A trusted deployment and tenant scope is required")
+        return deployment_id, tenant_id
 
     def migrate(self, migration_path: Path) -> None:
         sql = migration_path.read_text(encoding="utf-8")
         with self._transaction() as connection:
             with connection.cursor() as cursor:
+                cursor.execute("SELECT to_regclass('public.schema_migrations')")
+                if cursor.fetchone()[0] is not None:
+                    cursor.execute(
+                        "SELECT 1 FROM schema_migrations WHERE version=%s",
+                        (migration_path.name,),
+                    )
+                    if cursor.fetchone() is not None:
+                        return
                 cursor.execute(sql)
                 cursor.execute(
-                    "INSERT INTO schema_migrations(version) VALUES (%s) ON CONFLICT DO NOTHING",
+                    "INSERT INTO schema_migrations(version) VALUES (%s)",
                     (migration_path.name,),
                 )
 
@@ -57,7 +83,18 @@ class PostgresLedger:
         try:
             with self._transaction() as connection:
                 with connection.cursor() as cursor:
-                    cursor.execute("SELECT 1 FROM schema_migrations WHERE version=%s", ("001_e3_d0_ledger.sql",))
+                    cursor.execute("SELECT current_user")
+                    role = cursor.fetchone()[0]
+                    required_version = {
+                        "d0_runtime": "001_e3_d0_ledger.sql",
+                        "incubia_runtime": "003_e3_h1_claims.sql",
+                    }.get(role)
+                    if required_version is None:
+                        return False
+                    cursor.execute(
+                        "SELECT 1 FROM schema_migrations WHERE version=%s",
+                        (required_version,),
+                    )
                     return cursor.fetchone() is not None
         except Exception:
             return False
@@ -70,59 +107,203 @@ class PostgresLedger:
                       event_id: str, payload: dict, *, channel: str = "http") -> InboxReservation:
         digest = self._hash(payload)
         key = (deployment_id, tenant_id, channel, account, event_id)
-        with self._transaction() as connection:
+        with self._transaction((deployment_id, tenant_id)) as connection:
             with connection.cursor() as cursor:
-                cursor.execute(
-                    "SELECT payload_hash, request_id, execution_id, state "
-                    "FROM inbox_events WHERE deployment_id=%s AND tenant_id=%s "
-                    "AND channel=%s AND channel_account_ref=%s AND external_event_id=%s FOR UPDATE",
-                    key,
-                )
-                row = cursor.fetchone()
-                if row:
-                    if row[0] != digest:
-                        raise IdempotencyConflict("Same event key has a different payload")
-                    return InboxReservation(str(row[1]), str(row[2]), row[3], False)
                 request_id, execution_id = str(uuid4()), str(uuid4())
                 cursor.execute(
                     "INSERT INTO inbox_events (deployment_id, tenant_id, channel, channel_account_ref, "
                     "external_event_id, payload_hash, payload_json, request_id, execution_id, state) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s::uuid, %s::uuid, 'RECEIVED')",
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s::uuid, %s::uuid, 'RECEIVED') "
+                    "ON CONFLICT (deployment_id, tenant_id, channel, channel_account_ref, external_event_id) "
+                    "DO NOTHING RETURNING request_id, execution_id, state",
                     (*key, digest, json.dumps(payload), request_id, execution_id),
                 )
-                return InboxReservation(request_id, execution_id, "RECEIVED", True)
+                row = cursor.fetchone()
+                if row is not None:
+                    return InboxReservation(str(row[0]), str(row[1]), row[2], True)
+                cursor.execute(
+                    "SELECT payload_hash, request_id, execution_id, state FROM inbox_events "
+                    "WHERE deployment_id=%s AND tenant_id=%s AND channel=%s "
+                    "AND channel_account_ref=%s AND external_event_id=%s FOR UPDATE",
+                    key,
+                )
+                existing = cursor.fetchone()
+                if existing is None:
+                    raise RuntimeError("Inbox conflict could not be reconciled")
+                if existing[0] != digest:
+                    raise IdempotencyConflict("Same event key has a different payload")
+                return InboxReservation(str(existing[1]), str(existing[2]), existing[3], False)
 
-    def claim(self, execution_id: str) -> bool:
-        with self._transaction() as connection:
+    @staticmethod
+    def _lease_seconds(value: float) -> float:
+        if not 0 < value <= 300:
+            raise ValueError("Claim lease must be between 0 and 300 seconds")
+        return float(value)
+
+    @classmethod
+    def _acquire_claim_in_transaction(
+        cls, cursor, scope: ExecutionScope, resource_type: str,
+        resource_key: str, owner_id: str, lease_seconds: float,
+    ) -> ClaimToken | None:
+        seconds = cls._lease_seconds(lease_seconds)
+        if not resource_type or not resource_key or not owner_id:
+            raise ValueError("Claim resource and owner are required")
+        cursor.execute(
+            "INSERT INTO resource_claims AS current_claim "
+            "(deployment_id, tenant_id, resource_type, resource_key, owner_id, generation, lease_until) "
+            "VALUES (%s, %s, %s, %s, %s, 1, clock_timestamp() + (%s * interval '1 second')) "
+            "ON CONFLICT (deployment_id, tenant_id, resource_type, resource_key) DO UPDATE SET "
+            "owner_id=EXCLUDED.owner_id, generation=current_claim.generation + 1, "
+            "lease_until=EXCLUDED.lease_until, updated_at=clock_timestamp() "
+            "WHERE current_claim.lease_until <= clock_timestamp() "
+            "RETURNING generation",
+            (scope.deployment_id, scope.tenant_id, resource_type, resource_key,
+             owner_id, seconds),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return ClaimToken(
+            scope.deployment_id, scope.tenant_id, resource_type,
+            resource_key, owner_id, row[0],
+        )
+
+    def acquire_claim(
+        self, scope: ExecutionScope, *, resource_type: str, resource_key: str,
+        owner_id: str, lease_seconds: float = 60,
+    ) -> ClaimToken | None:
+        if resource_type == "execution":
+            raise ValueError("Execution claims must be acquired through claim()")
+        with self._transaction(scope) as connection:
             with connection.cursor() as cursor:
-                cursor.execute("UPDATE inbox_events SET state='PROCESSING' WHERE execution_id=%s::uuid AND state='RECEIVED'", (execution_id,))
+                return self._acquire_claim_in_transaction(
+                    cursor, scope, resource_type, resource_key, owner_id, lease_seconds
+                )
+
+    def claim(
+        self, execution_id: str, *, scope: ExecutionScope | None = None,
+        owner_id: str, lease_seconds: float = 60,
+    ) -> ClaimToken | None:
+        if scope is None:
+            raise ValueError("A trusted scope is required to claim an event")
+        with self._transaction(scope) as connection:
+            with connection.cursor() as cursor:
+                token = self._acquire_claim_in_transaction(
+                    cursor, scope, "execution", execution_id, owner_id, lease_seconds
+                )
+                if token is None:
+                    return None
+                cursor.execute(
+                    "UPDATE inbox_events SET state='PROCESSING' WHERE execution_id=%s::uuid "
+                    "AND deployment_id=%s AND tenant_id=%s AND state IN ('RECEIVED', 'PROCESSING')",
+                    (execution_id, scope.deployment_id, scope.tenant_id),
+                )
+                if cursor.rowcount != 1:
+                    cursor.execute(
+                        "UPDATE resource_claims SET lease_until=clock_timestamp(), "
+                        "updated_at=clock_timestamp() WHERE deployment_id=%s AND tenant_id=%s "
+                        "AND resource_type=%s AND resource_key=%s AND owner_id=%s AND generation=%s",
+                        (token.deployment_id, token.tenant_id, token.resource_type,
+                         token.resource_key, token.owner_id, token.generation),
+                    )
+                    return None
+                return token
+
+    def renew_claim(self, token: ClaimToken, *, lease_seconds: float = 60) -> bool:
+        seconds = self._lease_seconds(lease_seconds)
+        scope = (token.deployment_id, token.tenant_id)
+        with self._transaction(scope) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE resource_claims SET lease_until=clock_timestamp() + (%s * interval '1 second'), "
+                    "updated_at=clock_timestamp() WHERE deployment_id=%s AND tenant_id=%s "
+                    "AND resource_type=%s AND resource_key=%s AND owner_id=%s AND generation=%s "
+                    "AND lease_until > clock_timestamp()",
+                    (seconds, token.deployment_id, token.tenant_id, token.resource_type,
+                     token.resource_key, token.owner_id, token.generation),
+                )
                 return cursor.rowcount == 1
 
-    def recover_interrupted(self) -> int:
-        """Return unfinished local work to RECEIVED after an app restart.
+    def release_claim(self, token: ClaimToken) -> bool:
+        with self._transaction((token.deployment_id, token.tenant_id)) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE resource_claims SET lease_until=clock_timestamp(), "
+                    "updated_at=clock_timestamp() WHERE deployment_id=%s AND tenant_id=%s "
+                    "AND resource_type=%s AND resource_key=%s AND owner_id=%s AND generation=%s",
+                    (token.deployment_id, token.tenant_id, token.resource_type,
+                     token.resource_key, token.owner_id, token.generation),
+                )
+                return cursor.rowcount == 1
+
+    def recover_interrupted(self, *, deployment_id: str, tenant_id: str) -> int:
+        """Return this tenant's unfinished local-only work after an app restart.
 
         E3-D0 has a single runtime process and no external side effect.  A
         PROCESSING record therefore has not been delivered yet and is safe to
         replay through the deterministic runtime.  Later multi-replica/
         external-tool work must use fencing instead of this recovery rule.
         """
-        with self._transaction() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute("UPDATE inbox_events SET state='RECEIVED' WHERE state='PROCESSING'")
-                return cursor.rowcount
-
-    def return_to_received(self, execution_id: str) -> bool:
-        with self._transaction() as connection:
+        scope = (deployment_id, tenant_id)
+        with self._transaction(scope) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
-                    "UPDATE inbox_events SET state='RECEIVED' "
-                    "WHERE execution_id=%s::uuid AND state='PROCESSING'",
-                    (execution_id,),
+                    "UPDATE inbox_events AS event SET state='RECEIVED' WHERE event.deployment_id=%s "
+                    "AND event.tenant_id=%s AND event.state='PROCESSING' AND EXISTS ("
+                    "SELECT 1 FROM resource_claims AS claim WHERE claim.deployment_id=event.deployment_id "
+                    "AND claim.tenant_id=event.tenant_id AND claim.resource_type='execution' "
+                    "AND claim.resource_key=event.execution_id::text AND claim.lease_until<=clock_timestamp())",
+                    scope,
                 )
-                return cursor.rowcount == 1
+                return cursor.rowcount
+
+    def return_to_received(
+        self, execution_id: str, *, scope: ExecutionScope, claim_token: ClaimToken,
+    ) -> bool:
+        with self._transaction(scope) as connection:
+            with connection.cursor() as cursor:
+                if not self._claim_is_current(
+                    cursor, claim_token, scope, "execution", execution_id
+                ):
+                    return False
+                cursor.execute(
+                    "UPDATE inbox_events SET state='RECEIVED' "
+                    "WHERE execution_id=%s::uuid AND deployment_id=%s AND tenant_id=%s "
+                    "AND state='PROCESSING'",
+                    (execution_id, scope.deployment_id, scope.tenant_id),
+                )
+                changed = cursor.rowcount == 1
+                if changed:
+                    self._expire_claim(cursor, claim_token)
+                return changed
+
+    @staticmethod
+    def _claim_is_current(cursor, token: ClaimToken, scope: ExecutionScope,
+                          resource_type: str, resource_key: str) -> bool:
+        if (token.deployment_id != scope.deployment_id or token.tenant_id != scope.tenant_id
+                or token.resource_type != resource_type or token.resource_key != resource_key):
+            return False
+        cursor.execute(
+            "SELECT 1 FROM resource_claims WHERE deployment_id=%s AND tenant_id=%s "
+            "AND resource_type=%s AND resource_key=%s AND owner_id=%s AND generation=%s "
+            "AND lease_until > clock_timestamp() FOR UPDATE",
+            (token.deployment_id, token.tenant_id, token.resource_type, token.resource_key,
+             token.owner_id, token.generation),
+        )
+        return cursor.fetchone() is not None
+
+    @staticmethod
+    def _expire_claim(cursor, token: ClaimToken) -> None:
+        cursor.execute(
+            "UPDATE resource_claims SET lease_until=clock_timestamp(), updated_at=clock_timestamp() "
+            "WHERE deployment_id=%s AND tenant_id=%s AND resource_type=%s AND resource_key=%s "
+            "AND owner_id=%s AND generation=%s",
+            (token.deployment_id, token.tenant_id, token.resource_type, token.resource_key,
+             token.owner_id, token.generation),
+        )
 
     def conversation_revision(self, scope: ExecutionScope) -> int:
-        with self._transaction() as connection:
+        with self._transaction(scope) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     "SELECT revision FROM conversations WHERE deployment_id=%s AND tenant_id=%s "
@@ -135,7 +316,7 @@ class PostgresLedger:
     def conversation_history(self, scope: ExecutionScope, *, limit: int = 20) -> tuple[ConversationTurn, ...]:
         if limit < 1:
             raise ValueError("History limit must be positive")
-        with self._transaction() as connection:
+        with self._transaction(scope) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     "SELECT user_text, assistant_text FROM ("
@@ -148,12 +329,33 @@ class PostgresLedger:
                 return tuple(ConversationTurn(*row) for row in cursor.fetchall())
 
     def commit_conversation(self, commit: ConversationCommit) -> int:
-        with self._transaction() as connection:
+        with self._transaction(commit.scope) as connection:
             with connection.cursor() as cursor:
+                execution_claims = [
+                    claim for claim in commit.claim_tokens
+                    if claim.resource_type == "execution"
+                ]
+                conversation_claims = [
+                    claim for claim in commit.claim_tokens
+                    if claim.resource_type == "conversation"
+                ]
+                conversation_key = conversation_claim_key(commit.scope)
+                if (len(execution_claims) != 1 or len(conversation_claims) != 1
+                        or len(commit.claim_tokens) != 2
+                        or not self._claim_is_current(
+                            cursor, execution_claims[0], commit.scope,
+                            "execution", commit.execution_id,
+                        )
+                        or not self._claim_is_current(
+                            cursor, conversation_claims[0], commit.scope,
+                            "conversation", conversation_key,
+                        )):
+                    raise ClaimConflict("Conversation commit has no current fencing claims")
                 cursor.execute(
                     "SELECT deployment_id, tenant_id FROM inbox_events "
-                    "WHERE execution_id=%s::uuid AND state='PROCESSING' FOR UPDATE",
-                    (commit.execution_id,),
+                    "WHERE execution_id=%s::uuid AND deployment_id=%s AND tenant_id=%s "
+                    "AND state='PROCESSING' FOR UPDATE",
+                    (commit.execution_id, commit.scope.deployment_id, commit.scope.tenant_id),
                 )
                 event = cursor.fetchone()
                 if event is None:
@@ -175,8 +377,10 @@ class PostgresLedger:
                 if cursor.rowcount != 1:
                     raise RevisionConflict("Conversation revision changed")
                 cursor.execute(
-                    "INSERT INTO outcomes (execution_id, outcome_json) VALUES (%s::uuid, %s::jsonb)",
-                    (commit.execution_id, json.dumps(commit.outcome)),
+                    "INSERT INTO outcomes (execution_id, deployment_id, tenant_id, outcome_json) "
+                    "VALUES (%s::uuid, %s, %s, %s::jsonb)",
+                    (commit.execution_id, commit.scope.deployment_id, commit.scope.tenant_id,
+                     json.dumps(commit.outcome)),
                 )
                 cursor.execute(
                     "INSERT INTO turns (execution_id, deployment_id, tenant_id, conversation_id, actor_id, "
@@ -186,22 +390,29 @@ class PostgresLedger:
                      commit.turn.user, commit.turn.assistant),
                 )
                 cursor.execute(
-                    "INSERT INTO deliveries (execution_id, response_id, destination_ref, payload_json, state) "
-                    "VALUES (%s::uuid, %s, %s, %s::jsonb, 'PENDING')",
-                    (commit.execution_id, commit.response_id, commit.destination_ref,
-                     json.dumps(commit.public_payload)),
+                    "INSERT INTO deliveries (execution_id, deployment_id, tenant_id, response_id, "
+                    "destination_ref, payload_json, state) "
+                    "VALUES (%s::uuid, %s, %s, %s, %s, %s::jsonb, 'PENDING')",
+                    (commit.execution_id, commit.scope.deployment_id, commit.scope.tenant_id,
+                     commit.response_id, commit.destination_ref, json.dumps(commit.public_payload)),
                 )
                 cursor.execute(
                     "UPDATE inbox_events SET state='COMPLETED', terminal_at=now() "
-                    "WHERE execution_id=%s::uuid",
-                    (commit.execution_id,),
+                    "WHERE execution_id=%s::uuid AND deployment_id=%s AND tenant_id=%s",
+                    (commit.execution_id, commit.scope.deployment_id, commit.scope.tenant_id),
                 )
+                self._expire_claim(cursor, execution_claims[0])
+                self._expire_claim(cursor, conversation_claims[0])
                 return commit.expected_revision + 1
 
-    def outcome(self, execution_id: str) -> dict | None:
-        with self._transaction() as connection:
+    def outcome(self, execution_id: str, *, scope: ExecutionScope) -> dict | None:
+        with self._transaction(scope) as connection:
             with connection.cursor() as cursor:
-                cursor.execute("SELECT outcome_json FROM outcomes WHERE execution_id=%s::uuid", (execution_id,))
+                cursor.execute(
+                    "SELECT outcome_json FROM outcomes WHERE execution_id=%s::uuid "
+                    "AND deployment_id=%s AND tenant_id=%s",
+                    (execution_id, scope.deployment_id, scope.tenant_id),
+                )
                 row = cursor.fetchone()
                 if row is None:
                     return None

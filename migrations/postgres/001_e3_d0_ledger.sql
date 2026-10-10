@@ -55,20 +55,32 @@ CREATE TABLE IF NOT EXISTS deliveries (
     PRIMARY KEY (execution_id, response_id, destination_ref)
 );
 
--- E3-D0 runs migrations with d0_migrator and the app with d0_runtime. The
--- role must have been created by the local postgres init hook: failing here
--- avoids a successful migration that can never be used by the runtime role.
+-- E3-D0 uses d0_runtime; the Neon H1 branch uses incubia_runtime. In either
+-- case the migration must fail closed if no runtime role was provisioned.
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'd0_runtime') THEN
-        RAISE EXCEPTION 'E3-D0 runtime role d0_runtime is missing';
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('d0_runtime', 'incubia_runtime')) THEN
+        RAISE EXCEPTION 'No approved runtime role is provisioned';
     END IF;
 END
 $$;
 
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
-GRANT USAGE ON SCHEMA public TO d0_runtime;
-REVOKE CREATE ON SCHEMA public FROM d0_runtime;
-GRANT SELECT ON schema_migrations TO d0_runtime;
-GRANT SELECT, INSERT, UPDATE ON inbox_events, conversations TO d0_runtime;
-GRANT SELECT, INSERT ON turns, outcomes, deliveries TO d0_runtime;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'd0_runtime') THEN
+        GRANT USAGE ON SCHEMA public TO d0_runtime;
+        REVOKE CREATE ON SCHEMA public FROM d0_runtime;
+        GRANT SELECT ON schema_migrations TO d0_runtime;
+        GRANT SELECT, INSERT, UPDATE ON inbox_events, conversations TO d0_runtime;
+        GRANT SELECT, INSERT ON turns, outcomes, deliveries TO d0_runtime;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'incubia_runtime') THEN
+        GRANT USAGE ON SCHEMA public TO incubia_runtime;
+        REVOKE CREATE ON SCHEMA public FROM incubia_runtime;
+        GRANT SELECT ON schema_migrations TO incubia_runtime;
+        GRANT SELECT, INSERT, UPDATE ON inbox_events, conversations TO incubia_runtime;
+        GRANT SELECT, INSERT ON turns, outcomes, deliveries TO incubia_runtime;
+    END IF;
+END
+$$;

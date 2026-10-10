@@ -73,6 +73,8 @@ En E3-D0-L el ingress sólo se publica en `127.0.0.1`. Recibe mensaje y clave de
 | H5. Operación | E3-12/13: audit/métricas, deployment, carga, fallos y rollback | **E3-5:** G7/G9 y SLO acordados con mediciones; restore/shutdown y límites operativos reproducibles. |
 | H6. Validación integrada | E3-14/15: lead/case internos, evaluación real y expediente | **E3-6:** G1–G9 completos, cero fallos críticos, presupuesto reconciliado y decisión de release registrada. |
 
+Para H1, E3-H1-N es una preparación de infraestructura (no un gate): rama Neon sintética temporal, base Control Plane, roles separados, DSNs y runner explícito. El provisioning SQL y el slice inicial E3-03/04 están probados; falta account ownership/dispatcher, UNKNOWN_EFFECT e import/restore, por lo que E3-1 sigue abierto. Consultar evidencia vigente en [RUNBOOK](RUNBOOK.md) y [PROGRESS](PROGRESS.md).
+
 ## Dependencias
 
 ```text

@@ -10,6 +10,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Protocol
+from uuid import uuid4
 
 from incubia_orchestrator.foundation.contracts.execution import (
     CompletedExecution,
@@ -21,8 +22,10 @@ from incubia_orchestrator.foundation.contracts.execution import (
     to_dict,
 )
 from incubia_orchestrator.modules.conversation.ports.ledger import (
+    ClaimToken,
     ConversationCommit,
     RevisionConflict,
+    conversation_claim_key,
 )
 from incubia_orchestrator.modules.governance.adapters.policy.in_process.engine import (
     Authority,
@@ -114,15 +117,20 @@ class D0Settings:
 
 class D0Ledger(Protocol):
     def ready(self) -> bool: ...
-    def recover_interrupted(self) -> int: ...
+    def recover_interrupted(self, *, deployment_id: str, tenant_id: str) -> int: ...
     def reserve_inbox(self, deployment_id: str, tenant_id: str, account: str,
                       event_id: str, payload: dict, *, channel: str): ...
-    def claim(self, execution_id: str) -> bool: ...
-    def return_to_received(self, execution_id: str) -> bool: ...
+    def claim(self, execution_id: str, *, scope: ExecutionScope,
+              owner_id: str, lease_seconds: float) -> ClaimToken | None: ...
+    def acquire_claim(self, scope: ExecutionScope, *, resource_type: str, resource_key: str,
+                      owner_id: str, lease_seconds: float) -> ClaimToken | None: ...
+    def return_to_received(self, execution_id: str, *, scope: ExecutionScope,
+                           claim_token: ClaimToken) -> bool: ...
+    def release_claim(self, token: ClaimToken) -> bool: ...
     def conversation_history(self, scope: ExecutionScope, *, limit: int) -> tuple[ConversationTurn, ...]: ...
     def conversation_revision(self, scope: ExecutionScope) -> int: ...
     def commit_conversation(self, commit: ConversationCommit) -> int: ...
-    def outcome(self, execution_id: str) -> dict | None: ...
+    def outcome(self, execution_id: str, *, scope: ExecutionScope) -> dict | None: ...
 
 
 class D0RuntimePort(Protocol):
@@ -177,14 +185,21 @@ class D0Deployment:
         self.settings = settings
         self._ledger = ledger
         self._runtime = runtime
+        self._claim_lease_seconds = 120
 
     def ready(self) -> bool:
         return self._ledger.ready()
 
     def recover_interrupted(self) -> int:
-        return self._ledger.recover_interrupted()
+        return self._ledger.recover_interrupted(
+            deployment_id=self.settings.deployment_id,
+            tenant_id=self.settings.tenant_id,
+        )
 
-    def _return_to_received_safely(self, execution_id: str) -> None:
+    def _return_to_received_safely(
+        self, execution_id: str, scope: ExecutionScope,
+        event_claim: ClaimToken, conversation_claim: ClaimToken | None,
+    ) -> None:
         """Release local-only work after a recoverable failure when possible.
 
         A successful durable commit has already changed the row to COMPLETED,
@@ -192,9 +207,14 @@ class D0Deployment:
         startup recovery will revisit unfinished local work after it returns.
         """
         try:
-            self._ledger.return_to_received(execution_id)
+            self._ledger.return_to_received(execution_id, scope=scope, claim_token=event_claim)
         except Exception:
             pass
+        if conversation_claim is not None:
+            try:
+                self._ledger.release_claim(conversation_claim)
+            except Exception:
+                pass
 
     @staticmethod
     def _validate(message: object, conversation_id: object, idempotency_key: object) -> tuple[str, str, str]:
@@ -229,14 +249,28 @@ class D0Deployment:
             channel="http",
         )
         if not reservation.is_new and reservation.state == "COMPLETED":
-            stored = self._ledger.outcome(reservation.execution_id)
+            stored = self._ledger.outcome(reservation.execution_id, scope=scope)
             if stored is None or not isinstance(stored.get("http_response"), dict):
                 raise ExecutionUnavailable("Completed request has no recoverable response")
             return self._replayed(stored["http_response"])
-        if reservation.state == "PROCESSING":
+        if reservation.state not in {"RECEIVED", "PROCESSING"}:
             raise ExecutionInProgress("The idempotency key is being processed")
-        if reservation.state != "RECEIVED" or not self._ledger.claim(reservation.execution_id):
+        owner_id = str(uuid4())
+        event_claim = self._ledger.claim(
+            reservation.execution_id, scope=scope, owner_id=owner_id,
+            lease_seconds=self._claim_lease_seconds,
+        )
+        if event_claim is None:
             raise ExecutionInProgress("The idempotency key is being processed")
+        conversation_claim = self._ledger.acquire_claim(
+            scope, resource_type="conversation", resource_key=conversation_claim_key(scope),
+            owner_id=owner_id, lease_seconds=self._claim_lease_seconds,
+        )
+        if conversation_claim is None:
+            self._return_to_received_safely(
+                reservation.execution_id, scope, event_claim, None
+            )
+            raise ExecutionInProgress("The conversation is being processed")
 
         try:
             history = self._ledger.conversation_history(scope, limit=self.settings.history_limit)
@@ -248,7 +282,9 @@ class D0Deployment:
                 history=history,
             )
         except Exception:
-            self._return_to_received_safely(reservation.execution_id)
+            self._return_to_received_safely(
+                reservation.execution_id, scope, event_claim, conversation_claim
+            )
             raise
 
         completed = runtime_result.completed
@@ -281,6 +317,7 @@ class D0Deployment:
                                 "deterministic_adapters": runtime_result.deterministic_adapters,
                             },
                             turn=ConversationTurn(message, completed.output.text),
+                            claim_tokens=(event_claim, conversation_claim),
                         )
                     )
                     if committed_revision != response["revision"]:
@@ -289,7 +326,11 @@ class D0Deployment:
                 except RevisionConflict:
                     continue
         except Exception:
-            self._return_to_received_safely(reservation.execution_id)
+            self._return_to_received_safely(
+                reservation.execution_id, scope, event_claim, conversation_claim
+            )
             raise
-        self._return_to_received_safely(reservation.execution_id)
+        self._return_to_received_safely(
+            reservation.execution_id, scope, event_claim, conversation_claim
+        )
         raise ExecutionInProgress("Conversation changed while this request was committing")

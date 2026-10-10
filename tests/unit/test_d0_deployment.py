@@ -15,7 +15,9 @@ from incubia_orchestrator.foundation.contracts.execution import (
 )
 from incubia_orchestrator.foundation.contracts.specialty import Specialty
 from incubia_orchestrator.interfaces.http.main import validate_bind_host, validate_execution_payload
-from incubia_orchestrator.modules.conversation.ports.ledger import ConversationCommit, InboxReservation
+from incubia_orchestrator.modules.conversation.ports.ledger import (
+    ClaimToken, ConversationCommit, InboxReservation,
+)
 
 
 class Ledger:
@@ -29,7 +31,7 @@ class Ledger:
     def ready(self):
         return True
 
-    def recover_interrupted(self):
+    def recover_interrupted(self, *, deployment_id, tenant_id):
         return 0
 
     def reserve_inbox(self, deployment_id, tenant_id, account, event_id, payload, *, channel):
@@ -48,14 +50,22 @@ class Ledger:
         self.events[key] = event
         return InboxReservation(event["request_id"], event["execution_id"], event["state"], True)
 
-    def claim(self, execution_id):
+    def claim(self, execution_id, *, scope, owner_id, lease_seconds):
         for event in self.events.values():
             if event["execution_id"] == execution_id and event["state"] == "RECEIVED":
                 event["state"] = "PROCESSING"
-                return True
-        return False
+                return ClaimToken(scope.deployment_id, scope.tenant_id, "execution",
+                                  execution_id, owner_id, 1)
+        return None
 
-    def return_to_received(self, execution_id):
+    def acquire_claim(self, scope, *, resource_type, resource_key, owner_id, lease_seconds):
+        return ClaimToken(scope.deployment_id, scope.tenant_id, resource_type,
+                          resource_key, owner_id, 1)
+
+    def release_claim(self, token):
+        return True
+
+    def return_to_received(self, execution_id, *, scope, claim_token):
         for event in self.events.values():
             if event["execution_id"] == execution_id:
                 event["state"] = "RECEIVED"
@@ -69,6 +79,7 @@ class Ledger:
         return self.revisions.get(scope, 0)
 
     def commit_conversation(self, commit: ConversationCommit):
+        assert len(commit.claim_tokens) == 2
         assert self.conversation_revision(commit.scope) == commit.expected_revision
         revision = commit.expected_revision + 1
         self.revisions[commit.scope] = revision
@@ -80,7 +91,7 @@ class Ledger:
                 event["state"] = "COMPLETED"
         return revision
 
-    def outcome(self, execution_id):
+    def outcome(self, execution_id, *, scope):
         return self.outcomes.get(execution_id)
 
 

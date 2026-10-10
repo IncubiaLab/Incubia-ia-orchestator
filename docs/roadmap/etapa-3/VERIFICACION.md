@@ -1,11 +1,12 @@
 # Verificación — etapa 3
 
-Estado: E3-D0-L está implementado, pero su evidencia Compose local aún está pendiente por falta de Docker en este workspace. No se ejecutaron campañas E3 ni se cerró ningún gate arquitectónico; E3-0…E3-6 permanecen pendientes.
+Estado: E3-D0-L está implementado, pero su evidencia Compose local aún está pendiente por falta de Docker en este workspace. E3-H1-N preparó Neon; E3-03 y el núcleo parcial de E3-04 aplicaron migraciones y pasaron 6 checks RLS/UoW/fencing. Faltan ownership Telegram/outbox, E3-05 y criterios restantes. No se cerró ningún gate arquitectónico; E3-0…E3-6 permanecen pendientes.
 
 | Gate | Tareas | Goals | Evidencia exigida | Estado |
 | --- | --- | --- | --- | --- |
 | E3-D0-L | Baseline Docker Compose paralelo | — | Build no-root, preflight/readiness, HTTP loopback, cadena/replay/reinicio durable, shutdown y ausencia de red externa | Código y smoke script listos; ejecución Compose pendiente, no cierra H1–H5 |
 | E3-D0-R | Validación real diferida tras H1–H4 | — | Neon, pgvector, READ y LLM autorizados con presupuesto, audit y métricas separados | No iniciado; no sustituye G2–G9 |
+| E3-H1-N | Preparación inicial de Neon | G2/G3/G9 | Rama sintética, roles runtime/migrador, TLS, endpoints pool/direct, grants y runner opt-in | [Preflight](E3-H1-N-PREFLIGHT.md): roles/grants/DSNs protegidos; migraciones `001`–`003` y 6 checks pasaron. No es gate ni cierra E3-1 |
 | E3-0 | 01/02 + cierre E2 | G1 | A/B/C, contratos, decisiones, SLO/retención/presupuesto/responsables | Pendiente |
 | E3-1 | 03/04/05 | G2/G3/G9 | Suite contrato DB, carrera multi-proceso/fencing, migración, aislamiento Neon, restore | Pendiente |
 | E3-2 | 06 | G3 | Dos tenants/dos actores, revocación, roles/RLS/pool y discovery fake | Pendiente |
@@ -17,6 +18,14 @@ Estado: E3-D0-L está implementado, pero su evidencia Compose local aún está p
 ## Estrategia
 
 Unitarias offline para invariantes, schemas, policy y presupuesto. Integración con fakes/HTTP simulado para errores y casos de uso. Suite PostgreSQL temporal prueba el contrato compartido con SQLite; suite Neon sintética separada comprueba roles, pooling y condiciones operativas. E2E CLI/Telegram se documenta con scopes sintéticos y red explícita. La carga fake distingue mecánica local del comportamiento LLM remoto.
+
+El acceso de red se permite únicamente a casos `@pytest.mark.neon` cuando
+`INCUBIA_E3_NEON_TESTS=1`, `INCUBIA_E3_NEON_BRANCH=e3-h1-synthetic` y el host
+de `DATABASE_URL` termina en `.neon.tech`; el runner además valida el rol,
+TLS, pooled/direct y que ambas URLs sean de la misma rama/base. Ninguna otra
+prueba pierde su bloqueo de sockets. El preflight de conexiones no reemplaza
+las pruebas de contrato, aislamiento RLS con datos, fencing ni restore de
+E3-03/04/05.
 
 Pruebas de arquitectura protegen Domain/Application de SDK, SQL y LangGraph; runtime adapta contratos propios. Canarios detectan prompts/secretos/datos de tenant o deployment ajeno en respuestas, eventos y logs. Fallos inyectados alrededor de commit/reserva/envío prueban una incorporación lógica y recuperación incierta.
 

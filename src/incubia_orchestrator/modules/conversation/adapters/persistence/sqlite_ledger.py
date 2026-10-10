@@ -10,10 +10,10 @@ from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
 
-from incubia_orchestrator.foundation.contracts.execution import ConversationTurn
+from incubia_orchestrator.foundation.contracts.execution import ConversationTurn, ExecutionScope
 from incubia_orchestrator.modules.conversation.ports.ledger import (
-    ConversationCommit, IdempotencyConflict, InboxReservation, PendingInboxEvent,
-    RevisionConflict, ScopeConflict,
+    ClaimToken, ConversationCommit, IdempotencyConflict, InboxReservation,
+    PendingInboxEvent, RevisionConflict, ScopeConflict,
 )
 
 class RunnerAlreadyActive(RuntimeError): pass
@@ -123,6 +123,19 @@ INSERT INTO schema_migrations(version) VALUES (3);""")
             "ORDER BY received_at,external_event_id", (account,)).fetchall()
         return tuple(PendingInboxEvent(*row) for row in rows)
 
+    def conversation_history(self, scope: ExecutionScope, *, limit: int = 20) -> tuple[ConversationTurn, ...]:
+        if limit < 1:
+            raise ValueError("History limit must be positive")
+        rows = self._connection.execute(
+            "SELECT user_text, assistant_text, created_at, execution_id FROM ("
+            "SELECT user_text, assistant_text, created_at, execution_id FROM turns "
+            "WHERE deployment_id=? AND tenant_id=? AND conversation_id=? AND actor_id=? "
+            "ORDER BY created_at DESC, execution_id DESC LIMIT ?"
+            ") recent ORDER BY created_at, execution_id",
+            (scope.deployment_id, scope.tenant_id, scope.conversation_id, scope.actor_id, limit),
+        ).fetchall()
+        return tuple(ConversationTurn(row[0], row[1]) for row in rows)
+
     def pending_deliveries(self):
         return self._connection.execute("SELECT execution_id,response_id,destination_ref,payload_json FROM deliveries WHERE state='PENDING' ORDER BY created_at", ()).fetchall()
 
@@ -150,8 +163,23 @@ INSERT INTO schema_migrations(version) VALUES (3);""")
             self._connection.execute("INSERT INTO inbox_events VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL)", (*key, digest, json.dumps(payload, sort_keys=True), request_id, execution_id, "RECEIVED", self._now()))
             return InboxReservation(request_id, execution_id, "RECEIVED", True)
 
-    def claim(self, execution_id):
-        with self._transaction(): return self._connection.execute("UPDATE inbox_events SET state='PROCESSING' WHERE execution_id=? AND state='RECEIVED'", (execution_id,)).rowcount == 1
+    def claim(self, execution_id, *, scope, owner_id, lease_seconds=60):
+        with self._transaction():
+            changed = self._connection.execute(
+                "UPDATE inbox_events SET state='PROCESSING' WHERE execution_id=? AND state='RECEIVED'",
+                (execution_id,),
+            ).rowcount == 1
+        if not changed:
+            return None
+        return ClaimToken(scope.deployment_id, scope.tenant_id, "execution", execution_id, owner_id, 1)
+
+    def acquire_claim(self, scope, *, resource_type, resource_key, owner_id, lease_seconds=60):
+        # SQLite remains single-runner/local. The process lock is its owner
+        # election; this token only preserves the common call/commit shape.
+        if not resource_type or not resource_key or not owner_id or lease_seconds <= 0:
+            raise ValueError("Claim resource, owner, and positive lease are required")
+        return ClaimToken(scope.deployment_id, scope.tenant_id, resource_type,
+                          resource_key, owner_id, 1)
 
     def complete(self, execution_id, response_id, destination_ref, public_payload, *, outcome=None, turn=None):
         with self._transaction():

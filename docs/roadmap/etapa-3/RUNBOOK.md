@@ -1,6 +1,6 @@
 # Runbook — etapa 3
 
-Estado: procedimiento objetivo, pendiente de ensayo. Ningún comando administrativo nuevo existe hasta la tarea que lo construye. La operación Telegram actual sigue [RUNBOOK E2](../etapa-2/RUNBOOK.md).
+Estado: E3-H1-N completó el preflight inicial; E3-03 aplicó migraciones y E3-04 tiene claims/fencing iniciales verificados. ADR-ORCH-027 está Accepted. Falta ownership del consumidor Telegram/outbox, `UNKNOWN_EFFECT` y E3-05 import/restore; H1 permanece abierto. La operación Telegram actual sigue [RUNBOOK E2](../etapa-2/RUNBOOK.md).
 
 ## E3-D0-L — baseline local Docker Compose
 
@@ -26,7 +26,60 @@ No ejecutar E3-D0-R antes de H1–H4, credenciales explícitamente autorizadas y
 
 ## Preparación
 
-Operador registra entorno, deployment, tenant sintético, commit, versiones de schemas/adapters y responsable. Secretos: DATABASE_URL runtime y conexión migrador distintas; credenciales READ y embeddings/LLM por referencia. Verificar rol runtime limitado, TLS, región, límites de pool/cuota, retención y capacidad de restauración del plan Neon contratado. Config inválida o presupuesto real ausente bloquea arranque/red correspondiente.
+### E3-H1-N — preparación inicial de Neon
+
+Esta preparación es infraestructura para E3-03/04/05, no evidencia de salida
+E3-1. La rama `e3-h1-synthetic` deriva de `production`; la rama de trabajo
+predeterminada no recibe escrituras de la campaña. El proyecto no cambia de
+región ni plan. La expiración actual de la rama es de siete días y la ventana
+PITR observada es de seis horas; el runbook de restore debe medir el alcance
+real disponible, sin presentar esa ventana como backup independiente.
+
+ADR-ORCH-027 ratifica provisioning SQL: los roles API iniciales con
+`BYPASSRLS` fueron eliminados sin grants/uso y sustituidos por roles SQL con
+`NOINHERIT NOCREATEDB NOCREATEROLE NOBYPASSRLS`. `incubia_runtime` tiene
+`CONNECT` y `USAGE` pero no `CREATE` en `public`; `incubia_migrator` tiene
+`CONNECT`, `USAGE` y `CREATE`. Ninguno es miembro de `neondb_owner`. El
+preflight opt-in pasó runtime pooled TLS y migrador directo TLS. Los DSNs
+están en `deploy/e3-neon.env` local, ignorado y modo `0600`; no copiarlos a
+logs, capturas o chat. La medición TLS debe hacerse desde libpq cliente; la
+vista `pg_stat_ssl` del backend a través del proxy no es equivalente.
+
+Las migraciones `001_e3_d0_ledger.sql`, `002_e3_h1_rls.sql` y
+`003_e3_h1_claims.sql` ya están aplicadas en la rama temporal. `002` protege
+inbox, conversations, turns, outcomes y deliveries con RLS scoped por
+deployment/tenant; el adapter fija ese scope sólo durante cada transacción.
+`003` implementa leases y fencing iniciales para evento/conversación; todavía
+no transfiere el ownership del consumidor Telegram ni modela dispatch remoto.
+
+Desde la raíz del repo, operar con este procedimiento:
+
+1. Instalar la dependencia de deployment del proyecto y preparar el entorno
+   local con `uv run --isolated --extra deployment python scripts/e3/neon_h1.py prepare`.
+   Este provisioning es de un solo uso y se niega a rotar roles/secretos si
+   encuentra identidades existentes. El archivo resultante `deploy/e3-neon.env`
+   debe permanecer ignorado por Git y en modo `0600`. No imprimir DSNs.
+2. Copiar/usar `deploy/e3-neon.env.example` sólo como referencia. El archivo
+   real lo genera el script después del preflight; no pegar secretos en chat,
+   ADRs, logs, capturas ni argumentos.
+3. Cargar el env local en la sesión del operador y habilitar únicamente la
+   suite marcada Neon: `INCUBIA_E3_NEON_TESTS=1 INCUBIA_E3_NEON_BRANCH=e3-h1-synthetic uv run --isolated --extra test --extra deployment python scripts/e3/run_neon_h1.py`.
+   El runner rechaza cualquier host fuera de `*.neon.tech`, una rama distinta,
+   roles inesperados, endpoint runtime no pooled o conexión migradora pooled.
+   Las pruebas ordinarias siguen bloqueadas de red.
+4. Antes de migrar, revisar que la rama no haya expirado y confirmar que sigue
+   derivada del origen sintético. Si expiró, crear una nueva rama desde
+   `production`, repetir la preparación y correr de nuevo la campaña; las
+   migraciones se aplican por versión y los tests limpian sus filas sintéticas.
+5. Aplicar migraciones sólo con `INCUBIA_MIGRATION_DATABASE_URL` directa y
+   `incubia_migrator`; runtime usa `DATABASE_URL` pooled con TLS y no posee
+   objetos ni `BYPASSRLS`. Contexto tenant/deployment debe configurarse dentro
+   de cada transacción. Verificar que el mismo pooler soporte este patrón antes
+   de habilitarlo para la aplicación.
+
+No preparar pgvector ni una base Knowledge en H1; corresponde a H4/ADR-010.
+
+Operador registra entorno, deployment, tenant sintético, commit, versiones de schemas/adapters y responsable. Secretos: `DATABASE_URL` runtime pooled y `INCUBIA_MIGRATION_DATABASE_URL` directa deben pertenecer a roles distintos; credenciales READ y embeddings/LLM por referencia. Verificar `rolsuper=false`, `rolbypassrls=false`, no ownership, TLS, región, límites de pool/cuota, retención y capacidad de restauración del plan Neon contratado. Config inválida o presupuesto real ausente bloquea arranque/red correspondiente.
 
 Arranque: comprobar schema compatible, DB readiness y claims; reconciliar estados inciertos antes de polling/dispatch. Verificar binding y membresía; adquirir ownership exclusivo del bot. No lanzar segundo consumidor de Telegram ni webhook y polling a la vez.
 

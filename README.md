@@ -26,6 +26,38 @@ El REPL acepta `/help`, `/exit` y EOF. Un proceso nuevo inicia una conversación
 
 Para depuración en la terminal, toda respuesta con especialidad seleccionada se identifica con `[General.specialist]`, `[Sales.specialist]` o `[Marketing.specialist]` antes del texto generado.
 
+## Telegram
+
+El runner `incubia-bot` usa long polling, el runtime de routing/policy/LangGraph y OpenAI por defecto. La entrada queda protegida por una allowlist de chats privados: copia `config/e2/bindings.example.yaml` a `config/e2/bindings.yaml` y reemplaza `external_chat_ref` y `external_sender_ref` por los ids autorizados.
+
+Para obtener esos ids sin consumir el update ni responderlo, envía `/start` al bot y ejecuta:
+
+```sh
+uv run --project . --extra test incubia-bot discover
+```
+
+Con `TELEGRAM_BOT_TOKEN` y `OPENAI_API_KEY` en `.env`, inicia el bot así:
+
+```sh
+uv run --project . --extra test incubia-bot run --bindings config/e2/bindings.yaml
+```
+
+Para aceptar varios chats privados con una sesión aislada por chat, usa el modo explícito `--multi-session` (puedes omitir `--bindings`):
+
+```sh
+uv run --project . --extra test incubia-bot run --multi-session
+```
+
+Cada chat obtiene su propio `conversation_id`, `actor_id`, historial y scope. Si necesitas una allowlist cerrada, conserva `--bindings` y añade una fila por sesión.
+
+Para comprobar Telegram sin consumir API de OpenAI:
+
+```sh
+uv run --project . --extra test incubia-bot run --fake --once --bindings config/e2/bindings.yaml
+```
+
+El ledger SQLite conserva inbox/outbox, deduplicación y el historial por conversación en `~/.local/state/incubia/telegram.sqlite3`. `--once` procesa los updates pendientes y termina; sin esa opción el proceso continúa haciendo polling. No habilites un webhook ni ejecutes dos runners para el mismo bot.
+
 ## Proveedor real
 
 La API de OpenAI requiere `OPENAI_API_KEY` y saldo de API. La aplicación lee `OPENAI_API_KEY` e `INCUBIA_MODEL` desde `.env` en el directorio actual si no están definidos en la shell. La suscripción a ChatGPT/Codex no cubre esas llamadas. Ejemplo:

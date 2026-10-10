@@ -17,6 +17,24 @@ class RevisionConflict(RuntimeError):
     pass
 
 
+class ClaimConflict(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True)
+class ClaimToken:
+    deployment_id: str
+    tenant_id: str
+    resource_type: str
+    resource_key: str
+    owner_id: str
+    generation: int
+
+
+def conversation_claim_key(scope: ExecutionScope) -> str:
+    return f"{len(scope.conversation_id)}:{scope.conversation_id}{scope.actor_id}"
+
+
 @dataclass(frozen=True)
 class InboxReservation:
     request_id: str
@@ -42,11 +60,15 @@ class ConversationCommit:
     public_payload: dict
     outcome: dict
     turn: ConversationTurn
+    claim_tokens: tuple[ClaimToken, ...] = ()
 
 
 class ConversationLedgerPort(Protocol):
     def reserve_inbox(self, deployment_id: str, tenant_id: str, account: str,
                       event_id: str, payload: dict, *, channel: str = "telegram") -> InboxReservation: ...
     def pending_inbox_events(self, account: str) -> tuple[PendingInboxEvent, ...]: ...
-    def claim(self, execution_id: str) -> bool: ...
+    def claim(self, execution_id: str, *, scope: ExecutionScope, owner_id: str,
+              lease_seconds: float = 60) -> ClaimToken | None: ...
+    def acquire_claim(self, scope: ExecutionScope, *, resource_type: str, resource_key: str,
+                      owner_id: str, lease_seconds: float = 60) -> ClaimToken | None: ...
     def commit_conversation(self, commit: ConversationCommit) -> int: ...

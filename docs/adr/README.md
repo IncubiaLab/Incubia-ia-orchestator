@@ -18,6 +18,8 @@ Copias de los ADR de Linear que figuran como **Accepted** o **Proposed** en el [
 | [ORCH-019](ADR-ORCH-019.md) | Accepted | Conversation State y GraphState |
 | [ORCH-020](ADR-ORCH-020.md) | Accepted | Tests arquitectónicos y de contrato |
 | [ORCH-025](ADR-ORCH-025-NEON-POSTGRESQL-TIER-3.md) | Accepted for Tier 3; rollout gated | PostgreSQL administrado con Neon |
+| [ORCH-026](ADR-ORCH-026-CONTEXT-ARTIFACT-CACHE.md) | Proposed | Jerarquía de caché de artefactos de contexto |
+| [ORCH-027](ADR-ORCH-027-NEON-ROLE-PROVISIONING.md) | Accepted | Provisionamiento de roles PostgreSQL con RLS en Neon |
 
 La serie general del MVP contiene otros estados, entre ellos «Aceptado provisionalmente». Este índice conserva el estado de origen y alcance: ORCH-025 acepta la elección para Tier 3, con activación productiva condicionada por sus gates; no cambia SQLite para Gate A.
 

@@ -25,11 +25,17 @@ def test_scope_requires_authenticated_subject_to_match_trusted_binding():
 def test_sqlite_uow_commits_turn_outcome_and_delivery_with_one_revision(tmp_path):
     ledger = SqliteLedger(tmp_path / "ledger.sqlite")
     event = ledger.reserve_inbox("d", "t", "bot", "1", {"text": "hola"})
-    assert ledger.claim(event.execution_id)
     scope = ExecutionScope("d", "t", "conversation", "actor")
+    owner = "owner-1"
+    event_claim = ledger.claim(event.execution_id, scope=scope, owner_id=owner)
+    conversation_claim = ledger.acquire_claim(
+        scope, resource_type="conversation", resource_key="conversation", owner_id=owner
+    )
+    assert event_claim and conversation_claim
     revision = ledger.commit_conversation(ConversationCommit(
         event.execution_id, scope, 0, "response", "telegram:chat:actor", {"text": "ok"},
-        {"status": "completed"}, ConversationTurn("hola", "ok")))
+        {"status": "completed"}, ConversationTurn("hola", "ok"),
+        (event_claim, conversation_claim)))
     assert revision == 1
     assert ledger.conversation_revision(scope) == 1
     assert ledger.delivery_state(event.execution_id, "response", "telegram:chat:actor") == "PENDING"
@@ -45,8 +51,8 @@ def test_sqlite_uow_commits_turn_outcome_and_delivery_with_one_revision(tmp_path
 def test_sqlite_uow_rejects_stale_revision_and_scope_without_partial_commit(tmp_path):
     ledger = SqliteLedger(tmp_path / "ledger.sqlite")
     event = ledger.reserve_inbox("d", "t", "bot", "1", {"text": "hola"})
-    assert ledger.claim(event.execution_id)
     scope = ExecutionScope("d", "t", "conversation", "actor")
+    assert ledger.claim(event.execution_id, scope=scope, owner_id="owner-1")
     wrong_scope = ExecutionScope("d", "other", "conversation", "actor")
     with pytest.raises(ScopeConflict):
         ledger.commit_conversation(ConversationCommit(event.execution_id, wrong_scope, 0, "r", "dest", {}, {}, ConversationTurn("u", "a")))

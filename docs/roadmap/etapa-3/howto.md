@@ -54,7 +54,7 @@ Diseñar claves compuestas y relaciones scoped según [dessing.md](dessing.md). 
 
 ### 3.2 Configuración y conexiones
 
-Convención propuesta para el loader E3; estas variables nuevas todavía no están implementadas:
+Convención de variables para E3. La plantilla Neon y el runner opt-in existen; el adapter/runtime todavía no consume los DSNs Neon hasta completar E3-03:
 
 | Configuración | Uso |
 | --- | --- |
@@ -63,7 +63,7 @@ Convención propuesta para el loader E3; estas variables nuevas todavía no est�
 | `INCUBIA_E3_DB_POOL_MAX` | Máximo local por proceso; elegir según concurrencia y límite total del despliegue. |
 | Config E3 versionada | Backend, límites de consultas/turnos, deadlines y referencias opacas de credenciales. |
 
-El loader actual de bootstrap no carga estas variables desde `.env`; añadir soporte explícito y pruebas de configuración. No imprimir DSN, contraseña ni tokens para diagnosticar conectividad. Una URL con `-pooler` corresponde a conexión agrupada; Neon recomienda conexión directa para migraciones o funciones de sesión. Consultar [conexión oficial de Neon](https://github.com/neondatabase/website/blob/main/content/docs/get-started/connect-neon.md).
+El loader actual de bootstrap no carga estas variables desde `.env`; añadir soporte explícito y pruebas de configuración en E3-03. `scripts/e3/neon_h1.py` preparó roles SQL, grants mínimos y el archivo local ignorado según ADR-ORCH-027. No imprimir DSN, contraseña ni tokens para diagnosticar conectividad. Una URL con `-pooler` corresponde a conexión agrupada; Neon recomienda conexión directa para migraciones o funciones de sesión. Consultar [conexión oficial de Neon](https://github.com/neondatabase/website/blob/main/content/docs/get-started/connect-neon.md).
 
 Verificar schema/rol con una consulta mínima antes de aceptar trabajo. Limitar conexiones agregadas entre procesos, esperar pool dentro del deadline y liberar conexiones antes de LLM/HTTP. Registrar región/plan y capacidad de restore del entorno usado; la selección del proveedor no acredita su configuración.
 
@@ -71,7 +71,7 @@ Verificar schema/rol con una consulta mínima antes de aceptar trabajo. Limitar 
 
 Usar los mismos escenarios de contrato para SQLite y PostgreSQL. PostgreSQL necesita además dos conexiones/procesos compitiendo por evento y conversación, y un dueño vencido intentando finalizar. Verificar que solo el dueño vigente modifica el estado y que el commit parcial deja cero cambios.
 
-Construir la suite DB con habilitación explícita de red y destino de pruebas validado. Como opción, crear un runner separado fuera del árbol gobernado por `tests/conftest.py`; otra es modificar la fixture para un opt-in acotado y probado. Documentar la opción elegida en E3-03. Un marker por sí solo no modifica el bloqueo actual; la suite por defecto mantiene cero acceso remoto.
+El runner `scripts/e3/run_neon_h1.py` habilita sólo casos `@pytest.mark.neon` con flags explícitos, branch guard, rol, TLS y endpoint directo/pooled validados; `conftest.py` mantiene bloqueadas las demás pruebas. Migraciones/RLS/UoW y el núcleo de lease/fencing pasaron 6 checks. Ampliar esta campaña para ownership Telegram/outbox, `UNKNOWN_EFFECT`, import/restore y equivalencia completa de contratos.
 
 Ensayar export/import idempotente sobre datos sintéticos y restauración aislada según [RUNBOOK](RUNBOOK.md). El corte inicial usa pausa de escrituras y una autoridad única. Comparar hashes, revisiones, IDs, inbox/outbox y offsets; reconciliar entregas inciertas antes de reactivar dispatch. E3-1 requiere evidencia sobre Neon, incluyendo roles y restore.
 

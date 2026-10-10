@@ -1,11 +1,12 @@
 import re
-import unidecode
+import unicodedata
 from dataclasses import dataclass
 from incubia_orchestrator.foundation.contracts.specialty import Specialty
 
 
 def _normalize(text: str) -> str:
-    return unidecode.unidecode(text.casefold())
+    return "".join(character for character in unicodedata.normalize("NFKD", text.casefold())
+                    if not unicodedata.combining(character))
 
 
 def _ngrams(tokens: list[str], n: int = 2) -> set[str]:
@@ -25,8 +26,9 @@ _MARKETING = frozenset({"marketing", "campana", "campanas", "publicidad", "anunc
 def route(text: str) -> Route:
     tokens = re.findall(r"[a-z]+", _normalize(text))
     grams = _ngrams(tokens)
-    ventas = bool(grams & _VENTAS)
-    marketing = bool(grams & _MARKETING)
+    terms = set(tokens) | {" ".join(gram) for gram in grams}
+    ventas = bool(terms & _VENTAS)
+    marketing = bool(terms & _MARKETING)
 
     if ventas and marketing:
         return Route(Specialty.GENERAL, "ambiguous")
