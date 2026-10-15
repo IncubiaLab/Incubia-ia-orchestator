@@ -46,6 +46,8 @@ def test_h1_migrations_enable_scoped_rls_and_monotonic_claims():
     root = Path(__file__).resolve().parents[2]
     rls = (root / "migrations/postgres/002_e3_h1_rls.sql").read_text(encoding="utf-8")
     claims = (root / "migrations/postgres/003_e3_h1_claims.sql").read_text(encoding="utf-8")
+    dispatch = (root / "migrations/postgres/004_e3_h1_dispatcher_claims.sql").read_text(encoding="utf-8")
+    backup = (root / "migrations/postgres/005_e3_h1_backup.sql").read_text(encoding="utf-8")
 
     for table in ("inbox_events", "conversations", "turns", "outcomes", "deliveries"):
         assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in rls
@@ -54,3 +56,7 @@ def test_h1_migrations_enable_scoped_rls_and_monotonic_claims():
     assert "generation BIGINT NOT NULL CHECK (generation > 0)" in claims
     assert "lease_until TIMESTAMPTZ NOT NULL" in claims
     assert "GRANT SELECT, INSERT, UPDATE ON resource_claims TO incubia_runtime" in claims
+    assert "CREATE TABLE IF NOT EXISTS dispatcher_claims" in dispatch
+    assert "ALTER TABLE dispatcher_claims ENABLE ROW LEVEL SECURITY" in dispatch
+    assert "app.dispatch_channel" in dispatch and "app.dispatch_account" in dispatch
+    assert "CREATE TABLE IF NOT EXISTS ledger_imports" in backup

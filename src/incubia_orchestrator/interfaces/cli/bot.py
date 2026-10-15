@@ -89,7 +89,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         _load_telegram_env()
-        ledger = SqliteLedger(args.db, acquire_runner_lock=args.command == "run")
+        # Ownership is persisted in the ledger and fenced by TelegramRunner;
+        # a process-local lock cannot protect a second host/container.
+        ledger = SqliteLedger(args.db)
         try:
             if args.command == "inspect":
                 pending = ledger.inspect()
@@ -118,7 +120,7 @@ def main(argv=None):
             from incubia_orchestrator.bootstrap.composition import compose_scoped
             generation = compose_scoped(fake=args.fake, model=args.model,
                                         max_output_tokens=args.max_output_tokens,
-                                        timeout=args.timeout)
+                                        timeout=args.timeout, membership_port=ledger)
             bind_unknown = None
             if args.multi_session:
                 if not args.deployment_id.strip() or not args.tenant_id.strip():

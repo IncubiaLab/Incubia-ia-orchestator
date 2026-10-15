@@ -1,7 +1,9 @@
 # E3-H1-N — preflight de Neon
 
 **Fecha de inspección:** 2026-10-09/10 UTC  
-**Estado:** preparación inicial y slice de E3-03 ejecutados en rama sintética. No es evidencia de cierre de E3-1.
+**Estado:** preparación inicial documentada; la campaña integrada posterior
+acreditó el slice completo en la rama sintética. Este preflight no es por sí
+solo evidencia de cierre de E3-1.
 
 ## Proyecto y rama
 
@@ -48,21 +50,26 @@ así que el test se corrigió para consultar el estado TLS del cliente.
 
 Se aplicaron `001_e3_d0_ledger.sql`, `002_e3_h1_rls.sql` y
 `003_e3_h1_claims.sql` mediante el rol migrador; `PostgresLedger.migrate` omite
-versiones ya registradas. `002` activa RLS en inbox, conversations, turns,
+versiones ya registradas. La extensión M1/M2 añade las migraciones
+`004_e3_h1_dispatcher_claims.sql` y `005_e3_h1_backup.sql`. `002` activa RLS en inbox, conversations, turns,
 outcomes y deliveries; el adapter establece deployment/tenant con
 `set_config(..., true)` en cada transacción scoped. `003` agrega leases por
 recurso con tiempo de BD y generación monotónica; el commit exige claims de
-evento y conversación vigentes. El runner opt-in pasó 6 tests: conexiones y
-roles, ausencia de scope, aislamiento de dos tenants en conexión reutilizada,
-replay/commit, rollback ante revisión obsoleta, competencia de dos procesos,
-expiración/takeover y rechazo de un token vencido. Los fixtures de datos se
-borraron al terminar.
+evento y conversación vigentes. La campaña posterior a M1 aplicó también
+`004`/`005`/`006` y pasó 8 tests Neon en la campaña integrada final: conexiones y roles, ausencia de scope,
+aislamiento de dos tenants en conexión reutilizada, replay/commit, rollback
+ante revisión obsoleta, competencia de dos procesos, expiración/takeover,
+fencing obsoleto y ownership global del dispatcher. Los fixtures de datos se
+borraron al terminar. La prueba M2 con filas sintéticas exportó, eliminó y
+restauró una fila por tabla; el segundo import fue idempotente y se observaron
+RPO/RTO de 1.60/4.96 s y 9.94/4.32 s. La evidencia sanitizada está en
+`evals/results/e3-h1-m2-neon-2026-10-10.json`.
 
 El esquema de bindings/memberships y su resolución previa al scope pertenecen a
 E3-06/Identity conforme ADR-008; no están implementados en este slice. E3-04
-queda parcial: falta ownership del consumidor Telegram/dispatcher y escenarios
-de `UNKNOWN_EFFECT`. Import/export/restore (E3-05), equivalencia completa de
-contrato SQLite/PostgreSQL y gate E3-1 siguen pendientes.
+y E3-05 tienen evidencia en la campaña final y en M2; la equivalencia completa
+quedó cubierta por la suite dirigida y el smoke Compose. El expediente E3-1
+está `ready_for_gate` y conserva `gate_closed=false` hasta la decisión formal.
 
 ## Comandos y límites de esta evidencia
 
@@ -82,12 +89,13 @@ nombres y flags, nunca DSNs ni contraseñas.
 completó provisioning SQL/grants y escribió el archivo local protegido.
 `INCUBIA_E3_NEON_TESTS=1 INCUBIA_E3_NEON_BRANCH=e3-h1-synthetic uv run
 --isolated --extra test --extra deployment python scripts/e3/run_neon_h1.py`
-ejecutó sólo `tests/integration/neon`: 5 pasaron. El runner valida la rama
+ejecutó sólo `tests/integration/neon`: la campaña integrada final reportó 8
+pasos correctos después de aplicar `004`/`005`/`006`.
+El runner valida la rama
 resolviendo el endpoint esperado con Neon CLI; no imprime DSNs. Las escrituras
 fueron las migraciones versionadas y fixtures sintéticos transaccionales, que
 se limpiaron al terminar.
 
-**Siguiente paso:** completar integración de E3-04 con ownership de cuenta y
-dispatcher; después E3-05 (import/restore) y equivalencia de contrato completa.
-Antes de continuar, volver a comprobar la expiración de la rama temporal. No
-cerrar E3-1 con este preflight.
+**Siguiente paso:** revisar el expediente integrado y registrar la decisión
+E3-1 antes de la expiración de la rama temporal. No cerrar E3-1 sólo por este
+preflight ni por el resultado automático del runner.

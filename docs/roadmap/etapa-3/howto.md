@@ -71,7 +71,7 @@ Verificar schema/rol con una consulta mínima antes de aceptar trabajo. Limitar 
 
 Usar los mismos escenarios de contrato para SQLite y PostgreSQL. PostgreSQL necesita además dos conexiones/procesos compitiendo por evento y conversación, y un dueño vencido intentando finalizar. Verificar que solo el dueño vigente modifica el estado y que el commit parcial deja cero cambios.
 
-El runner `scripts/e3/run_neon_h1.py` habilita sólo casos `@pytest.mark.neon` con flags explícitos, branch guard, rol, TLS y endpoint directo/pooled validados; `conftest.py` mantiene bloqueadas las demás pruebas. Migraciones/RLS/UoW y el núcleo de lease/fencing pasaron 6 checks. Ampliar esta campaña para ownership Telegram/outbox, `UNKNOWN_EFFECT`, import/restore y equivalencia completa de contratos.
+El runner `scripts/e3/run_neon_h1.py` habilita sólo casos `@pytest.mark.neon` con flags explícitos, branch guard, rol, TLS y endpoint directo/pooled validados; `conftest.py` mantiene bloqueadas las demás pruebas. La campaña ampliada con `004`/`005` pasó 7 checks y el smoke de import vacío fue idempotente. Falta restore con filas, RPO/RTO y equivalencia completa de contratos.
 
 Ensayar export/import idempotente sobre datos sintéticos y restauración aislada según [RUNBOOK](RUNBOOK.md). El corte inicial usa pausa de escrituras y una autoridad única. Comparar hashes, revisiones, IDs, inbox/outbox y offsets; reconciliar entregas inciertas antes de reactivar dispatch. E3-1 requiere evidencia sobre Neon, incluyendo roles y restore.
 

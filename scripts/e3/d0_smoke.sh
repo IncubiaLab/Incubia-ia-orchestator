@@ -4,7 +4,7 @@
 set -euo pipefail
 
 task_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-task_project="incubia-e3-d0-smoke-$$"
+task_project="${E3_D0_PROJECT:-incubia-e3-d0-smoke-$$}"
 preflight_id=""
 export D0_MIGRATOR_PASSWORD="${D0_MIGRATOR_PASSWORD:-d0_migrator_smoke}"
 export D0_RUNTIME_PASSWORD="${D0_RUNTIME_PASSWORD:-d0_runtime_smoke}"
@@ -44,6 +44,18 @@ wait_status() {
 
 wait_ready() {
   wait_status /readyz 200
+}
+
+wait_app_exited() {
+  local attempts=30
+  until [[ "$(dc ps --all --status exited --services app)" == "app" ]]; do
+    attempts=$((attempts - 1))
+    if [[ "$attempts" -eq 0 ]]; then
+      dc ps --all
+      return 1
+    fi
+    sleep 1
+  done
 }
 
 post() {
@@ -90,7 +102,9 @@ assert_durable_counts() {
 }
 
 cd "$task_root"
-dc build
+if [[ "${E3_D0_SKIP_BUILD:-0}" != "1" ]]; then
+  dc build
+fi
 dc up -d postgres
 
 for _ in $(seq 1 30); do
@@ -172,6 +186,7 @@ PY
 # SIGTERM must preserve the committed conversation. The replay verifies no
 # second turn appears after a restart.
 dc kill -s TERM app >/dev/null
+wait_app_exited
 dc start app >/dev/null
 wait_ready
 post_term_replay=$(post key-4 d0-chain 'continuemos')

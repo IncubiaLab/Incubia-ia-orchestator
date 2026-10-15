@@ -1,14 +1,14 @@
 # Verificación — etapa 3
 
-Estado: E3-D0-L está implementado, pero su evidencia Compose local aún está pendiente por falta de Docker en este workspace. E3-H1-N preparó Neon; E3-03 y el núcleo parcial de E3-04 aplicaron migraciones y pasaron 6 checks RLS/UoW/fencing. Faltan ownership Telegram/outbox, E3-05 y criterios restantes. No se cerró ningún gate arquitectónico; E3-0…E3-6 permanecen pendientes.
+Estado: E3-D0-L está acreditado con Compose local. E3-H1-N preparó Neon; E3-03/04/05 tienen implementación local y pasaron pruebas dirigidas. La campaña M3 pasó offline, Compose y Neon; el runner produjo `ready_for_gate` con `gate_closed=false`. M2 restauró filas e informó RPO/RTO. E3-1 permanece abierto hasta registrar la decisión formal. No se cerró ningún gate arquitectónico; E3-0…E3-6 permanecen pendientes.
 
 | Gate | Tareas | Goals | Evidencia exigida | Estado |
 | --- | --- | --- | --- | --- |
-| E3-D0-L | Baseline Docker Compose paralelo | — | Build no-root, preflight/readiness, HTTP loopback, cadena/replay/reinicio durable, shutdown y ausencia de red externa | Código y smoke script listos; ejecución Compose pendiente, no cierra H1–H5 |
+| E3-D0-L | Baseline Docker Compose paralelo | — | Build no-root, preflight/readiness, HTTP loopback, cadena/replay/reinicio durable, shutdown y ausencia de red externa | `passed`: `incubia-e3-d0-final`, 52.569 s; no cierra H1–H5 |
 | E3-D0-R | Validación real diferida tras H1–H4 | — | Neon, pgvector, READ y LLM autorizados con presupuesto, audit y métricas separados | No iniciado; no sustituye G2–G9 |
-| E3-H1-N | Preparación inicial de Neon | G2/G3/G9 | Rama sintética, roles runtime/migrador, TLS, endpoints pool/direct, grants y runner opt-in | [Preflight](E3-H1-N-PREFLIGHT.md): roles/grants/DSNs protegidos; migraciones `001`–`003` y 6 checks pasaron. No es gate ni cierra E3-1 |
+| E3-H1-N | Preparación inicial de Neon | G2/G3/G9 | Rama sintética, roles runtime/migrador, TLS, endpoints pool/direct, grants y runner opt-in | [Preflight](E3-H1-N-PREFLIGHT.md): roles/grants/DSNs protegidos; migraciones `001`–`006` y campaña Neon final 8/8. No es gate ni cierra E3-1 |
 | E3-0 | 01/02 + cierre E2 | G1 | A/B/C, contratos, decisiones, SLO/retención/presupuesto/responsables | Pendiente |
-| E3-1 | 03/04/05 | G2/G3/G9 | Suite contrato DB, carrera multi-proceso/fencing, migración, aislamiento Neon, restore | Pendiente |
+| E3-1 | 03/04/05 | G2/G3/G9 | Suite contrato DB, carrera multi-proceso/fencing, migración, aislamiento Neon, restore | [Campaña M3](../../../evals/results/e3-1-campaign-2026-10-13-final.json): offline 27/27, Compose passed, Neon 8/8; `ready_for_gate`, decisión E3-1 pendiente |
 | E3-2 | 06 | G3 | Dos tenants/dos actores, revocación, roles/RLS/pool y discovery fake | Pendiente |
 | E3-3 | 07/08 | G4/G7 | READ real controlada, DENY cero llamadas, output/errores/límites y audit | Pendiente |
 | E3-4 | 09/10/11 | G5/G6 | Dataset congelado, métricas retrieval y grounding, índices/revocación/injection y aislamiento real | Pendiente |
@@ -16,6 +16,10 @@ Estado: E3-D0-L está implementado, pero su evidencia Compose local aún está p
 | E3-6 | 14/15 | G1–G9 | Lead/case idempotentes, consentimiento, E2E multicanal, rúbrica real/costo y GO registrado | Pendiente |
 
 ## Estrategia
+
+El plan operativo para convertir esta evidencia pendiente en cierre está en
+[H1-CIERRE.md](H1-CIERRE.md): M1 (E3-03/04 y ownership), M2 (E3-05
+export/import y restore medido) y M3 (campaña integrada y expediente E3-1).
 
 Unitarias offline para invariantes, schemas, policy y presupuesto. Integración con fakes/HTTP simulado para errores y casos de uso. Suite PostgreSQL temporal prueba el contrato compartido con SQLite; suite Neon sintética separada comprueba roles, pooling y condiciones operativas. E2E CLI/Telegram se documenta con scopes sintéticos y red explícita. La carga fake distingue mecánica local del comportamiento LLM remoto.
 

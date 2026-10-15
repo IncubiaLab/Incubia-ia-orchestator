@@ -32,7 +32,7 @@ def apply_h1_migrations():
         pytest.skip("Neon campaign requires explicit branch opt-in")
     ledger = PostgresLedger(os.environ["INCUBIA_MIGRATION_DATABASE_URL"])
     try:
-        for migration in sorted((ROOT / "migrations/postgres").glob("00[123]_*.sql")):
+        for migration in sorted((ROOT / "migrations/postgres").glob("[0-9][0-9][0-9]_*.sql")):
             ledger.migrate(migration)
     except Exception as exc:
         pytest.fail(f"Neon H1 migrations failed ({type(exc).__name__})", pytrace=False)
@@ -349,6 +349,28 @@ def test_shared_claims_compete_expire_and_reject_stale_fencing_tokens():
                     cursor.execute("DELETE FROM inbox_events WHERE execution_id=%s::uuid", (event.execution_id,))
         finally:
             admin.close()
+
+
+def test_dispatcher_claim_is_global_per_telegram_account_and_fenced():
+    account = "e3-h1-dispatcher-" + uuid4().hex
+    first = PostgresLedger(os.environ["DATABASE_URL"])
+    second = PostgresLedger(os.environ["DATABASE_URL"])
+    owner_a = first.acquire_dispatcher_claim(
+        channel="telegram", account_ref=account, owner_id="owner-a", lease_seconds=5
+    )
+    assert owner_a is not None
+    assert second.acquire_dispatcher_claim(
+        channel="telegram", account_ref=account, owner_id="owner-b", lease_seconds=5
+    ) is None
+    assert first.renew_dispatcher_claim(owner_a, lease_seconds=5)
+    assert first.release_dispatcher_claim(owner_a)
+    owner_b = second.acquire_dispatcher_claim(
+        channel="telegram", account_ref=account, owner_id="owner-b", lease_seconds=5
+    )
+    assert owner_b is not None
+    assert owner_b.generation == owner_a.generation + 1
+    assert first.renew_dispatcher_claim(owner_a, lease_seconds=5) is False
+    assert second.release_dispatcher_claim(owner_b)
 
 
 def test_postgres_ledger_keeps_inbox_uow_and_replay_atomic_under_rls():

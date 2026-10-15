@@ -10,6 +10,8 @@ from pathlib import Path
 from uuid import uuid4
 
 from incubia_orchestrator.foundation.contracts.execution import ConversationTurn, ExecutionScope
+from incubia_orchestrator.modules.identity_tenant.domain.principal import Membership, Role
+from incubia_orchestrator.modules.identity_tenant.ports.identity import TrustedBinding
 from incubia_orchestrator.modules.conversation.ports.ledger import (
     ClaimConflict, ClaimToken, ConversationCommit, IdempotencyConflict,
     InboxReservation, RevisionConflict, ScopeConflict, conversation_claim_key,
@@ -33,20 +35,27 @@ class PostgresLedger:
         return psycopg
 
     @contextmanager
-    def _transaction(self, scope: ExecutionScope | tuple[str, str] | None = None):
+    def _transaction(self, scope: ExecutionScope | tuple[str, str] | str | None = None):
         connection = self._driver().connect(
             self.database_url, connect_timeout=self.CONNECT_TIMEOUT_SECONDS
         )
         try:
             with connection.transaction():
                 if scope is not None:
-                    deployment_id, tenant_id = self._scope_values(scope)
-                    with connection.cursor() as cursor:
-                        cursor.execute(
-                            "SELECT set_config('app.deployment_id', %s, true), "
-                            "set_config('app.tenant_id', %s, true)",
-                            (deployment_id, tenant_id),
-                        )
+                    if isinstance(scope, str):
+                        with connection.cursor() as cursor:
+                            cursor.execute(
+                                "SELECT set_config('app.deployment_id', %s, true)",
+                                (scope,),
+                            )
+                    else:
+                        deployment_id, tenant_id = self._scope_values(scope)
+                        with connection.cursor() as cursor:
+                            cursor.execute(
+                                "SELECT set_config('app.deployment_id', %s, true), "
+                                "set_config('app.tenant_id', %s, true)",
+                                (deployment_id, tenant_id),
+                            )
                 yield connection
         finally:
             connection.close()
@@ -86,8 +95,8 @@ class PostgresLedger:
                     cursor.execute("SELECT current_user")
                     role = cursor.fetchone()[0]
                     required_version = {
-                        "d0_runtime": "001_e3_d0_ledger.sql",
-                        "incubia_runtime": "003_e3_h1_claims.sql",
+                        "d0_runtime": "006_e3_d0_runtime_claims.sql",
+                        "incubia_runtime": "004_e3_h1_dispatcher_claims.sql",
                     }.get(role)
                     if required_version is None:
                         return False
@@ -102,6 +111,37 @@ class PostgresLedger:
     @staticmethod
     def _hash(payload: dict) -> str:
         return sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+    def get(self, deployment_id: str, tenant_id: str, subject_id: str) -> Membership | None:
+        """Read the current membership through the tenant-scoped runtime role."""
+        with self._transaction((deployment_id, tenant_id)) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT deployment_id, tenant_id, subject_id, role, active "
+                    "FROM memberships WHERE deployment_id=%s AND tenant_id=%s AND subject_id=%s",
+                    (deployment_id, tenant_id, subject_id),
+                )
+                row = cursor.fetchone()
+        return Membership(row[0], row[1], row[2], Role(row[3]), bool(row[4])) if row else None
+
+    def resolve(self, *, channel: str, account: str, chat: str,
+                sender: str) -> TrustedBinding | None:
+        """Resolve one binding using the trusted channel-account boundary."""
+        with self._transaction() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('app.binding_channel', %s, true), "
+                    "set_config('app.binding_account', %s, true)",
+                    (channel, account),
+                )
+                cursor.execute(
+                    "SELECT deployment_id, tenant_id, conversation_id, actor_id FROM bindings "
+                    "WHERE channel=%s AND channel_account_ref=%s AND external_chat_ref=%s "
+                    "AND external_sender_ref=%s AND enabled",
+                    (channel, account, chat, sender),
+                )
+                row = cursor.fetchone()
+        return TrustedBinding(*row) if row else None
 
     def reserve_inbox(self, deployment_id: str, tenant_id: str, account: str,
                       event_id: str, payload: dict, *, channel: str = "http") -> InboxReservation:
@@ -141,6 +181,100 @@ class PostgresLedger:
         return float(value)
 
     @classmethod
+    def _dispatcher_key(cls, channel: str, account_ref: str) -> tuple[str, str]:
+        if not channel or not account_ref:
+            raise ValueError("Dispatcher channel and account are required")
+        return channel, account_ref
+
+    def acquire_dispatcher_claim(
+        self, *, channel: str, account_ref: str, owner_id: str,
+        lease_seconds: float = 60,
+    ) -> ClaimToken | None:
+        """Acquire durable ownership for one channel account.
+
+        The claim is deliberately not tenant-scoped: one Telegram bot can
+        serve several bindings. RLS scopes the row to the channel/account
+        values set transaction-locally by this method.
+        """
+        seconds = self._lease_seconds(lease_seconds)
+        channel, account_ref = self._dispatcher_key(channel, account_ref)
+        if not owner_id:
+            raise ValueError("Dispatcher owner is required")
+        with self._transaction() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('app.dispatch_channel', %s, true), "
+                    "set_config('app.dispatch_account', %s, true)",
+                    (channel, account_ref),
+                )
+                cursor.execute(
+                    "INSERT INTO dispatcher_claims "
+                    "(channel, account_ref, owner_id, generation, lease_until) "
+                    "VALUES (%s, %s, %s, 1, clock_timestamp() + (%s * interval '1 second')) "
+                    "ON CONFLICT (channel, account_ref) DO UPDATE SET "
+                    "owner_id=EXCLUDED.owner_id, "
+                    "generation=CASE WHEN dispatcher_claims.owner_id=EXCLUDED.owner_id "
+                    "THEN dispatcher_claims.generation "
+                    "ELSE dispatcher_claims.generation + 1 END, "
+                    "lease_until=EXCLUDED.lease_until, updated_at=clock_timestamp() "
+                    "WHERE dispatcher_claims.lease_until <= clock_timestamp() "
+                    "OR dispatcher_claims.owner_id=EXCLUDED.owner_id "
+                    "RETURNING generation",
+                    (channel, account_ref, owner_id, seconds),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    return None
+                return ClaimToken(
+                    "", "", "dispatcher", f"{channel}:{account_ref}", owner_id, row[0]
+                )
+
+    def renew_dispatcher_claim(
+        self, token: ClaimToken, *, lease_seconds: float = 60,
+    ) -> bool:
+        seconds = self._lease_seconds(lease_seconds)
+        channel, account_ref = self._dispatcher_key(
+            *token.resource_key.split(":", 1)
+        ) if token.resource_type == "dispatcher" and ":" in token.resource_key else ("", "")
+        if token.resource_type != "dispatcher" or not channel or not account_ref:
+            return False
+        with self._transaction() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('app.dispatch_channel', %s, true), "
+                    "set_config('app.dispatch_account', %s, true)",
+                    (channel, account_ref),
+                )
+                cursor.execute(
+                    "UPDATE dispatcher_claims SET lease_until=clock_timestamp() + "
+                    "(%s * interval '1 second'), updated_at=clock_timestamp() "
+                    "WHERE channel=%s AND account_ref=%s AND owner_id=%s "
+                    "AND generation=%s AND lease_until > clock_timestamp()",
+                    (seconds, channel, account_ref, token.owner_id, token.generation),
+                )
+                return cursor.rowcount == 1
+
+    def release_dispatcher_claim(self, token: ClaimToken) -> bool:
+        if token.resource_type != "dispatcher" or ":" not in token.resource_key:
+            return False
+        channel, account_ref = token.resource_key.split(":", 1)
+        channel, account_ref = self._dispatcher_key(channel, account_ref)
+        with self._transaction() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('app.dispatch_channel', %s, true), "
+                    "set_config('app.dispatch_account', %s, true)",
+                    (channel, account_ref),
+                )
+                cursor.execute(
+                    "UPDATE dispatcher_claims SET lease_until=clock_timestamp(), "
+                    "updated_at=clock_timestamp() WHERE channel=%s AND account_ref=%s "
+                    "AND owner_id=%s AND generation=%s",
+                    (channel, account_ref, token.owner_id, token.generation),
+                )
+                return cursor.rowcount == 1
+
+    @classmethod
     def _acquire_claim_in_transaction(
         cls, cursor, scope: ExecutionScope, resource_type: str,
         resource_key: str, owner_id: str, lease_seconds: float,
@@ -174,6 +308,8 @@ class PostgresLedger:
     ) -> ClaimToken | None:
         if resource_type == "execution":
             raise ValueError("Execution claims must be acquired through claim()")
+        if resource_type == "conversation":
+            resource_key = conversation_claim_key(scope)
         with self._transaction(scope) as connection:
             with connection.cursor() as cursor:
                 return self._acquire_claim_in_transaction(
@@ -249,10 +385,18 @@ class PostgresLedger:
             with connection.cursor() as cursor:
                 cursor.execute(
                     "UPDATE inbox_events AS event SET state='RECEIVED' WHERE event.deployment_id=%s "
-                    "AND event.tenant_id=%s AND event.state='PROCESSING' AND EXISTS ("
-                    "SELECT 1 FROM resource_claims AS claim WHERE claim.deployment_id=event.deployment_id "
-                    "AND claim.tenant_id=event.tenant_id AND claim.resource_type='execution' "
-                    "AND claim.resource_key=event.execution_id::text AND claim.lease_until<=clock_timestamp())",
+                    "AND event.tenant_id=%s AND event.state='PROCESSING' AND ("
+                    "NOT EXISTS (SELECT 1 FROM resource_claims AS missing_claim "
+                    "WHERE missing_claim.deployment_id=event.deployment_id "
+                    "AND missing_claim.tenant_id=event.tenant_id "
+                    "AND missing_claim.resource_type='execution' "
+                    "AND missing_claim.resource_key=event.execution_id::text) "
+                    "OR EXISTS (SELECT 1 FROM resource_claims AS expired_claim "
+                    "WHERE expired_claim.deployment_id=event.deployment_id "
+                    "AND expired_claim.tenant_id=event.tenant_id "
+                    "AND expired_claim.resource_type='execution' "
+                    "AND expired_claim.resource_key=event.execution_id::text "
+                    "AND expired_claim.lease_until<=clock_timestamp()))",
                     scope,
                 )
                 return cursor.rowcount

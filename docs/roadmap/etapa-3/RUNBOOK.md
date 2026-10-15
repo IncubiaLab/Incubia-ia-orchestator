@@ -1,6 +1,6 @@
 # Runbook — etapa 3
 
-Estado: E3-H1-N completó el preflight inicial; E3-03 aplicó migraciones y E3-04 tiene claims/fencing iniciales verificados. ADR-ORCH-027 está Accepted. Falta ownership del consumidor Telegram/outbox, `UNKNOWN_EFFECT` y E3-05 import/restore; H1 permanece abierto. La operación Telegram actual sigue [RUNBOOK E2](../etapa-2/RUNBOOK.md).
+Estado: E3-H1-N completó el preflight inicial; E3-03/04/05 tienen implementación local y pruebas dirigidas. ADR-ORCH-027 está Accepted. La campaña integrada del 2026-10-13 pasó offline (27/27), Compose local y Neon (8/8); H1 queda listo para decisión, con `gate_closed=false` hasta registrar E3-1. La operación Telegram actual sigue [RUNBOOK E2](../etapa-2/RUNBOOK.md).
 
 ## E3-D0-L — baseline local Docker Compose
 
@@ -15,6 +15,10 @@ Este procedimiento acredita sólo el baseline local de instancia única. No es E
 6. Guardar build digest, configuración sanitizada, versiones de imagen/schema, comandos, IDs seudonimizados, logs sin secretos y resultado de la prueba de ausencia de red hacia LLM, Telegram, tools y Neon. No usar el resultado como evidencia de proveedores reales.
 
 El script `scripts/e3/d0_smoke.sh` automatiza la evidencia L con un proyecto Compose temporal: build, preflight previo a migración, usuario no-root, health/readiness ante schema/DB ausente, cadena/replay/reinicio, recuperación de `PROCESSING`, SIGTERM, rechazo de identidad y logs. Requiere Docker Compose y `curl`; usa credenciales locales efímeras si no se exportan `D0_MIGRATOR_PASSWORD` y `D0_RUNTIME_PASSWORD`.
+
+La ejecución acreditada de M3 reutilizó la imagen ya construida para evitar una
+segunda compilación: `E3_D0_PROJECT=incubia-e3-d0-final E3_D0_SKIP_BUILD=1
+./scripts/e3/d0_smoke.sh`. Resultado: `E3-D0-L smoke passed` en 52.569 s.
 
 El hook que crea `d0_runtime` sólo se ejecuta al inicializar un volumen PostgreSQL vacío. Si se cambia una contraseña en `deploy/e3-d0.env`, no asumir que Compose rota el rol: rotarlo explícitamente con el rol migrador o recrear el volumen local sintético tras guardar o descartar su evidencia. Un volumen previo sin el rol hace fallar la migración de forma intencional; una contraseña runtime desactualizada mantiene `readyz` en error, sin iniciar tráfico.
 
@@ -46,7 +50,9 @@ logs, capturas o chat. La medición TLS debe hacerse desde libpq cliente; la
 vista `pg_stat_ssl` del backend a través del proxy no es equivalente.
 
 Las migraciones `001_e3_d0_ledger.sql`, `002_e3_h1_rls.sql` y
-`003_e3_h1_claims.sql` ya están aplicadas en la rama temporal. `002` protege
+`003_e3_h1_claims.sql` ya están aplicadas en la rama temporal. La campaña
+final aplicó también `004_e3_h1_dispatcher_claims.sql` y
+`005_e3_h1_backup.sql`; `002` protege
 inbox, conversations, turns, outcomes y deliveries con RLS scoped por
 deployment/tenant; el adapter fija ese scope sólo durante cada transacción.
 `003` implementa leases y fencing iniciales para evento/conversación; todavía
@@ -76,6 +82,14 @@ Desde la raíz del repo, operar con este procedimiento:
    objetos ni `BYPASSRLS`. Contexto tenant/deployment debe configurarse dentro
    de cada transacción. Verificar que el mismo pooler soporte este patrón antes
    de habilitarlo para la aplicación.
+
+La campaña posterior a M1 aplicó `004_e3_h1_dispatcher_claims.sql`,
+`005_e3_h1_backup.sql` y la compatibilidad `006_e3_d0_runtime_claims.sql`, y
+pasó 8/8 pruebas Neon. La prueba M2 exportó,
+eliminó y restauró un scope sintético con una fila por tabla; el segundo import
+del mismo manifest fue idempotente. RPO/RTO observados: 1.60/4.96 s y
+9.94/4.32 s. El artefacto sanitizado está en
+`evals/results/e3-h1-m2-neon-2026-10-10.json`.
 
 No preparar pgvector ni una base Knowledge en H1; corresponde a H4/ADR-010.
 

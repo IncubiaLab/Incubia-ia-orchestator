@@ -8,6 +8,18 @@ class Role(StrEnum):
     ADMIN = "admin"
 
 
+_ROLE_ORDER = {
+    Role.ACTOR: 0,
+    Role.OPERATOR: 1,
+    Role.ADMIN: 2,
+}
+
+
+def role_at_least(actual: Role, required: Role) -> bool:
+    """Return whether ``actual`` carries at least ``required`` authority."""
+    return _ROLE_ORDER[actual] >= _ROLE_ORDER[required]
+
+
 @dataclass(frozen=True)
 class Principal:
     """Authenticated server-side subject; never constructed from message text."""
@@ -30,3 +42,7 @@ class Membership:
     def __post_init__(self):
         if not self.deployment_id or not self.tenant_id or not self.subject_id:
             raise ValueError("Membership identifiers are required")
+        if not isinstance(self.role, Role):
+            object.__setattr__(self, "role", Role(self.role))
+        if not isinstance(self.active, bool):
+            raise ValueError("Membership active flag must be boolean")

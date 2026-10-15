@@ -1,6 +1,6 @@
 # Roadmap — etapa 3: persistencia compartida, tooling y conocimiento
 
-Fecha: 2026-10-08. Tier 3 significa tercera etapa de desarrollo. El resultado buscado es un piloto integrado que pueda acreditar condiciones de producción con evidencia. E3-D0 tiene implementación local lista y evidencia Compose pendiente; no modifica el estado pendiente de los gates arquitectónicos E3-0…E3-6.
+Fecha: 2026-10-13. Tier 3 significa tercera etapa de desarrollo. El resultado buscado es un piloto integrado que pueda acreditar condiciones de producción con evidencia. E3-D0-L está acreditado y H1 tiene expediente técnico listo para decisión; no modifica el estado pendiente de los gates arquitectónicos E3-0…E3-6.
 
 ## Punto de partida
 
@@ -73,7 +73,14 @@ En E3-D0-L el ingress sólo se publica en `127.0.0.1`. Recibe mensaje y clave de
 | H5. Operación | E3-12/13: audit/métricas, deployment, carga, fallos y rollback | **E3-5:** G7/G9 y SLO acordados con mediciones; restore/shutdown y límites operativos reproducibles. |
 | H6. Validación integrada | E3-14/15: lead/case internos, evaluación real y expediente | **E3-6:** G1–G9 completos, cero fallos críticos, presupuesto reconciliado y decisión de release registrada. |
 
-Para H1, E3-H1-N es una preparación de infraestructura (no un gate): rama Neon sintética temporal, base Control Plane, roles separados, DSNs y runner explícito. El provisioning SQL y el slice inicial E3-03/04 están probados; falta account ownership/dispatcher, UNKNOWN_EFFECT e import/restore, por lo que E3-1 sigue abierto. Consultar evidencia vigente en [RUNBOOK](RUNBOOK.md) y [PROGRESS](PROGRESS.md).
+Para H1, E3-H1-N es una preparación de infraestructura (no un gate): rama Neon sintética temporal, base Control Plane, roles separados, DSNs y runner explícito. M1 y M2 están acreditados; la campaña integrada M3 pasó offline (27/27), Compose local y Neon (8/8) en la rama sintética. El expediente quedó `ready_for_gate`, pero `gate_closed=false` hasta registrar la decisión formal E3-1. Consultar evidencia vigente en [RUNBOOK](RUNBOOK.md), [VERIFICACION](VERIFICACION.md) y [PROGRESS](PROGRESS.md).
+
+El cierre de H1 queda organizado en tres milestones: [M1 contrato,
+ownership y fencing](H1-CIERRE.md#m1--contrato-compartido-ownership-y-fencing-completo),
+[M2 export/import y restore](H1-CIERRE.md#m2--exportimport-backup-y-restore-medidos)
+y [M3 campaña integrada y decisión E3-1](H1-CIERRE.md#m3--campaña-integrada-y-decisión-e3-1).
+Ningún milestone convierte la rama sintética en producción ni autoriza escribir
+en `production`.
 
 ## Dependencias
 

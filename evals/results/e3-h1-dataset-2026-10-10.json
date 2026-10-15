@@ -1,0 +1,18 @@
+{
+  "manifest_version": "e3-h1-dataset/v1",
+  "synthetic": true,
+  "dataset_id": "incubia-e3-h1-synthetic-ledger-v1",
+  "content_sha256": "479ed2eaaacebecbb6a65cb72392dfa143e0483c23f8f551e6f14680fa5a2607",
+  "splits": {
+    "fixtures": 1,
+    "tenants": 2,
+    "actors": 2,
+    "external_effects": 0
+  },
+  "scope": "control-plane-ledger-only",
+  "created_at": "2026-10-10T23:18:22Z",
+  "limits": [
+    "No production or customer data.",
+    "No external provider payloads."
+  ]
+}

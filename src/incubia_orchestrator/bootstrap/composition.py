@@ -57,10 +57,11 @@ class ScopedGeneration:
     remain shared for the lifetime of the runner.
     """
 
-    def __init__(self, llm, model: str, max_output_tokens: int):
+    def __init__(self, llm, model: str, max_output_tokens: int, membership_port=None):
         self._llm = llm
         self._profiles = profiles_for(model)
         self._max_output_tokens = max_output_tokens
+        self._membership_port = membership_port
         self._runtimes = {}
 
     def _runtime_for(self, scope: ExecutionScope):
@@ -68,7 +69,8 @@ class ScopedGeneration:
         runtime = self._runtimes.get(key)
         if runtime is None:
             policy = InProcessPolicyEngine(
-                Authority(scope.deployment_id, scope.tenant_id, frozenset({scope.actor_id}))
+                Authority(scope.deployment_id, scope.tenant_id, frozenset({scope.actor_id})),
+                membership_port=self._membership_port,
             )
             runtime = LangGraphRuntimeAdapter(build_graph(
                 make_node(self._llm, policy, self._max_output_tokens, self._profiles),
@@ -118,9 +120,10 @@ def compose(*, fake: bool, model: str | None = None, max_output_tokens: int = RE
 
 def compose_scoped(*, fake: bool, model: str | None = None,
                    max_output_tokens: int = REAL_MAX_OUTPUT_TOKENS,
-                   timeout: float = 30, retries: int = 0) -> Callable:
+                   timeout: float = 30, retries: int = 0,
+                   membership_port=None) -> Callable:
     """Compose a reusable generator for channel adapters with trusted scopes."""
     llm, selected_model = _build_llm(fake=fake, model=model,
                                      max_output_tokens=max_output_tokens,
                                      timeout=timeout, retries=retries)
-    return ScopedGeneration(llm, selected_model, max_output_tokens)
+    return ScopedGeneration(llm, selected_model, max_output_tokens, membership_port)

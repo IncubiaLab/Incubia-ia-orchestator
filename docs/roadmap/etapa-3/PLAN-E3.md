@@ -10,6 +10,16 @@ Conservar red bloqueada en la suite offline. PostgreSQL local/Neon y proveedor r
 
 ## Tareas
 
+## Plan acotado para cerrar H1
+
+El cierre de H1 se ejecuta en tres milestones y está detallado en
+[H1-CIERRE.md](H1-CIERRE.md). El orden obligatorio es: (M1) completar
+E3-03/04 con ownership persistente y `UNKNOWN_EFFECT`; (M2) implementar
+E3-05 con export/import, restore y RPO/RTO medidos en Neon; (M3) ejecutar la
+campaña integrada y registrar la decisión E3-1. La preparación E3-H1-N y los
+checks parciales no sustituyen esos milestones; la campaña integrada final ya
+ejecutó M3 y dejó el expediente `ready_for_gate`.
+
 <a id="e3-d0"></a>
 
 ### E3-D0 — Baseline de deployment Docker Compose
@@ -36,11 +46,11 @@ Preflight del proyecto Neon sin cambiar región/plan: registrar Project ID, rama
 
 La implementación inicial añade `deploy/e3-neon.env.example` sin secretos, un generador local de permisos `0600` y un runner opt-in separado del bloqueo offline general. El runner sólo acepta la rama `e3-h1-synthetic`, host Neon, rol runtime pooled y rol migrador directo. La suite Neon se marca explícitamente y no modifica el comportamiento de las pruebas offline.
 
-**Decisión y resultado:** [ADR-ORCH-027](../../adr/ADR-ORCH-027-NEON-ROLE-PROVISIONING.md) fue ratificado y registrado en Linear. Los roles API iniciales con atributos excesivos se eliminaron sin uso; el provisioning SQL creó roles `NOINHERIT NOCREATEDB NOCREATEROLE NOBYPASSRLS`, con `CREATE` sólo para el migrador. Los DSNs quedaron en archivo local ignorado mode `0600`. La campaña opt-in pasó 6 checks de TLS/roles, RLS, UoW, competencia de leases, expiración y fencing; las migraciones `001`–`003` se aplicaron a la rama sintética. No degradar el aislamiento RLS a filtros de aplicación.
+**Decisión y resultado:** [ADR-ORCH-027](../../adr/ADR-ORCH-027-NEON-ROLE-PROVISIONING.md) fue ratificado y registrado en Linear. Los roles API iniciales con atributos excesivos se eliminaron sin uso; el provisioning SQL creó roles `NOINHERIT NOCREATEDB NOCREATEROLE NOBYPASSRLS`, con `CREATE` sólo para el migrador. Los DSNs quedaron en archivo local ignorado mode `0600`. La campaña final aplicó `001`–`006` y pasó 8/8 checks Neon; el restore con filas, import idempotente y RPO/RTO están acreditados en el artefacto M2. No degradar el aislamiento RLS a filtros de aplicación.
 
 **Archivos objetivo:** `scripts/e3/neon_h1.py; scripts/e3/run_neon_h1.py; deploy/e3-neon.env.example; tests/integration/neon/; migrations/postgres/; docs/roadmap/etapa-3/{RUNBOOK,VERIFICACION,PROGRESS}.md`.
 
-**Salida de preparación:** roles sin atributos privilegiados, permisos mínimos verificables, DSNs separados y no expuestos, TLS/endpoints confirmados y runner registrado. E3-H1-N por sí sola no acredita gates; la evidencia parcial de migración/RLS y fencing está separada en E3-03/04. Falta ownership Telegram, restore y E3-1.
+**Salida de preparación:** roles sin atributos privilegiados, permisos mínimos verificables, DSNs separados y no expuestos, TLS/endpoints confirmados y runner registrado. E3-H1-N por sí sola no acredita gates; la campaña M3 separa la evidencia de migración/RLS, dispatcher/fencing y backup/restore en E3-03/04/05. H1 queda listo para decisión, no cerrado automáticamente.
 
 <a id="e3-01"></a>
 
@@ -86,7 +96,7 @@ Fijar driver `psycopg` según `requirements.lock`; crear adapter PostgreSQL con 
 
 Implementar reservas exclusivas, serialización por conversación y commits con token de generación. Un consumidor Telegram por cuenta con dueño compartido; documentar transición de lock local a claim remoto. Conservar UNKNOWN_EFFECT y IDs lógicos.
 
-**Estado parcial:** migración `003_e3_h1_claims.sql` y adapter Neon ya ofrecen leases por recurso con reloj de base de datos, generaciones monotónicas, renew/release y commit que valida claims de evento + conversación. Neon acreditó competencia, takeover tras expiración y rechazo de commit obsoleto. Falta integrar ownership persistente de cuenta Telegram/dispatcher y las pruebas E2E de `UNKNOWN_EFFECT`; E3-04 no se declara completo.
+**Estado acreditado para M3:** migraciones `003_e3_h1_claims.sql` y `004_e3_h1_dispatcher_claims.sql`, junto con los adapters SQLite/PostgreSQL, ofrecen leases por recurso, ownership de cuenta, reloj de base de datos, generaciones monotónicas, renew/release y commit que valida claims de evento + conversación. Las pruebas locales y la campaña Neon final acreditan dispatcher, takeover, fencing y `UNKNOWN_EFFECT`/`SENT`; el expediente E3-1 queda listo para decisión formal.
 
 **Archivos objetivo:** `modules/conversation/application/dispatch.py; modules/conversation/adapters/persistence/postgres/claims.py; modules/conversation/adapters/channels/telegram/runner.py; tests/integration/test_postgres_claims.py`.
 
@@ -99,6 +109,12 @@ Implementar reservas exclusivas, serialización por conversación y commits con 
 **Hito:** H1. **Goals:** G2/G9. **Dependencias:** 04.
 
 Crear export/import scoped con manifest, hashes, conteos y versiones; proteger IDs, claves dedup y revisiones. Staging sintético, backup consistente, restore y reconciliación de outbox antes del cambio de autoridad. Ejecutar runbook.
+
+**Estado de implementación:** `PostgresLedgerBackup` y `scripts/e3/h1_backup.py`
+implementan export/import determinista, detección de conflictos, limpieza de
+claims, reconciliación `SENDING` → `UNKNOWN_EFFECT` y reporte RPO/RTO. La
+prueba Neon con filas y doble import pasó; la evidencia está en
+[e3-h1-m2-neon-2026-10-10.json](../../../evals/results/e3-h1-m2-neon-2026-10-10.json).
 
 **Archivos objetivo:** `scripts/e3/migrate_ledger.py; scripts/e3/reconcile_ledger.py; docs/roadmap/etapa-3/RUNBOOK.md; evals/results/e3-data-*.md`.
 

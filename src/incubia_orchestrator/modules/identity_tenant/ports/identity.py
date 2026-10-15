@@ -11,6 +11,10 @@ class TrustedBinding:
     conversation_id: str
     actor_id: str
 
+    def __post_init__(self):
+        if not all((self.deployment_id, self.tenant_id, self.conversation_id, self.actor_id)):
+            raise ValueError("Trusted binding identifiers are required")
+
 
 class MembershipPort(Protocol):
     def get(self, deployment_id: str, tenant_id: str, subject_id: str) -> Membership | None: ...

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import StrEnum
 from incubia_orchestrator.foundation.contracts.execution import ExecutionScope
+from incubia_orchestrator.modules.identity_tenant.domain.principal import Role
 
 
 class Effect(StrEnum):
@@ -17,6 +18,7 @@ class PolicyQuery:
     resource: str
     scope: ExecutionScope
     execution_id: str
+    role: Role | None = None
 
 
 @dataclass(frozen=True)

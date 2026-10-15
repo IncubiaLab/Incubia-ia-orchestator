@@ -1,3 +1,3 @@
-from .resolve_scope import ScopeResolutionDenied, resolve_scope
+from .resolve_scope import BoundScopeResolver, ScopeResolutionDenied, resolve_scope
 
-__all__ = ["ScopeResolutionDenied", "resolve_scope"]
+__all__ = ["BoundScopeResolver", "ScopeResolutionDenied", "resolve_scope"]

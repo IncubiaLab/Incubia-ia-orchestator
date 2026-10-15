@@ -1,0 +1,42 @@
+{
+  "schema_version": "e3-h1-m1/v1",
+  "milestone": "M1",
+  "status": "passed",
+  "critical_failures": 0,
+  "synthetic": true,
+  "campaign_branch": "e3-h1-synthetic",
+  "source_revision": "f1e43a1",
+  "tests": {
+    "offline_passed": 72,
+    "offline_deselected_neon": 8,
+    "neon_passed": 7,
+    "neon_failed": 0
+  },
+  "evidence": [
+    {
+      "id": "M1-01",
+      "result": "passed",
+      "command": "uv run --isolated --extra test --extra deployment pytest -q -m 'not neon'"
+    },
+    {
+      "id": "M1-02",
+      "result": "passed",
+      "command": "INCUBIA_E3_NEON_TESTS=1 INCUBIA_E3_NEON_BRANCH=e3-h1-synthetic uv run --isolated --extra test --extra deployment python scripts/e3/run_neon_h1.py"
+    },
+    {
+      "id": "M1-03",
+      "result": "passed",
+      "observations": [
+        "dispatcher ownership is durable and fenced",
+        "event/conversation claims reject stale generations",
+        "UNKNOWN_EFFECT is not retried automatically"
+      ]
+    }
+  ],
+  "limits": [
+    "Neon evidence uses synthetic data only.",
+    "Local PostgreSQL campaign is recorded separately by M3; Docker is unavailable in this workspace.",
+    "This artifact does not close E3-1 by itself."
+  ],
+  "observed_at": "2026-10-10T23:18:22Z"
+}

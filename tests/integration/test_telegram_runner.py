@@ -1,9 +1,15 @@
+import time
+
 import httpx
+import pytest
 
 from incubia_orchestrator.foundation.contracts.execution import CompletedExecution, ExecutionOutput
 from incubia_orchestrator.foundation.contracts.specialty import Specialty
 from incubia_orchestrator.modules.conversation.adapters.channels.telegram.client import TelegramClient
-from incubia_orchestrator.modules.conversation.adapters.channels.telegram.runner import TelegramRunner
+from incubia_orchestrator.modules.conversation.adapters.channels.telegram.runner import (
+    DispatcherAlreadyActive,
+    TelegramRunner,
+)
 from incubia_orchestrator.modules.conversation.adapters.persistence.sqlite_ledger import SqliteLedger
 
 
@@ -90,4 +96,81 @@ def test_unknown_update_is_durably_discarded_before_offset_advances(tmp_path):
     runner.cycle()
     assert ledger.last_offset("42") == 9
     assert ledger._connection.execute("SELECT reason FROM discarded_updates").fetchone() == ("UNBOUND_OR_UNSUPPORTED",)
+    ledger.close()
+
+
+def test_dispatcher_ownership_is_durable_and_fenced(tmp_path):
+    path = tmp_path / "dispatcher.sqlite3"
+    first = SqliteLedger(path)
+    second = SqliteLedger(path)
+    owner_a = first.acquire_dispatcher_claim(
+        channel="telegram", account_ref="42", owner_id="a", lease_seconds=0.05
+    )
+    assert owner_a is not None
+    assert second.acquire_dispatcher_claim(
+        channel="telegram", account_ref="42", owner_id="b", lease_seconds=1
+    ) is None
+    assert first.renew_dispatcher_claim(owner_a, lease_seconds=1)
+    time.sleep(1.05)
+    owner_b = second.acquire_dispatcher_claim(
+        channel="telegram", account_ref="42", owner_id="b", lease_seconds=1
+    )
+    assert owner_b is not None
+    assert owner_b.generation == owner_a.generation + 1
+    assert first.renew_dispatcher_claim(owner_a, lease_seconds=1) is False
+    first.close()
+    second.close()
+
+
+def test_telegram_runner_refuses_second_dispatcher_for_same_account(tmp_path):
+    ledger_a = SqliteLedger(tmp_path / "owner.sqlite3")
+    ledger_b = SqliteLedger(tmp_path / "owner.sqlite3")
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json={"ok": True, "result": []})
+    )
+    first = TelegramRunner(
+        ledger_a, TelegramClient("secret", httpx.Client(transport=transport)),
+        account="42", generate=lambda text, scope: None, owner_id="first",
+    )
+    second = TelegramRunner(
+        ledger_b, TelegramClient("secret", httpx.Client(transport=transport)),
+        account="42", generate=lambda text, scope: None, owner_id="second",
+    )
+    first.cycle()
+    with pytest.raises(DispatcherAlreadyActive):
+        second.cycle()
+    ledger_a.close()
+    ledger_b.close()
+
+
+def test_unknown_effect_is_inspection_only_and_never_retried(tmp_path):
+    ledger = SqliteLedger(tmp_path / "unknown.sqlite3")
+    ledger.add_binding(channel="telegram", account="42", chat="101", sender="101",
+                       deployment_id="d", tenant_id="t", conversation_id="c", actor_id="a")
+    updates = [_update(1, 101, "hola")]
+    send_calls = []
+
+    def handler(request):
+        if request.url.path.endswith("getUpdates"):
+            result = updates if request.url.params.get("offset") == "1" else []
+            return httpx.Response(200, json={"ok": True, "result": result})
+        if request.url.path.endswith("sendMessage"):
+            send_calls.append(1)
+            raise httpx.ReadTimeout("ambiguous send")
+        raise AssertionError("Unexpected endpoint")
+
+    runner = TelegramRunner(
+        ledger, TelegramClient("secret", httpx.Client(transport=httpx.MockTransport(handler))),
+        account="42", generate=lambda text, scope: type(
+            "Result", (), {"text": "ok", "specialty": Specialty.GENERAL}
+        )(),
+    )
+    runner.cycle()
+    runner.cycle()
+    assert send_calls == [1]
+    assert ledger.delivery_state(
+        ledger._connection.execute("SELECT execution_id FROM deliveries").fetchone()[0],
+        "response-" + ledger._connection.execute("SELECT execution_id FROM deliveries").fetchone()[0],
+        "telegram:101:101",
+    ) == "UNKNOWN_EFFECT"
     ledger.close()
