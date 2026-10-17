@@ -136,6 +136,8 @@ M3. Campaña integrada E3-1
   └─ decisión de cierre registrada
 ```
 
-La ejecución debe mantener una sola rama Neon sintética por campaña, no escribir
-en `production`, y no avanzar a H2–H4 con la etiqueta E3-1 cerrada hasta que M3
-esté firmado. El endpoint local D0 y pgvector no son dependencias de este plan.
+La ejecución debe mantener una sola rama Neon sintética por campaña y no escribir
+en `production`. Los slices offline de H2–H4 pueden implementarse en paralelo,
+pero no deben etiquetarse como gates acreditados ni conectar tráfico real hasta
+que M3 esté firmado. El endpoint local D0 y pgvector no son dependencias de este
+plan.

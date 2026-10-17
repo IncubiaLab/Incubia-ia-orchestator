@@ -3,6 +3,7 @@
 /config/e2/bindings.yaml
 /deploy/e3-d0.env
 /deploy/e3-neon.env
+/deploy/e3-probe.env
 __pycache__/
 *.pyc
 logs/

@@ -1,10 +1,10 @@
 # Roadmap — etapa 3: persistencia compartida, tooling y conocimiento
 
-Fecha: 2026-10-13. Tier 3 significa tercera etapa de desarrollo. El resultado buscado es un piloto integrado que pueda acreditar condiciones de producción con evidencia. E3-D0-L está acreditado y H1 tiene expediente técnico listo para decisión; no modifica el estado pendiente de los gates arquitectónicos E3-0…E3-6.
+Fecha de actualización: 2026-10-15. Tier 3 significa tercera etapa de desarrollo. El resultado buscado es un piloto integrado que pueda acreditar condiciones de producción con evidencia. E3-D0-L está acreditado; H1 y H2 tienen expedientes técnicos listos para decisión; E3-07/08 tienen READ real de humo y E3-09/10/11 tienen G5 acreditado con modelo local versionado y G6 técnico evaluado; falta firma manual de G6; no modifica el estado pendiente de los gates arquitectónicos E3-0…E3-6.
 
 ## Punto de partida
 
-CLI responde y Telegram está parcialmente funcional. Gate A E2 está cerrado según su [VERIFICACION](../etapa-2/VERIFICACION.md); Gate B sigue en progreso y Gate C pendiente. El smoke real acredita una generación/contador, sin cerrar evaluación. Neon está seleccionado localmente en [ADR-025](../../adr/ADR-ORCH-025-NEON-POSTGRESQL-TIER-3.md); adapter y operación están pendientes. El baseline de Linear procede del corte heredado, que se revalida al iniciar E3-01.
+CLI responde y Telegram está parcialmente funcional. Gate A E2 está cerrado según su [VERIFICACION](../etapa-2/VERIFICACION.md); Gate B sigue en progreso y Gate C pendiente. El smoke real acredita una generación/contador, sin cerrar evaluación. Neon está seleccionado localmente en [ADR-025](../../adr/ADR-ORCH-025-NEON-POSTGRESQL-TIER-3.md); el adapter y la campaña sintética H1 están acreditados, pero faltan decisión E3-1 y operación productiva. El baseline de Linear procede del corte heredado y sigue pendiente de revalidación completa en E3-01.
 
 E3-D0 permite ensayar antes el ciclo de entrega local con Docker Compose, PostgreSQL local con volumen persistente y adapters deterministas. Es evidencia de empaquetado, migración y recuperación básica; PostgreSQL local no sustituye la evidencia de Neon requerida por H1.
 
@@ -68,8 +68,8 @@ En E3-D0-L el ingress sólo se publica en `127.0.0.1`. Recibe mensaje y clave de
 | H0. Baseline y contratos | E3-01/02: inventario E2/ADR, identidad, persistencia/UoW, NFR | **E3-0:** A/B/C E2 acreditados; decisiones del recorte y contratos versionados; SLO/retención/responsables definidos. |
 | H1. Persistencia compartida | E3-03/04/05: adapter Neon, roles, migraciones, claims/fencing, restore | **E3-1:** IDs/atomicidad/deduplicación preservados, aislamiento con rol runtime, migración/restore medidos en Neon sintético. |
 | H2. Identidad y autorización | E3-06: membresías, bindings, revocación y policy scoped | **E3-2:** cero acceso/entrega cruzados entre dos tenants y dos actores por tenant; pool/RLS y discovery fake verificados. |
-| H3. Tooling gobernado | E3-07/08: Registry/Discovery/Executor y una READ externa | **E3-3:** lectura real controlada; denegaciones sin red, errores/límites y audit acreditados; mutations empresariales apagadas. |
-| H4. Knowledge y respuesta | E3-09/10/11: pgvector, ingestión, retrieval y evidencia combinada | **E3-4:** G5/G6 cumplen umbrales sobre val congelado; aislamiento entre deployments, revocación/reindex e injection demostrados. |
+| H3. Tooling gobernado | E3-07/08: Registry/Discovery/Executor y Open Food Facts como READ externa; slice local fake/fixture implementado | **E3-3:** smoke real pasado; campaña completa, presupuesto/operación y decisión formal pendientes; mutations empresariales apagadas. |
+| H4. Knowledge y respuesta | E3-09/10/11: dataset y slice offline de pgvector, ingestión, retrieval y respuesta combinada; validación real pendiente | **E3-4:** G5/G6 cumplen umbrales sobre val congelado; aislamiento entre deployments, revocación/reindex e injection demostrados. |
 | H5. Operación | E3-12/13: audit/métricas, deployment, carga, fallos y rollback | **E3-5:** G7/G9 y SLO acordados con mediciones; restore/shutdown y límites operativos reproducibles. |
 | H6. Validación integrada | E3-14/15: lead/case internos, evaluación real y expediente | **E3-6:** G1–G9 completos, cero fallos críticos, presupuesto reconciliado y decisión de release registrada. |
 
@@ -95,11 +95,11 @@ E3-06 + E3-11 → E3-14; E3-13 + E3-14 → E3-15 [E3-6]
 H1 + H2 + H3 + H4 + presupuesto/credenciales autorizados → E3-D0-R
 ```
 
-El grafo muestra dependencias de trabajo; PLAN-E3 detalla prerequisites. E3-D0-L puede avanzar en paralelo con E3-02/03, pero no convierte PostgreSQL local en evidencia H1. Diseñar identidad junto con esquema antes de Neon; probar con fakes antes de retrieval real. E3-0 completo requiere cierre de E2, pero inventario, contratos y código offline E3 pueden avanzar en paralelo con B/C. Staging Neon sintético tampoco implica permiso para migrar tráfico. Antes de conectores reales acreditar E3-1/2; antes del piloto integrado acreditar E3-0…5.
+El grafo muestra dependencias de trabajo; PLAN-E3 detalla prerequisites. E3-D0-L puede avanzar en paralelo con E3-02/03, pero no convierte PostgreSQL local en evidencia H1. Diseñar identidad junto con esquema antes de Neon; probar con fakes antes de retrieval real. E3-0 completo requiere cierre de E2, pero inventario, contratos y código offline E3 pueden avanzar en paralelo con B/C. Staging Neon sintético tampoco implica permiso para migrar tráfico. Antes de promover conectores reales al piloto, acreditar E3-1/2; antes del piloto integrado acreditar E3-0…5.
 
 ## Decisiones por resolver
 
-Neon relacional está elegido, pero driver/migraciones, región/plan y operación se concretan en H0/H1. ADR-008 ya fija Conversation/UoW; ADR-009/019 deben cerrar el recorte de memoria y su frontera con runtime. ADR-010 fija pgvector y una base por deployment para Knowledge; E3-10 concreta modelo, dimensión e índices. ADR-014/015/024 delimitan audit, retries y topología en H5. ADR-005/006 gobiernan tooling/policy ya aceptados; ADR-021 sigue bloqueando mutations externas nuevas. ADR-012/resume no se implementa por declarar un caso interno.
+Neon relacional, driver `psycopg`, migraciones y región/plan sintéticos están concretados en H1; la operación productiva y la decisión E3-1 siguen pendientes. ADR-008 ya fija Conversation/UoW; ADR-009/019 deben cerrar el recorte de memoria y su frontera con runtime. ADR-010 fija pgvector y una base por deployment para Knowledge; E3-10 aún debe ratificar modelo semántico, dimensión e índices con evidencia real. ADR-014/015/024 delimitan audit, retries y topología en H5. ADR-005/006 gobiernan tooling/policy ya aceptados; ADR-021 sigue bloqueando mutations externas nuevas. ADR-012/resume no se implementa por declarar un caso interno.
 
 Monolito modular como propuesta de trabajo: API/worker/broker se separan solo si mediciones y lifecycle lo justifican. No se requieren microservicios, despliegues por capability ni un proceso/contenedor por moneda, eje o círculo.
 
@@ -109,4 +109,7 @@ Mutations externas empresariales, export a CRM/helpdesk, campañas/envíos proac
 
 ## Primer incremento y cierre
 
-Empezar E3-D0-L en paralelo con E3-01/E3-02 para disponer de una base de deployment reproducible, sin adelantar decisiones de producción. Continuar reconciliando E2 y definir identidad/UoW antes de adaptar Neon. Todos los gates arquitectónicos E3 permanecen pendientes; el cierre técnico exige la evidencia de VERIFICACION. Las fechas históricas de Linear y esta carpeta no fijan compromisos de entrega.
+E3-D0-L ya acredita la base local. Completar E3-01/E3-02 y el cierre E2 B/C; registrar decisiones E3-1/E3-2; completar campañas E3-3/E3-4 y después E3-12…15. Todos los gates arquitectónicos E3 permanecen pendientes; el cierre técnico exige la evidencia de VERIFICACION. Las fechas históricas de Linear y esta carpeta no fijan compromisos de entrega.
+
+
+Actualización E3-4 (2026-10-15): [G5 local en Neon](../../../evals/results/e3-4-neon-local-2026-10-15.json) pasó 40/40 recall, 40/40 abstención, p95 0,6177 s, cero fugas, exact/HNSW y pruebas de revocación/rollback. [G6 técnico](../../../evals/results/e3-4-g6-neon-local-2026-10-15.json) evaluó 24 casos: 12/12 afirmaciones respaldadas, 6/6 referencias del manifiesto y cero fallos críticos; la URL pública READ respondió 200 anónimo. El gate sigue abierto por rúbrica manual sin firma y READ de G6 ejecutada con fixture HTTP. El resultado OpenAI anterior fallido se conserva como historial; el modelo local versionado es el candidato actual.

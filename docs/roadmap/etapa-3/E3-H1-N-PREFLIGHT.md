@@ -66,10 +66,12 @@ RPO/RTO de 1.60/4.96 s y 9.94/4.32 s. La evidencia sanitizada está en
 `evals/results/e3-h1-m2-neon-2026-10-10.json`.
 
 El esquema de bindings/memberships y su resolución previa al scope pertenecen a
-E3-06/Identity conforme ADR-008; no están implementados en este slice. E3-04
-y E3-05 tienen evidencia en la campaña final y en M2; la equivalencia completa
-quedó cubierta por la suite dirigida y el smoke Compose. El expediente E3-1
-está `ready_for_gate` y conserva `gate_closed=false` hasta la decisión formal.
+E3-06/Identity conforme ADR-008. El slice local ya implementa la ruta SQLite y
+la migración PostgreSQL `007_e3_h2_identity.sql`; esta preflight no acredita aún
+su ejecución/aislamiento en Neon. E3-04 y E3-05 tienen evidencia en la campaña
+final y en M2; la equivalencia completa quedó cubierta por la suite dirigida y
+el smoke Compose. El expediente E3-1 está `ready_for_gate` y conserva
+`gate_closed=false` hasta la decisión formal.
 
 ## Comandos y límites de esta evidencia
 

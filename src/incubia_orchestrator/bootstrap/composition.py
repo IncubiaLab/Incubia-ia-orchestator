@@ -1,3 +1,5 @@
+"""Composition root del chat local y de generadores con scope de canal."""
+
 import os
 from pathlib import Path
 from uuid import uuid4
@@ -108,6 +110,7 @@ def _load_local_env() -> None:
 
 def compose(*, fake: bool, model: str | None = None, max_output_tokens: int = REAL_MAX_OUTPUT_TOKENS,
             timeout: float = 30, retries: int = 0) -> HandleMessage:
+    """Construye el chat local con proveedor, policy y grafo para una sesión."""
     llm, selected_model = _build_llm(fake=fake, model=model,
                                      max_output_tokens=max_output_tokens,
                                      timeout=timeout, retries=retries)

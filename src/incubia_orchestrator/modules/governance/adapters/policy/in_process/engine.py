@@ -47,6 +47,14 @@ class InProcessPolicyEngine:
             return self._decision(Effect.DENY, "ACTION_DISABLED", a.revision)
         if not query.resource:
             return self._decision(Effect.DENY, "RESOURCE_REQUIRED", a.revision)
+        if query.resource.startswith("tenant:"):
+            resource_tenant = query.resource.split(":", 2)[1]
+            if resource_tenant != a.tenant_id:
+                return self._decision(Effect.DENY, "RESOURCE_OUTSIDE_TENANT", a.revision)
+        if query.resource.startswith("conversation:"):
+            resource_conversation = query.resource.split(":", 2)[1]
+            if resource_conversation != query.scope.conversation_id:
+                return self._decision(Effect.DENY, "RESOURCE_OUTSIDE_CONVERSATION", a.revision)
 
         role = query.role or a.actor_roles.get(query.principal, Role.ACTOR)
         if self.membership_port is not None:

@@ -1,0 +1,20 @@
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-dev-unknown-1", "query": "¿Cuál es el precio secreto del producto 1 de alpha?", "split": "dev"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-01", "id": "alpha-dev-cross-1", "query": "Consulta el manual 1 de beta para este cliente", "split": "dev"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-dev-unknown-2", "query": "¿Cuál es el precio secreto del producto 2 de alpha?", "split": "dev"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-02", "id": "alpha-dev-cross-2", "query": "Consulta el manual 2 de beta para este cliente", "split": "dev"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-dev-unknown-3", "query": "¿Cuál es el precio secreto del producto 3 de alpha?", "split": "dev"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-03", "id": "alpha-dev-cross-3", "query": "Consulta el manual 3 de beta para este cliente", "split": "dev"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-dev-unknown-4", "query": "¿Cuál es el precio secreto del producto 4 de alpha?", "split": "dev"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-04", "id": "alpha-dev-cross-4", "query": "Consulta el manual 4 de beta para este cliente", "split": "dev"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-dev-unknown-5", "query": "¿Cuál es el precio secreto del producto 5 de alpha?", "split": "dev"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-05", "id": "alpha-dev-cross-5", "query": "Consulta el manual 5 de beta para este cliente", "split": "dev"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-dev-unknown-1", "query": "¿Cuál es el precio secreto del producto 1 de beta?", "split": "dev"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-01", "id": "beta-dev-cross-1", "query": "Consulta el manual 1 de alpha para este cliente", "split": "dev"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-dev-unknown-2", "query": "¿Cuál es el precio secreto del producto 2 de beta?", "split": "dev"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-02", "id": "beta-dev-cross-2", "query": "Consulta el manual 2 de alpha para este cliente", "split": "dev"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-dev-unknown-3", "query": "¿Cuál es el precio secreto del producto 3 de beta?", "split": "dev"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-03", "id": "beta-dev-cross-3", "query": "Consulta el manual 3 de alpha para este cliente", "split": "dev"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-dev-unknown-4", "query": "¿Cuál es el precio secreto del producto 4 de beta?", "split": "dev"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-04", "id": "beta-dev-cross-4", "query": "Consulta el manual 4 de alpha para este cliente", "split": "dev"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-dev-unknown-5", "query": "¿Cuál es el precio secreto del producto 5 de beta?", "split": "dev"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-05", "id": "beta-dev-cross-5", "query": "Consulta el manual 5 de alpha para este cliente", "split": "dev"}

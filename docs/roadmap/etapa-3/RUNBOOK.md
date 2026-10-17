@@ -28,6 +28,37 @@ El recorrido operativo es: `turno entrante → Contexto → eje de routing → c
 
 No ejecutar E3-D0-R antes de H1–H4, credenciales explícitamente autorizadas y presupuesto registrado. Reutiliza la imagen y el contrato HTTP de D0-L, sustituyendo adapters locales por Neon, pgvector, READ y LLM reales. Registrar auditoría, gasto y métricas en un artefacto separado. El resultado no cierra por sí solo G2–G9 ni E3-1…E3-5.
 
+### Probe local autenticado para integración real
+
+`interfaces.http.e3_probe` es una entrada **separada** de D0, sólo para datos
+sintéticos. Liga exclusivamente `127.0.0.1`/`::1`; exige Bearer token de al
+menos 32 caracteres, opt-in `INCUBIA_E3_PROBE_REAL=1`, scope fijo de entorno,
+DSN Knowledge runtime de Neon sintético (`sslmode=require`, rol no-owner), audit SQLite durable y presupuesto de embeddings con
+límites positivos. `POST /v1/probe` acepta únicamente `query` y
+`product_ref` numérico opcional. Con código de producto ejecuta Open Food Facts
+v3 por Tool PEP; siempre consulta pgvector usando embeddings reales con cap
+durable. El payload no puede elegir deployment, tenant ni actor. No genera LLM
+ni escribe Knowledge/ledger; cada solicitud consume una reserva de embedding.
+
+Copiar `deploy/e3-probe.env.example` a `deploy/e3-probe.env`, completar
+credenciales y límites autorizados para esta campaña, y cargarlo en una shell
+local protegida antes de ejecutar:
+
+```bash
+set -a
+. deploy/e3-probe.env
+set +a
+python -m incubia_orchestrator.interfaces.http.e3_probe --host 127.0.0.1 --port 18081
+```
+
+En otra shell, enviar `Authorization: Bearer <token>` y JSON
+`{"query":"consulta sintética","product_ref":"3017620422003"}` a
+`http://127.0.0.1:18081/v1/probe`. `/readyz` exige token y comprueba el
+schema Knowledge; `/healthz` sólo confirma proceso. No copiar token, DSN,
+API key ni texto de respuesta a evidencia pública. Registrar IDs, audit,
+presupuesto, latencias y errores de manera sanitizada. No exponer este probe
+en staging/producción ni usarlo para declarar cerrado E3-5.
+
 ## Preparación
 
 ### E3-H1-N — preparación inicial de Neon
@@ -107,6 +138,22 @@ Arranque: comprobar schema compatible, DB readiness y claims; reconciliar estado
 6. Rollback solo si se detienen nuevas escrituras/entregas y se reconciliarán cambios posteriores al corte. Cambiar DATABASE_URL a un backup antiguo sin reconciliación puede duplicar efectos; mantener servicio pausado hasta resolver.
 
 ## Fallos y recuperación
+
+### Campaña local E3-13
+
+El runner `scripts/e3/load.py` acepta únicamente una URL HTTP loopback. Usa
+mensajes sintéticos, un `conversation_id` por sesión y claves de idempotencia
+únicas; guarda sólo IDs agregados, distribución de latencias, conteos HTTP y
+snapshots de `/metrics`. Para comparar los dos perfiles de GOALS:
+
+```bash
+python scripts/e3/load.py --profile burst --sessions 80 --seed h5-burst-1 --output evals/results/e3-ops-burst.json
+python scripts/e3/load.py --profile sessions --sessions 80 --duration 600 --interval 60 --seed h5-sessions-1 --output evals/results/e3-ops-sessions.json
+```
+
+Registrar también versión de imagen, CPU/memoria/pool, interrupción de DB,
+restore y shutdown. El runner sólo mide el ingress D0 local con fakes; no
+acredita comportamiento de proveedores, aislamiento Neon ni el gate E3-5.
 
 | Evento | Acción |
 | --- | --- |

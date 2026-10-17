@@ -60,3 +60,17 @@ def test_h1_migrations_enable_scoped_rls_and_monotonic_claims():
     assert "ALTER TABLE dispatcher_claims ENABLE ROW LEVEL SECURITY" in dispatch
     assert "app.dispatch_channel" in dispatch and "app.dispatch_account" in dispatch
     assert "CREATE TABLE IF NOT EXISTS ledger_imports" in backup
+
+
+def test_h2_identity_migration_scopes_memberships_and_bindings():
+    root = Path(__file__).resolve().parents[2]
+    identity = (root / "migrations/postgres/007_e3_h2_identity.sql").read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS memberships" in identity
+    assert "CHECK (role IN ('actor', 'operator', 'admin'))" in identity
+    assert "CREATE TABLE IF NOT EXISTS bindings" in identity
+    assert "ALTER TABLE memberships ENABLE ROW LEVEL SECURITY" in identity
+    assert "ALTER TABLE bindings ENABLE ROW LEVEL SECURITY" in identity
+    assert "app.binding_channel" in identity and "app.binding_account" in identity
+    assert "GRANT SELECT ON memberships, bindings TO incubia_runtime" in identity
+    assert "REVOKE ALL ON memberships, bindings FROM d0_runtime" in identity

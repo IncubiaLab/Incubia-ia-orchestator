@@ -1,0 +1,32 @@
+{
+  "abstention": 1.0,
+  "branch": "e3-h1-synthetic",
+  "cross_deployment_leaks": 0,
+  "dataset_sha256": {
+    "response_cases.jsonl": "4aed7014d2098bd580c12f0043331f8aea4effcb543434956633fa7ceea53256",
+    "response_cases_v2.jsonl": "358c6f2bec14528a384f8aefecdba51e8c844686784799f673bcc3590632c8bd",
+    "retrieval.jsonl": "11d202b8008995a8d021c40756628d641ec87fd30a352eeae555047f645354eb",
+    "retrieval_dev_negative.jsonl": "1d03e46d424e29221551036a23bd6889059786e3b509f7d344da86213f7cf29d",
+    "sources.jsonl": "6e3c048ab784c96daabc44c872e5dc2a9e2e50bae81da518514152ab6a2aaf0f"
+  },
+  "embedding": "qdrant-paraphrase-multilingual-MiniLM-L12-v2-onnx-Q@faf4aa4225822f3bc6376869cb1164e8e3feedd0",
+  "finished_at": "2026-10-16T01:00:58.114867+00:00",
+  "g5_passed": true,
+  "g6_assessed": true,
+  "g6_critical_failures": 0,
+  "g6_expected_behavior": 1.0,
+  "gate_closed": false,
+  "generations_distinct": true,
+  "hnsw_exact_top5_set_differences": 0,
+  "hnsw_recall_at_5": 1.0,
+  "p95_seconds": 0.6176692349981749,
+  "partial_generation_invisible": true,
+  "recall_at_5": 1.0,
+  "reindex_rollback_restored": true,
+  "respondable": 40,
+  "revocation_excluded": true,
+  "started_at": "2026-10-16T00:58:40.789421+00:00",
+  "threshold_from_dev": 0.6199560075950264,
+  "unanswerable": 40,
+  "val_queries": 80
+}

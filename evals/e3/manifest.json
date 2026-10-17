@@ -1,0 +1,12 @@
+{
+  "hashes": {
+    "response_cases.jsonl": "4aed7014d2098bd580c12f0043331f8aea4effcb543434956633fa7ceea53256",
+    "response_cases_v2.jsonl": "358c6f2bec14528a384f8aefecdba51e8c844686784799f673bcc3590632c8bd",
+    "retrieval.jsonl": "11d202b8008995a8d021c40756628d641ec87fd30a352eeae555047f645354eb",
+    "retrieval_dev_negative.jsonl": "1d03e46d424e29221551036a23bd6889059786e3b509f7d344da86213f7cf29d",
+    "sources.jsonl": "6e3c048ab784c96daabc44c872e5dc2a9e2e50bae81da518514152ab6a2aaf0f"
+  },
+  "response_count": 24,
+  "retrieval_count": 100,
+  "version": 1
+}

@@ -25,6 +25,7 @@ from incubia_orchestrator.modules.identity_tenant.application.resolve_scope impo
     BoundScopeResolver,
     ScopeResolutionDenied,
 )
+from incubia_orchestrator.modules.identity_tenant.ports.identity import TrustedBinding
 
 
 class DispatcherAlreadyActive(RuntimeError):
@@ -67,34 +68,38 @@ class TelegramRunner:
         return ((binding.deployment_id, binding.tenant_id, binding.conversation_id, binding.actor_id)
                 if binding is not None else None)
 
-    def _resolve_binding(self, inbound):
-        if inbound is None:
-            return None
+    def _resolve_binding_refs(self, chat, sender):
         if self._identity_resolver is not None:
             return self._identity_resolver.resolve_binding(
                 channel="telegram", account=self.account,
-                chat=inbound.external_chat_ref, sender=inbound.external_sender_ref,
+                chat=chat, sender=sender,
             )
         raw = self.ledger.resolve_binding(
             channel="telegram", account=self.account,
-            chat=inbound.external_chat_ref, sender=inbound.external_sender_ref,
+            chat=chat, sender=sender,
         )
         if raw is None:
             return None
-        return type("LegacyBinding", (), dict(zip(
-            ("deployment_id", "tenant_id", "conversation_id", "actor_id"), raw
-        )))()
+        return TrustedBinding(*raw)
 
-    def _resolve_scope(self, inbound):
+    def _resolve_binding(self, inbound):
+        if inbound is None:
+            return None
+        return self._resolve_binding_refs(inbound.external_chat_ref, inbound.external_sender_ref)
+
+    def _resolve_scope_refs(self, chat, sender):
         if self._identity_resolver is not None:
             return self._identity_resolver.resolve_scope(
                 channel="telegram", account=self.account,
-                chat=inbound.external_chat_ref, sender=inbound.external_sender_ref,
+                chat=chat, sender=sender,
             )
-        binding = self._resolve_binding(inbound)
+        binding = self._resolve_binding_refs(chat, sender)
         if binding is None:
             raise ScopeResolutionDenied("No trusted binding exists")
         return ExecutionScope(*self._binding_tuple(binding))
+
+    def _resolve_scope(self, inbound):
+        return self._resolve_scope_refs(inbound.external_chat_ref, inbound.external_sender_ref)
 
     def cycle(self):
         acquire = getattr(self.ledger, "acquire_dispatcher_claim", None)
@@ -125,10 +130,8 @@ class TelegramRunner:
                 # the inbox.
                 binding = self._resolve_binding(inbound)
                 if self._identity_resolver is None and binding is None and candidate is not None:
-                    binding = type("LegacyBinding", (), dict(zip(
-                        ("deployment_id", "tenant_id", "conversation_id", "actor_id"),
-                        candidate,
-                    )))()
+                    binding = (candidate if isinstance(candidate, TrustedBinding)
+                               else TrustedBinding(*candidate))
             self.ledger.accept_update(
                 self.account, update_id, update,
                 binding=self._binding_tuple(binding),
@@ -163,7 +166,20 @@ class TelegramRunner:
                 response = InProcessResponseContext().contextualize(ResponseContextRequest(
                     "response-" + event.execution_id, event.request_id, event.execution_id, scope,
                     "telegram:" + inbound.external_chat_ref + ":" + inbound.external_sender_ref,
-                    text, specialty))
+                    text, specialty,
+                    public_references=(result.output.public_references
+                                       if isinstance(result, CompletedExecution) else ())))
+                # A membership may be revoked while the provider is running.
+                # Do not commit a turn/outbox row after that revocation.
+                try:
+                    if self._resolve_scope(inbound) != scope:
+                        raise ScopeResolutionDenied("Execution scope changed")
+                except ScopeResolutionDenied:
+                    self.ledger.return_to_received(
+                        event.execution_id, scope=scope, claim_token=event_claim
+                    )
+                    self.ledger.release_claim(conversation_claim)
+                    continue
                 self.ledger.commit_conversation(ConversationCommit(
                     event.execution_id, scope, self.ledger.conversation_revision(scope), response.response_id,
                     response.destination_ref, response.to_dict(), self._outcome_payload(result),
@@ -222,12 +238,7 @@ class TelegramRunner:
                 continue
             _, chat, sender = destination.split(":", 2)
             try:
-                current_scope = self._resolve_scope(type(
-                    "InboundRef", (), {
-                        "external_chat_ref": chat,
-                        "external_sender_ref": sender,
-                    }
-                )())
+                current_scope = self._resolve_scope_refs(chat, sender)
             except ScopeResolutionDenied:
                 continue
             if current_scope != response.scope:

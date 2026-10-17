@@ -1,0 +1,17 @@
+{
+  "budget": {
+    "actual_tokens": 7346,
+    "calls": 87,
+    "estimated_usd": 0.00014692,
+    "reserved_tokens": 23206
+  },
+  "cross_scope_guard": true,
+  "dev_abstention": 1.0,
+  "dev_negative_sha256": "1d03e46d424e29221551036a23bd6889059786e3b509f7d344da86213f7cf29d",
+  "dev_recall_at_5": 1.0,
+  "dev_respondable": 20,
+  "dev_unanswerable": 20,
+  "gate_closed": false,
+  "retrieval_val_sha256": "11d202b8008995a8d021c40756628d641ec87fd30a352eeae555047f645354eb",
+  "threshold": 0.6990591836495241
+}

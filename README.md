@@ -1,5 +1,7 @@
 # Incubia Orchestrator — etapa 1
 
+La [guía del código](docs/codigo/README.md) recorre los módulos, el flujo del chatbot y las decisiones que explican su implementación.
+
 Chat local en terminal con LangGraph, tres perfiles (General, Ventas y Marketing) y un único modelo configurable. La ruta local `--fake` no usa red ni credenciales.
 
 La [planificación de etapa 2](docs/roadmap/etapa-2/ROADMAP.md) desarrolla especialistas con contexto propio, routing por capacidades y el primer adaptador Telegram E2E sobre contratos multicanal. Es un roadmap propuesto; las instrucciones de ejecución siguientes corresponden a etapa 1.

@@ -4,7 +4,7 @@ Estado: planificación en ejecución. Seguir [BASE](BASE.md), [GOALS](GOALS.md) 
 
 ## Entorno de ejecución previsto
 
-Python ≥3.12 según pyproject.toml. Usar el entorno del proyecto, por ejemplo `.venv/bin/python -m pytest <prueba> -q`, y CLI fake `.venv/bin/python -m incubia_orchestrator.interfaces.cli.main chat --fake` cuando exista `.venv`. Resolver la instalación según herramientas disponibles; no asumir un comando `python` global. Estos comandos son futuros, no se han ejecutado en la planificación.
+Python ≥3.12 según pyproject.toml. Usar el entorno del proyecto, por ejemplo `.venv/bin/python -m pytest <prueba> -q`, y CLI fake `.venv/bin/python -m incubia_orchestrator.interfaces.cli.main chat --fake` cuando exista `.venv`. Resolver la instalación según herramientas disponibles; no asumir un comando `python` global. La suite local se ejecutó con `.venv/bin/pytest -q`; el resto de comandos se valida por tarea.
 
 Conservar red bloqueada en la suite offline. PostgreSQL local/Neon y proveedor real se prueban en suite o runner explícito con configuración sintética; nunca desbloquear toda la suite por defecto. Credenciales fuera de repo, logs y argumentos CLI. Seleccionar y fijar dependencias nuevas en la tarea que las requiere, tras consultar documentación oficial vigente.
 
@@ -86,7 +86,7 @@ Fijar driver `psycopg` según `requirements.lock`; crear adapter PostgreSQL con 
 
 **Archivos objetivo:** `modules/conversation/adapters/persistence/postgres/; modules/identity_tenant/adapters/persistence/; migrations/postgres/; bootstrap/composition.py; pyproject.toml; tests/integration/test_postgres_ledger.py`.
 
-**Validación y salida:** Suite de contrato SQLite/PostgreSQL; upgrade desde esquema anterior, transacción fallida sin estado parcial, conexión reutilizada entre tenants sin contaminación. PostgreSQL temporal local primero; Neon sintético separado y explícito mediante `scripts/e3/run_neon_h1.py`. Estado: migraciones `001`/`002`, aislamiento RLS, commit/replay/rollback y primera generación de claims ejecutados en la rama sintética; ampliar equivalencia de contrato y fixtures/recuperación antes de declarar E3-03 completo.
+**Validación y salida:** Suite de contrato SQLite/PostgreSQL; upgrade desde esquema anterior, transacción fallida sin estado parcial, conexión reutilizada entre tenants sin contaminación. PostgreSQL temporal local primero; Neon sintético separado y explícito mediante `scripts/e3/run_neon_h1.py`. Estado: el adapter y las migraciones `001`–`006` pasaron la campaña H1 offline/Compose/Neon; expediente E3-1 `ready_for_gate`, pendiente de decisión formal.
 
 <a id="e3-04"></a>
 
@@ -166,6 +166,8 @@ Crear Retrieval/Embedding/KnowledgeRepository y fuente/evidencia versionada; fak
 
 **Archivos objetivo:** `modules/knowledge/{domain,ports}/; modules/knowledge/adapters/retrieval/fake.py; evals/e3/retrieval.jsonl; evals/e3/response_cases.jsonl; tests/unit/test_knowledge_contracts.py`.
 
+**Estado:** contratos, fake scoped, dataset de 100 consultas y 24 escenarios con SHA-256 implementados; falta acreditación de calidad G5/G6.
+
 **Validación y salida:** Source/version/deployment required, query/top_k/tokens limitados, fuente de otro deployment excluida y val congelado con hash; ≥60 consultas y ≥24 escenarios de calidad.
 
 <a id="e3-10"></a>
@@ -176,7 +178,9 @@ Crear Retrieval/Embedding/KnowledgeRepository y fuente/evidencia versionada; fak
 
 Implementar el adapter pgvector de ADR-010 por deployment; elegir embeddings/dimensión/model version, ingestión por hashes, generaciones y swap de índice activo. Acreditar búsqueda exacta y evaluar HNSW por feature flag, sin reabrir la selección de backend.
 
-**Archivos objetivo:** `modules/knowledge/adapters/{embedding,persistence}/; modules/knowledge/application/ingest.py; interfaces/cli/knowledge.py; migrations/postgres/; docs/roadmap/etapa-3/AUTOPLAN-REVIEW.md`.
+**Archivos objetivo:** `modules/knowledge/adapters/{embedding,persistence}/; modules/knowledge/application/ingest.py; interfaces/cli/knowledge.py; migrations/knowledge/; docs/roadmap/etapa-3/AUTOPLAN-REVIEW.md`.
+
+**Estado:** adapter exacto, migración separada, generaciones y seam offline implementados; faltan modelo semántico y pruebas pgvector/Neon por deployment.
 
 **Validación y salida:** Reingesta idempotente, generación parcial invisible, dimensión inválida, fallo embedding, source revocada, aislamiento entre deployments y borrar/reindex con lecturas. Llamadas reales solo con presupuesto eval-e3 configurado.
 
@@ -189,6 +193,8 @@ Implementar el adapter pgvector de ADR-010 por deployment; elegir embeddings/dim
 Application coordina tool READ y retrieval con contexto/perfil, límites de pasos y deadline. Integrar EvidenceItems a ContextBuilder y referencias públicas por ResponseContextPort. Runtime conecta servicios sin SDK ni adapters concretos.
 
 **Archivos objetivo:** `modules/orchestration/application/context_builder.py; modules/orchestration/application/use_cases/handle_inbound.py; modules/conversation/application/response_context.py; modules/orchestration/adapters/runtime/langgraph/; tests/integration/test_grounded_conversation.py`.
+
+**Estado:** respuesta extractiva opcional con referencias HTTPS; faltan autorización de referencias por actor, E2E y rúbrica G6.
 
 **Validación y salida:** Datos ausentes/conflictivos→abstención/caso; injection no cambia permisos; referencias seguras y sin canarios internos. Gate E3-4 mide G5/G6 y repite pruebas cross-deployment sobre store real.
 

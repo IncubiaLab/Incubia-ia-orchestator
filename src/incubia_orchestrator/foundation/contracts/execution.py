@@ -54,6 +54,7 @@ class ExecutionOutput:
     kind: Literal["message", "policy_denied"] = "message"
     specialty: Specialty | None = None
     usage: TokenUsage | None = None
+    public_references: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -113,7 +114,7 @@ def outcome_from_dict(data: dict) -> ExecutionOutcome:
             usage = TokenUsage(**output["usage"]) if output.get("usage") else None
             return CompletedExecution(*ids, ExecutionOutput(output["text"], output.get("kind", "message"),
                                                        Specialty(output["specialty"]) if output.get("specialty") else None,
-                                                       usage))
+                                                       usage, tuple(output.get("public_references", ()))))
         case "suspended":
             return SuspendedExecution(*ids, data["continuation_id"])
         case "failed":

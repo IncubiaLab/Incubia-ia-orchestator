@@ -7,6 +7,7 @@ import logging
 import os
 import signal
 import threading
+from time import monotonic
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -21,6 +22,7 @@ from incubia_orchestrator.bootstrap.d0 import (
 )
 from incubia_orchestrator.modules.conversation.adapters.persistence.postgres import PostgresLedger
 from incubia_orchestrator.modules.conversation.ports.ledger import IdempotencyConflict
+from incubia_orchestrator.foundation.telemetry import HttpMetrics
 
 LOG = logging.getLogger(__name__)
 MAX_BODY_BYTES = 8_192
@@ -41,6 +43,7 @@ class E3D0HttpServer(ThreadingHTTPServer):
     def __init__(self, address: tuple[str, int], service: D0Deployment):
         super().__init__(address, E3D0RequestHandler)
         self.service = service
+        self.metrics = HttpMetrics(service.settings.deployment_id, service.settings.tenant_id)
 
 
 class E3D0RequestHandler(BaseHTTPRequestHandler):
@@ -50,7 +53,7 @@ class E3D0RequestHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         # Do not log request bodies, headers, queries, credentials, or errors.
         route = self.path.split("?", 1)[0]
-        safe_route = route if route in {"/healthz", "/readyz", "/v1/executions"} else "other"
+        safe_route = route if route in {"/healthz", "/readyz", "/metrics", "/v1/executions"} else "other"
         LOG.info("http method=%s route=%s status=%s", self.command, safe_route,
                  args[1] if len(args) > 1 else "-")
 
@@ -59,13 +62,19 @@ class E3D0RequestHandler(BaseHTTPRequestHandler):
         self.connection.settimeout(10)
 
     def _send_json(self, status: HTTPStatus, body: dict) -> None:
-        encoded = json.dumps(body, separators=(",", ":")).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(encoded)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(encoded)
+        try:
+            encoded = json.dumps(body, separators=(",", ":")).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(encoded)
+        finally:
+            started = getattr(self, "_metric_started", None)
+            if started is not None:
+                self.server.metrics.finished(int(status), (monotonic() - started) * 1000)
+                self._metric_started = None
 
     def _body(self) -> dict:
         try:
@@ -83,6 +92,9 @@ class E3D0RequestHandler(BaseHTTPRequestHandler):
         return validate_execution_payload(body)
 
     def do_GET(self) -> None:
+        if self.path == "/metrics":
+            self._send_json(HTTPStatus.OK, self.server.metrics.snapshot())
+            return
         if self.path == "/healthz":
             self._send_json(HTTPStatus.OK, {"status": "ok"})
             return
@@ -100,6 +112,8 @@ class E3D0RequestHandler(BaseHTTPRequestHandler):
         if self.path != "/v1/executions":
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
             return
+        self._metric_started = monotonic()
+        self.server.metrics.started()
         try:
             body = self._body()
             result = self.server.service.execute(

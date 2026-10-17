@@ -1,6 +1,6 @@
 # How-to — implementación técnica de etapa 3
 
-Fecha: 2026-10-07. Guía para implementar E3-01…15 sobre el código existente. Los comandos de baseline usan archivos actuales; las APIs, rutas y comandos nuevos se señalan como propuestas. Esta guía no acredita implementación ni cierre de gates.
+Fecha de revisión: 2026-10-15. Guía de implementación E3-01…15. Algunas tareas tienen slices y evidencia parcial; el estado vigente está en [PROGRESS](PROGRESS.md) y [VERIFICACION](VERIFICACION.md). Esta guía no acredita cierre de gates.
 
 Leer primero [dessing.md](dessing.md) para entender contratos y responsabilidades. [PLAN-E3](PLAN-E3.md) conserva el detalle de tareas; [GOALS](GOALS.md) y [VERIFICACION](VERIFICACION.md) gobiernan aceptación.
 
@@ -13,7 +13,7 @@ git status --short
 .venv/bin/python --version
 ```
 
-El proyecto requiere Python ≥3.12. Si no existe `.venv`, seguir la instalación de [README](../../../README.md). Para esta implementación, reutilizar el entorno existente y las versiones declaradas en [pyproject.toml](../../../pyproject.toml); añadir driver/migrador PostgreSQL cuando E3-03 resuelva compatibilidad. Registrar las dependencias nuevas también en el mecanismo de instalación reproducible del proyecto.
+El proyecto requiere Python ≥3.12. Si no existe `.venv`, seguir la instalación de [README](../../../README.md). Para esta implementación, reutilizar el entorno existente y las versiones declaradas en [pyproject.toml](../../../pyproject.toml); el driver PostgreSQL y las migraciones SQL versionadas ya están incorporados. Registrar las dependencias nuevas también en el mecanismo de instalación reproducible del proyecto.
 
 Comandos existentes para acreditar el punto de partida durante la implementación:
 
@@ -46,7 +46,7 @@ Las firmas finales se fijan en E3-02; los nombres propuestos no obligan a conser
 
 ### 3.1 Adapter y esquema
 
-Implementar PostgreSQL en `modules/conversation/adapters/persistence/postgres/` contra el contrato de E3-02. Seleccionar driver y herramienta de migración, fijar sus versiones y registrar el motivo en D1. Domain/Application siguen consumiendo valores propios.
+Implementar PostgreSQL en `modules/conversation/adapters/persistence/postgres/` contra el contrato de E3-02. El slice usa `psycopg` y migraciones SQL versionadas; mantener sus versiones y registrar cambios en D1. Domain/Application siguen consumiendo valores propios.
 
 Crear migraciones por incremento funcional: identidad/bindings y Conversation primero; tools/audit, Knowledge y lead/case al abrir sus tareas. Cada migración incluye versión, constraints, índices por consultas reales y prueba de actualización desde el esquema anterior. Ejecutar migraciones desde un paso operativo único; evitar que cada réplica modifique el schema al arrancar.
 
@@ -54,7 +54,7 @@ Diseñar claves compuestas y relaciones scoped según [dessing.md](dessing.md). 
 
 ### 3.2 Configuración y conexiones
 
-Convención de variables para E3. La plantilla Neon y el runner opt-in existen; el adapter/runtime todavía no consume los DSNs Neon hasta completar E3-03:
+Convención de variables para E3. La plantilla Neon, el runner opt-in y el adapter H1 existen; la activación productiva sigue pendiente:
 
 | Configuración | Uso |
 | --- | --- |
@@ -63,7 +63,7 @@ Convención de variables para E3. La plantilla Neon y el runner opt-in existen; 
 | `INCUBIA_E3_DB_POOL_MAX` | Máximo local por proceso; elegir según concurrencia y límite total del despliegue. |
 | Config E3 versionada | Backend, límites de consultas/turnos, deadlines y referencias opacas de credenciales. |
 
-El loader actual de bootstrap no carga estas variables desde `.env`; añadir soporte explícito y pruebas de configuración en E3-03. `scripts/e3/neon_h1.py` preparó roles SQL, grants mínimos y el archivo local ignorado según ADR-ORCH-027. No imprimir DSN, contraseña ni tokens para diagnosticar conectividad. Una URL con `-pooler` corresponde a conexión agrupada; Neon recomienda conexión directa para migraciones o funciones de sesión. Consultar [conexión oficial de Neon](https://github.com/neondatabase/website/blob/main/content/docs/get-started/connect-neon.md).
+Comprobar la carga explícita de configuración y su validación al preparar operación productiva. `scripts/e3/neon_h1.py` preparó roles SQL, grants mínimos y el archivo local ignorado según ADR-ORCH-027. No imprimir DSN, contraseña ni tokens para diagnosticar conectividad. Una URL con `-pooler` corresponde a conexión agrupada; Neon recomienda conexión directa para migraciones o funciones de sesión. Consultar [conexión oficial de Neon](https://github.com/neondatabase/website/blob/main/content/docs/get-started/connect-neon.md).
 
 Verificar schema/rol con una consulta mínima antes de aceptar trabajo. Limitar conexiones agregadas entre procesos, esperar pool dentro del deadline y liberar conexiones antes de LLM/HTTP. Registrar región/plan y capacidad de restore del entorno usado; la selección del proveedor no acredita su configuración.
 
@@ -117,7 +117,7 @@ Ensayar shutdown sin aceptar nuevo trabajo, recuperación de claims y entregas i
 
 Para lead/case, implementar primero repositorios y casos de uso internos con permiso y clave lógica única. El lead exige consentimiento explícito; el case se crea conforme a la regla autorizada de fallback del plan. Verificar replay, tenant/actor ajeno y revocación. Una respuesta de éxito se emite después del commit correspondiente; consultar el registro existente al repetir el evento.
 
-Finalmente ejecutar evaluación real con `eval-e3` y límites definidos. Registrar E2E CLI/Telegram, G1–G9 y decisión de release según [VERIFICACION](VERIFICACION.md). Los scripts `scripts/e3/*` y `evals/run_e3.py` son entregables futuros: añadir comandos de uso exactos cuando existan.
+Finalmente ejecutar evaluación real con `eval-e3` y límites definidos. Registrar E2E CLI/Telegram, G1–G9 y decisión de release según [VERIFICACION](VERIFICACION.md). Varios scripts `scripts/e3/*` ya existen; `evals/run_e3.py` y la campaña de release siguen pendientes. Registrar comandos exactos al ejecutarlos.
 
 ## 8. Rutina por tarea y revisión técnica
 

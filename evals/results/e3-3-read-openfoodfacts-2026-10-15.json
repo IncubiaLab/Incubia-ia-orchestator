@@ -1,0 +1,42 @@
+{
+  "campaign": "e3-3-read-openfoodfacts",
+  "captured_at": "2026-10-15T16:46:03Z",
+  "gate_closed": false,
+  "source": {
+    "provider": "Open Food Facts",
+    "host": "world.openfoodfacts.org",
+    "api": "v3",
+    "operation": "GET /api/v3/product/{product_ref}",
+    "authentication": "none for READ; identifying User-Agent",
+    "product_ref": "3017620422003"
+  },
+  "execution": {
+    "deployment_id": "local",
+    "tenant_id": "demo",
+    "actor_id": "e3-read-operator",
+    "tool_id": "business.catalog.lookup",
+    "tool_version": "2.0",
+    "tool_call_id": "e3-read-tool-call",
+    "execution_id": "e3-read-execution",
+    "attempts": 1,
+    "audit_events": 4,
+    "status": "SUCCESS"
+  },
+  "output_summary": {
+    "found": true,
+    "source": "openfoodfacts",
+    "version": "v3",
+    "item_count": 1,
+    "product_name": "Nutella",
+    "product_code": "3017620422003",
+    "untrusted_content": false
+  },
+  "validation": {
+    "real_read": "passed",
+    "provider_url_is_pinned": true,
+    "user_input_controls_path": true,
+    "writes_enabled": false,
+    "full_e3_3_gate": "pending"
+  },
+  "reproduction": "INCUBIA_E3_READ_REAL=1 .venv/bin/python scripts/e3/run_e3_read_campaign.py"
+}

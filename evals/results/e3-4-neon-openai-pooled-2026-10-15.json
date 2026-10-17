@@ -1,0 +1,32 @@
+{
+  "abstention": 1.0,
+  "branch": "e3-h1-synthetic",
+  "cross_deployment_leaks": 0,
+  "dataset_sha256": {
+    "response_cases.jsonl": "4aed7014d2098bd580c12f0043331f8aea4effcb543434956633fa7ceea53256",
+    "retrieval.jsonl": "11d202b8008995a8d021c40756628d641ec87fd30a352eeae555047f645354eb",
+    "retrieval_dev_negative.jsonl": "1d03e46d424e29221551036a23bd6889059786e3b509f7d344da86213f7cf29d",
+    "sources.jsonl": "6e3c048ab784c96daabc44c872e5dc2a9e2e50bae81da518514152ab6a2aaf0f"
+  },
+  "embedding": "text-embedding-3-small:384:e3-h4-v1",
+  "embedding_budget": {
+    "actual_tokens": 10112,
+    "calls": 140,
+    "estimated_usd": 0.00020224,
+    "reserved_tokens": 31919
+  },
+  "finished_at": "2026-10-15T17:21:43.729159+00:00",
+  "g5_passed": false,
+  "g6_assessed": false,
+  "gate_closed": false,
+  "generations_distinct": true,
+  "hnsw_exact_top5_set_differences": 3,
+  "p95_seconds": 1.638448027999857,
+  "recall_at_5": 1.0,
+  "respondable": 40,
+  "revocation_excluded": true,
+  "started_at": "2026-10-15T17:19:10.727420+00:00",
+  "threshold_from_dev": 0.6990591836495241,
+  "unanswerable": 40,
+  "val_queries": 80
+}

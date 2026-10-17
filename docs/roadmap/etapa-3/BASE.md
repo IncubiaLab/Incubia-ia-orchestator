@@ -39,7 +39,7 @@ No crear todas las carpetas anticipadamente. Abrir cada módulo con su primer sl
 
 ## Persistencia y concurrencia
 
-Neon detrás de un driver PostgreSQL estándar. La versión concreta del driver y herramienta de migración se fija en E3-03 tras revisar compatibilidad del entorno; no introducir ORM como dependencia de Domain. La base de Control Plane contiene bindings/memberships, inbox_events, conversations, turns, outcomes, deliveries, claims, tool_calls, audit_events, leads y cases. Cada base de Knowledge por deployment contiene fuentes, chunks, embeddings y generaciones pgvector. Cada módulo conserva ownership aunque comparta una base.
+Neon detrás de un driver PostgreSQL estándar. El slice E3-03 usa `psycopg` y migraciones SQL versionadas; no introducir ORM como dependencia de Domain. La base de Control Plane contiene bindings/memberships, inbox_events, conversations, turns, outcomes, deliveries, claims, tool_calls, audit_events, leads y cases. Cada base de Knowledge por deployment contiene fuentes, chunks, embeddings y generaciones pgvector. Cada módulo conserva ownership aunque comparta una base.
 
 Un Unit of Work de Conversation ofrece commit atómico de turno/revisión/outcome/inbox/outbox. Adaptar SQLite y PostgreSQL al mismo contrato sin reescribir los adapters de canal. Claves únicas incluyen deployment/tenant y la identidad del evento acordada en E3-02; misma clave con hash distinto produce conflicto.
 
