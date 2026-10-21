@@ -4,6 +4,7 @@
 /deploy/e3-d0.env
 /deploy/e3-neon.env
 /deploy/e3-probe.env
+/deploy/knowledge-neon.env
 __pycache__/
 *.pyc
 logs/
