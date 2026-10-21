@@ -146,3 +146,71 @@ La carpeta contenía 14 documentos de planificación al crear estas guías; se i
 | [GOALS](GOALS.md), [VERIFICACION](VERIFICACION.md) | Métricas, pruebas y cierre de gates. |
 | [AUTOPLAN-REVIEW](AUTOPLAN-REVIEW.md), [LINEAR-ADR](LINEAR-ADR.md) | Decisiones pendientes y alcance de las fuentes. |
 | [RUNBOOK](RUNBOOK.md), [PROGRESS](PROGRESS.md) | Operación, recuperación y estado acreditado. |
+
+## 10. HOWTO del RAG IncubiaLab
+
+Actualizado: 2026-10-21. Esta sección guía el feature prioritario en tres entregas de [GOALS](GOALS.md#feature-rag-incubialab-tres-etapas-y-tres-entregas). Las secciones anteriores conservan el recorrido global; sus descripciones históricas no sustituyen una inspección del código. El diseño y las fuentes oficiales están en [dessing](dessing.md#11-diseño-del-rag-incubialab). Los componentes nuevos descritos aquí están **por implementar**.
+
+### 10.1 Etapa 1: acceso, conexión y Markdown — RAG-V1
+
+1. Registrar baseline: `git status --short`, versiones de Python/dependencias y pruebas relevantes. Inspeccionar `modules/knowledge` bajo `src/incubia_orchestrator`, sus migraciones y bootstrap; registrar qué capacidades ya existen. No leer ni copiar secretos a informes.
+2. Verificar metadatos de la raíz [IncubiaLab](https://drive.google.com/drive/folders/1IiwcAQpeY-OeK9EwkS9oJnfMxw653kun) con la identidad que usará el backend. Un 404 significa acceso no acreditado; no demostrar carpeta vacía con una lista vacía. Elegir OAuth de una cuenta dedicada o cuenta de servicio con acceso compartido explícito; el conector del chat no proporciona automáticamente credenciales a Python. Definir binding verificable entre actor interno e identidad/grupos de Drive.
+3. Crear adapter Drive de sólo lectura. Elegir scopes mínimos que permitan el corpus: `drive.file` sólo cubre archivos autorizados para la app y no garantiza leer una carpeta preexistente completa; si se necesita `drive.readonly`, restringir además la raíz en la aplicación. Recorrer hijos con `files.list`, filtro `'<folder_id>' in parents and trashed = false`, paginación completa, conjunto de visitados y límites de profundidad/documentos. En unidades compartidas configurar parámetros de soporte y `driveId` según API. No seguir shortcuts fuera de raíz; resolver su destino y verificar pertenencia/permiso o excluir con causa. Referencias: [scopes](https://developers.google.com/workspace/drive/api/guides/api-specific-auth), [permisos](https://developers.google.com/workspace/drive/api/guides/manage-sharing).
+4. Inventariar ID, MIME, nombre, padres, versión observada, modifiedTime, tamaño disponible, clasificación y estado ACL. Congelar 10–20 documentos representativos: texto, tabla y presentación cuando existan. Revisar todas las páginas/hojas del original; incluir fixtures sintéticos separados para formatos ausentes. Los correos y ACL detalladas permanecen en almacenamiento privado.
+5. Confirmar proyecto, branch y base Knowledge de Neon. Registrar identidad de entorno sin DSN. Preparar rol migrador, ingestor y runtime con grants separados; runtime sin DDL/escrituras de ingestión, ingestor sin privilegios de propietario, ningún runtime con superuser/BYPASSRLS. Comprobar TLS, versión PostgreSQL/vector, migraciones y permisos positivos/negativos. La extensión `vector` la habilita el migrador. Pool runtime acotado; conexión directa para migraciones y backup. [Neon pgvector](https://neon.com/docs/extensions/pgvector), [pooling](https://neon.com/docs/connect/connection-pooling).
+6. Exportar Docs a `text/markdown`, Sheets a XLSX para conservar todas las hojas y Slides a PPTX. Descargar binarios por API autenticada. CSV sólo representa la primera hoja de una exportación de Sheets. `files.export` tiene límite documentado de 10 MB; archivos excedidos quedan pendientes de ruta específica, nunca truncados. [Formatos](https://developers.google.com/workspace/drive/api/guides/ref-export-formats), [descarga](https://developers.google.com/workspace/drive/api/guides/manage-downloads).
+7. Implementar `scripts/e3/prepare_knowledge_markdown.py` como CLI del conversor. Entradas: archivo local, directorio de salida, deployment, source_id, versión observada y URL original. Salidas: `document.md` y `manifest.json`. Validar MIME/extensión, archivo regular sin symlink, tamaño de entrada/salida, UTF-8 y extracción no vacía. Propuesta inicial: máximo 25 MB por archivo; configurar límites de expansión ZIP, memoria y tiempo para Office. Usar MarkItDown con plugins desactivados para DOCX/PPTX/XLSX/PDF; aislar proceso sin credenciales ni salida de red. PDFs escaneados/tablas complejas requieren revisión y ruta OCR explícita, con presupuesto si usa proveedor remoto. [Repositorio Microsoft](https://github.com/microsoft/markitdown).
+8. Mantener encabezados, listas, tablas, código y referencias de página/hoja/diapositiva cuando el extractor las proporcione. No inventar localizadores. Manifiesto: hashes SHA-256 original/Markdown, versión convertidor/pipeline, fuente/versión, fecha, tipo, revisión de extracción y ACL; `ingest_ready=false` hasta aprobar ambas. Comparar metadata antes/después de descargar: si cambió, reintentar con límite o poner en cuarentena.
+9. Mostrar original frente a Markdown, inventario, preflight y casos de rechazo. Entregar RAG-V1 y registrar decisión del usuario antes de V2.
+
+Contrato ilustrativo del conversor, no comando disponible en este checkout:
+
+```text
+prepare_knowledge_markdown.py INPUT --output-dir PRIVATE_DIR
+  --deployment-id DEPLOYMENT --source-id DRIVE_FILE_ID
+  --source-version OBSERVED_VERSION --source-url ORIGINAL_URL
+```
+
+No instalar `latest` durante producción: elegir release compatible de MarkItDown, fijar versión/hash y dependencias en el lock, probar corpus y registrar licencia. Las páginas oficiales describen versiones actuales; la integración debe verificarse contra las versiones fijadas en este repositorio.
+
+### 10.2 Etapa 2: contratos, chunks, ingestión y respuesta — RAG-V2
+
+1. Extender `knowledge/domain.py`, `ports.py` e `application/ingest.py`: documento/version separado de chunks. Mantener compatibilidad del corpus sintético mediante adapter de un chunk. Añadir migración aditiva posterior a `001_knowledge.sql` y `002_hnsw_opt_in.sql`; probar upgrade en base aislada antes de activar nuevos lectores.
+2. Fijar modelo, revisión, dimensión, normalización y tokenizer efectivos en un fingerprint. El modelo local candidato ya tiene adapter; su ficha indica 384 dimensiones y secuencia de 128 tokens. Confirmar configuración real ONNX/FastEmbed. Empezar experimentos con cuerpos de 80–96 tokens y overlap de 8–16, reservando encabezados y tokens especiales. Son hipótesis para dev, no valores aprobados. Cumplir también 4096 bytes por EvidenceItem. [Ficha del modelo](https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2).
+3. Separar Markdown por estructura y luego por presupuesto real del tokenizer. Repetir encabezados de tabla en cada bloque; dividir filas largas de forma explícita conservando clave de fila, no cortar celdas silenciosamente. Preservar breadcrumb y offset; para bloques de código largos registrar continuidad. Cada chunk tiene ordinal, hash, versión del chunker y localizador. Rechazar cualquier truncación implícita del embedder; verificar token count final incluyendo prefijos.
+4. Producir embeddings en lotes acotados fuera de transacciones SQL. Validar dimensión, valores finitos, cardinalidad y fingerprint. Cachear por hash del texto efectivo + fingerprint; no compartir contenido privado entre deployments. Si cambia modelo, regenerar corpus y vector de consulta juntos. Reservar gasto durable antes de proveedores remotos; no asumir presupuestos antiguos disponibles.
+5. Crear generación BUILDING, escribir lotes idempotentes, validar manifiesto completo y publicar con lock/CAS en transacción corta. Un delta de Drive debe reconstruir un snapshot lógico completo, incluyendo documentos sin cambios; no publicar sólo los modificados. La eliminación del último documento debe permitir generación vacía válida. Un fallo mantiene activa la generación anterior.
+6. Resolver scope desde Identity y DSN desde Control Plane. Aplicar ACL de documento y estado de autorización vigente en SQL antes del top-k. Usar búsqueda exacta como baseline; habilitar HNSW sólo después de comparar recall y latencia con filtros reales, versión de extensión compatible y plan SQL observado. Ajustar umbral de abstención únicamente con dev; no es una probabilidad. [pgvector: filtros](https://github.com/pgvector/pgvector#filtering).
+7. Integrar EvidenceItems en `grounded_workflow.py`, `grounded_response.py`, `response_context.py` y `bootstrap/e3_grounded.py`. El probe y el runtime deben usar el mismo fingerprint del índice. Vincular cita a source/version/chunk autorizado; no usar URLs privadas como `public_ref` sin ampliar el contrato. Verificar autorización antes de mandar texto al LLM y antes de entregar, descartando respuesta si perdió acceso.
+8. Congelar dev/val, manifest/modelo/config, ejecutar pruebas negativas y métricas de GOALS. Tratar títulos/enlaces como información protegida. Mostrar respuesta respondible, abstención y mismo prompt con actor sin acceso. Entregar RAG-V2 con rúbrica y decisión explícita.
+
+Pruebas existentes útiles como regresión, ejecutables desde la raíz con el entorno instalado:
+
+```bash
+.venv/bin/python -m pytest tests/unit/test_knowledge_contracts.py tests/integration/test_grounded_conversation.py tests/test_boundaries.py -q
+```
+
+Añadir pruebas de comportamiento para multichunk, pérdida a mitad de ingestión, publicación concurrente, corpus vacío, incompatibilidad de modelo, SQL ACL previo a top-k y revocación durante generación. Las campañas Neon requieren su harness opt-in y entorno aislado; no desactivar globalmente el bloqueo de red de tests.
+
+### 10.3 Etapa 3: sincronización y operación — RAG-V3
+
+1. Obtener cursor inicial antes del inventario completo; tras el inventario, consumir cambios desde ese cursor para cubrir carreras. Persistir cada página como trabajos durables e idempotentes y avanzar cursor en la misma transacción. El worker puede procesarlos después; el cursor acredita trabajos durables, no indexación terminada. Guardar `newStartPageToken` al agotar páginas; si el cursor no puede recuperarse, reconciliar inventario completo. [Drive Changes](https://developers.google.com/workspace/drive/api/guides/manage-changes).
+2. Revalidar raíz/ancestros, papelera, bajas, movimientos y acceso en cada cambio. El feed no equivale a un filtro recursivo de carpeta ni resuelve toda autorización de grupos; añadir reconciliación periódica y verificación de permisos. 403/404 sobre una fuente conocida la inhabilita preventivamente. Timeout global no borra corpus: suspende fuentes con autorización vencida y genera alerta.
+3. Fijar propietario del job mediante lease/fencing; retries sólo para errores transitorios, con backoff/jitter, Retry-After y límite. Registrar fallo permanente/cuarentena sin saltarlo silenciosamente. Deduplicar por fuente/versión/hash/pipeline; registrar versión ACL aparte de contenido.
+4. Invalidar cachés por deployment, actor/tenant, versión de policy/ACL, generación y modelo. Medir la ventana de revocación de GOALS, incluyendo grupos y permisos heredados. Si no se puede resolver membresía de un grupo, denegar los grants dependientes de él; el acceso amplio del ingestor no autoriza a los usuarios finales.
+5. Instrumentar importación, cuarentena, lag, cambios pendientes, tokens, costos, p50/p95/p99, errores, cola y pool. Correlacionar request/execution/source/generation en audit con campos acotados. No usar IDs privados como labels de métricas. Audit crítico durable; exportador de métricas desacoplado.
+6. Simular Drive 429/403, caída DB/embedding, commit incierto, SIGTERM y restart. Verificar persistencia de jobs/cursor y ausencia de generación parcial visible. Repetir después de revocar una fuente durante respuesta y con outbox pendiente.
+7. Ensayar rollback de índice conservando revocaciones actuales y restore en base aislada. No reabrir lectura restaurada hasta reconciliar ACL con Drive. Medir RPO/RTO, verificar hashes, versiones y claves idempotentes. Definir retención y eliminación de Markdown, chunks, cachés, backups y ramas; una rama de Neon puede contener datos privados. [Branching Neon](https://neon.com/docs/introduction/branching).
+8. Ejecutar perfil acordado ≥10 minutos, separar arranque frío/caliente, confirmar límites monetarios y regresión CLI/Telegram. Preparar runbook con activar/desactivar RAG, diagnóstico sin secretos, reintento, reindex, rollback y restore. Entregar RAG-V3; sólo después de aceptación retomar backlog global.
+
+### 10.4 Paquete revisable por entrega
+
+| Campo del reporte | Contenido requerido |
+| --- | --- |
+| Identidad | Entrega, fecha, responsable, commit/diff, entorno y schema. |
+| Reproducibilidad | Versiones fijas, fingerprint, hashes del corpus/config y comandos realmente ejecutados. |
+| Calidad | n, denominadores de GOALS, fallos completos y revisión manual; dev separado de val. |
+| Operación | Latencia/errores/costos conocidos, alcance del ensayo y límites pendientes. |
+| Decisión | `lista_para_validacion` o `requiere_cambios`; sólo aceptación explícita pasa a `validada`. |
+
+Los nombres de scripts nuevos y tablas del diseño son contratos propuestos. No presentar pseudocomandos, reportes futuros ni una prueba sintética como ejecución real sobre IncubiaLab.

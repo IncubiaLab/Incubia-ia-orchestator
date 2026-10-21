@@ -2,6 +2,10 @@
 
 Fecha de actualización: 2026-10-15. Tier 3 significa tercera etapa de desarrollo. El resultado buscado es un piloto integrado que pueda acreditar condiciones de producción con evidencia. E3-D0-L está acreditado; H1 y H2 tienen expedientes técnicos listos para decisión; E3-07/08 tienen READ real de humo y E3-09/10/11 tienen G5 acreditado con modelo local versionado y G6 técnico evaluado; falta firma manual de G6; no modifica el estado pendiente de los gates arquitectónicos E3-0…E3-6.
 
+## Prioridad RAG IncubiaLab (2026-10-21)
+
+Desarrollar tres etapas y entregas RAG-V1/V2/V3 con validación explícita por entrega según [GOALS](GOALS.md#feature-rag-incubialab-tres-etapas-y-tres-entregas), [howto](howto.md#10-howto-del-rag-incubialab) y [dessing](dessing.md#11-diseño-del-rag-incubialab). Tras las tres aceptaciones, retomar el desarrollo global y sus gates pendientes. Estado actual: planificación; esta actualización no acredita conexión ni ingestión real.
+
 ## Punto de partida
 
 CLI responde y Telegram está parcialmente funcional. Gate A E2 está cerrado según su [VERIFICACION](../etapa-2/VERIFICACION.md); Gate B sigue en progreso y Gate C pendiente. El smoke real acredita una generación/contador, sin cerrar evaluación. Neon está seleccionado localmente en [ADR-025](../../adr/ADR-ORCH-025-NEON-POSTGRESQL-TIER-3.md); el adapter y la campaña sintética H1 están acreditados, pero faltan decisión E3-1 y operación productiva. El baseline de Linear procede del corte heredado y sigue pendiente de revalidación completa en E3-01.

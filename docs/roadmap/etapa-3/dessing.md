@@ -205,3 +205,109 @@ La suite offline actual bloquea sockets y parte de los subprocesos. Configurar s
 Neon relacional y pgvector por deployment están seleccionados por ADR-025/010; driver/migrador, embeddings, proveedor READ, auth HTTP y plataforma de despliegue siguen sus tareas/decisiones. Estas guías no eligen herramientas adicionales por anticipado. Un cambio de contrato se refleja en BASE/GLOSARIO, su tarea PLAN-E3 y sus pruebas; un cambio de umbral se refleja en GOALS/VERIFICACION con justificación.
 
 Los enlaces oficiales de PostgreSQL y Neon anteriores se consultaron al redactar. Verificar compatibilidad con la versión/plan elegidos durante E3-03. Para estado Linear usar [LINEAR-ADR](LINEAR-ADR.md); para operación y corte seguir [RUNBOOK](RUNBOOK.md). [howto.md](howto.md) conecta este diseño con el orden de implementación.
+
+## 11. Diseño del RAG IncubiaLab
+
+Revisión: 2026-10-21. Diseño propuesto para las tres entregas de [GOALS](GOALS.md#feature-rag-incubialab-tres-etapas-y-tres-entregas); implementación secuenciada en [howto](howto.md#10-howto-del-rag-incubialab). Se conserva el monolito modular y la decisión de [ADR-010](../../adr/ADR-ORCH-010-RAG-VECTOR-STORE.md): una base Knowledge por deployment. No se requiere otro framework RAG para completar este corte.
+
+### 11.1 Base comprobada y brechas
+
+| Código existente bajo `src/incubia_orchestrator` | Reutilizar / extender |
+| --- | --- |
+| `modules/knowledge/domain.py` | Source y EvidenceItem limitan texto a 4096 bytes; separar documento y chunks, añadir procedencia y ACL. |
+| `modules/knowledge/application/ingest.py` | Hoy rechaza source_id repetido y embebe un contenido por Source; extender a varios chunks por versión. |
+| `modules/knowledge/adapters/postgres.py` | 384 dimensiones, publicación completa, revocación y rollback existentes; ampliar ACL, staging por lotes y snapshot vacío. |
+| `modules/knowledge/adapters/local_embedding.py` | Reutilizar revisión fijada; comprobar tokenizer real y longitud efectiva. |
+| `modules/knowledge/adapters/pool.py` | Mantener selección por deployment y limitar conexiones agregadas. |
+| `bootstrap/e3_grounded.py` y `modules/orchestration/application/grounded_workflow.py` | Composición READ/retrieval existente; incorporar fuente IncubiaLab, autorización y citas privadas. |
+| `migrations/knowledge/001_knowledge.sql`, `002_hnsw_opt_in.sql` (raíz) | Migración aditiva para versiones/ACL/sync; no reescribir migraciones ya aplicadas. |
+
+En este checkout no se encontró un conversor `prepare_knowledge_markdown.py` ni un pipeline Drive. Se planifican como componentes nuevos, sin afirmar que el corpus real está conectado.
+
+### 11.2 Flujo y límites de responsabilidad
+
+```mermaid
+flowchart TD
+    Drive[Drive: raíz autorizada] --> Sync[Worker: inventario y cambios durables]
+    Sync --> Export[Exportación autenticada]
+    Export --> MD[Conversión aislada y revisión Markdown]
+    MD --> Chunk[Chunking con tokenizer y procedencia]
+    Chunk --> Embed[Embedding versionado]
+    Embed --> Stage[Generación completa en staging]
+    Stage --> Active[Publicación atómica en Neon]
+    User[Entrada autenticada] --> Scope[Identity y policy]
+    Scope --> Search[Retrieval con ACL y generación activa]
+    Active --> Search
+    Search --> Context[Contexto limitado con evidencia]
+    Context --> LLM[Generación fundamentada]
+    LLM --> Check[Revalidar permisos y citas]
+    Check --> Out[Outcome y entrega autorizada]
+```
+
+Knowledge posee corpus/índices/sync; Identity resuelve actor y membresía; Governance decide acceso; Orchestration coordina; Conversation conserva outcome/outbox; Audit conserva trazabilidad. El worker tiene entrada operativa propia y reutiliza casos de uso, sin lógica de Drive dentro de nodos LangGraph. Proponer puertos `SourceCatalogPort`, `DocumentConverterPort`, `ChunkerPort`, `SourceAuthorizationPort` y `SyncCheckpointPort`; mantener EmbeddingPort/Retrieval existentes con contratos explícitos.
+
+### 11.3 Modelo de datos objetivo
+
+Nombres orientativos para la próxima migración; no son tablas disponibles hoy:
+
+| Entidad | Identidad y campos/invariantes |
+| --- | --- |
+| Fuente | `source_id` = ID estable Drive; root, MIME, URI privada, estado, revoked_at, ACL version y authorization_checked_at. |
+| Versión de documento | PK `(source_id, version_id)`; hashes original/Markdown, convertidor/pipeline, blob privado, revisión de extracción. `version_id` incorpora versión observada y hashes; un nombre o modifiedTime aislado no deduplica. |
+| Chunk | PK `(generation_id, source_id, version_id, chunk_id)`; ordinal, breadcrumb/localizador, texto ≤4096 bytes, tokens efectivos, hash, vector y fingerprint. FK a versión exacta. |
+| Generación | ID determinista del manifiesto completo + pipeline/modelo; BUILDING → VALIDATING → ACTIVE → RETIRED, o FAILED; una única ACTIVE por base mediante constraint/lock. |
+| Membresía de generación | Fuente/versión y conjunto esperado de chunks; permite conservar documentos sin cambios y verificar completitud. |
+| Grants | Fuente + principal interno/rol/grupo verificado + policy/ACL version + vencimiento; no almacenar emails como identificadores públicos. Denegación por defecto. |
+| Sync job/checkpoint | Raíz + identidad Drive + cursor; jobs con clave idempotente, intento, lease/fencing, estado y error sanitizado. |
+
+Acl y revocación son estado vigente independiente de versiones históricas: un rollback de generación nunca restaura autorización antigua. Constraints y transacciones deben evitar activación parcial o publicación por un worker que perdió el lease. Hashes de contenido no sustituyen autorización.
+
+Guardar Markdown/exports en almacenamiento privado con permisos, retención y respaldo definidos. Neon guarda metadatos, texto de chunks y vectores; evitar duplicar binarios grandes. El borrado lógico bloquea uso inmediatamente al detectarse; la purga física y backups siguen la retención acordada.
+
+### 11.4 Extracción y chunking
+
+Markdown es una representación intermedia legible y revisable. Neon almacena vectores y texto; no exige Markdown ni hace chunking automáticamente. Preferir exportación nativa de Docs y conversión Python para Office/PDF. MarkItDown es candidato por formatos; OCR y fidelidad de tablas se evalúan con corpus real. Plugins desactivados no equivalen a sandbox: el proceso de conversión requiere aislamiento y límites propios. [Microsoft MarkItDown](https://github.com/microsoft/markitdown).
+
+El chunker preserva jerarquía y procedencia; el tamaño se determina con el tokenizer del modelo. El MiniLM candidato declara 128 tokens y 384 dimensiones, por lo que 500 tokens por chunk sería incompatible con esa configuración. Fijar revisión y verificar el runtime antes de decidir tamaño final. [Model card](https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2).
+
+Fingerprint propuesto: modelo + revisión + dimensión + tokenizer + normalización + formato de prefijo. El ID del chunk combina fuente/versión, versión de chunker, ordinal y hash. Cambiar formato o modelo crea una generación distinta. Consultas demasiado largas se rechazan o se procesan por una estrategia explícita evaluada; nunca truncación silenciosa.
+
+### 11.5 Transacciones y publicación
+
+La conversión y las llamadas de embeddings ocurren sin conexión SQL retenida. Persistir staging en transacciones breves e idempotentes. Al publicar: tomar lock de generación, verificar fencing, modelo, conteos/hashes y revisión ACL actual, retirar la anterior y activar la nueva en una sola transacción. Si el commit es incierto, consultar por generation_id antes de repetir. La versión inicial conserva el snapshot completo lógico; no activar un lote incremental aislado.
+
+Neon usa pooling de transacciones: no depender de variables de sesión entre solicitudes. Usar configuración local a la transacción cuando aplique y conexión directa para operaciones que necesiten sesión persistente. Limitar pool local además del pool del proveedor y liberar conexión antes del LLM. [Neon pooling](https://neon.com/docs/connect/connection-pooling). La versión de psycopg fijada en pyproject gobierna implementación; no copiar APIs nuevas de documentación dev sin verificar compatibilidad.
+
+### 11.6 Autorización y recuperación
+
+La base por deployment evita cruce entre clientes; dentro de la base, permisos de fuente restringen actor/tenant. Permiso efectivo = policy de aplicación ∩ acceso documental verificado ∩ pertenencia a raíz ∩ vigencia. El acceso del ingestor no demuestra acceso del actor. Grupos/dominios/permisos heredados necesitan resolución verificable; información incompleta produce denegación, sin conceder acceso general por email parecido. [Modelo de permisos Drive](https://developers.google.com/workspace/drive/api/guides/manage-sharing).
+
+La consulta SQL aplica generación activa, modelo, no revocación y grants vigentes antes de LIMIT. Usar parámetros SQL y un resolver DSN confiable; no concatenar IDs o nombres de tabla del prompt. Los únicos chunks enviados al LLM son autorizados. Revalidar al terminar generación y al despachar outbox; descartar texto completo que dependa de una fuente revocada, no sólo quitarle el enlace.
+
+Búsqueda exacta por coseno primero. El operador `<=>` da distancia; el score derivado no es confianza. HNSW puede perder recall con filtros: medir contra exacta y habilitar búsqueda iterativa sólo si versión instalada y plan SQL la soportan. No forzar índices permanentemente para aparentar rendimiento. [pgvector](https://github.com/pgvector/pgvector#filtering).
+
+Si falta recall en consultas de códigos/nombres, experimentar en dev con búsqueda léxica PostgreSQL y fusión de rankings; aplicar idénticas ACL a ambas ramas. Reranker/híbrido son ampliaciones condicionadas a evidencia, no dependencias iniciales. Su costo/latencia y top-k final deben caber en GOALS.
+
+### 11.7 Contexto, citas e inyección
+
+Contexto contiene instrucciones confiables separadas de evidencia no confiable, delimitada y presupuestada. Texto de Drive nunca modifica policy, scope o tool arguments por sí mismo. Sólo el executor autorizado puede producir efectos. Probar documentos que ordenen revelar secretos, cambiar instrucciones o leer otras fuentes; filtros de texto no bastan como frontera de seguridad. [OWASP](https://cheatsheetseries.owasp.org/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.html).
+
+La respuesta usa identificadores de evidencia que el servidor resuelve a referencias autorizadas, con fuente/versión y localizador real. Un enlace HTTPS no convierte un documento en público. Verificar existencia, autorización y soporte de cada cita. Si la evidencia falta, contradice otras fuentes o fue revocada, abstenerse o expresar el límite sin inventar una política empresarial. Evaluar soporte manualmente; una cita existente puede no respaldar la afirmación.
+
+### 11.8 Operación y recuperación
+
+Drive Changes alimenta trabajos durables; el checkpoint avanza sólo cuando la página quedó registrada. La aplicación mantiene pertenencia recursiva a raíz y reconciliación completa periódica. Un cambio de carpeta afecta descendientes; un cambio ACL puede necesitar resolver herencia/grupos sin cambio de texto. [Changes API](https://developers.google.com/workspace/drive/api/guides/manage-changes).
+
+Frescura y autorización tienen relojes separados: contenido puede esperar reindexación; una revocación conocida invalida inmediatamente. Cumplir expiración de permisos aunque el worker esté caído. Cache keys incluyen deployment, tenant/actor o digest de permisos, ACL/policy version, generación, modelo y consulta; no servir caché con autorización vencida.
+
+Rollback cambia índice, conserva revocaciones. Restore recupera datos en base aislada y revalida permisos antes de tráfico. Branches y copias también requieren retención y control de acceso. Registrar RPO/RTO medidos y uso monetario real/conocido; costo desconocido no es cero. Audit crítico bloquea operación si no puede registrarse; falla del exporter métrico no invalida un commit durable.
+
+### 11.9 Trazabilidad de implementación y decisión
+
+| Entrega | Componentes a desarrollar | Riesgo que debe demostrar la prueba |
+| --- | --- | --- |
+| V1 | Drive adapter, conversor CLI, manifiesto, preflight Neon | Pérdida de contenido, raíz ajena, ACL desconocida, privilegios excesivos. |
+| V2 | Contratos multichunk, migración, chunker, ingestión, ACL/retrieval/citas | Generación parcial, modelo incompatible, fuga antes del LLM, respuestas sin soporte. |
+| V3 | Sync durable, leases, cachés, audit, composición y runbook | Pérdida de cambios, permiso obsoleto, recuperación que reactive datos revocados, gasto no reconciliado. |
+
+Fuentes consultadas el 2026-10-21: documentación oficial de Neon, Google Drive, ficha del modelo, repositorios mantenidos por pgvector/Microsoft y OWASP, enlazados junto a cada decisión. El esquema, etapas, límites y contratos propuestos son decisiones de este proyecto; las fuentes no acreditan que ya estén implementados. Registrar versión/commit de cada dependencia al implementarla y reevaluar estos supuestos con los resultados de cada entrega.

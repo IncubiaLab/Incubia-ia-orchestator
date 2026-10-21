@@ -1,5 +1,7 @@
 # Progreso — etapa 3
 
+Actualización documental 2026-10-21: completada planificación RAG IncubiaLab en [GOALS](GOALS.md#feature-rag-incubialab-tres-etapas-y-tres-entregas), [howto](howto.md#10-howto-del-rag-incubialab) y [dessing](dessing.md#11-diseño-del-rag-incubialab), contrastada con fuentes oficiales. V1/V2/V3 planificadas; acceso Drive/Neon y corpus real pendientes de verificación. No se ejecutó una campaña remota ni se cerraron gates. El registro fechado siguiente conserva la evidencia anterior.
+
 Fecha de actualización: 2026-10-15. **E3-D0-L acreditado; H1/H2 listos para decisión; H3 con smoke READ real y H4 con G5 acreditado en Neon y G6 técnico evaluado; falta firma manual.** Los gates arquitectónicos permanecen pendientes hasta contar con su decisión formal.
 
 | Preparación | Estado | Evidencia / pendiente |
@@ -23,7 +25,7 @@ Fecha de actualización: 2026-10-15. **E3-D0-L acreditado; H1/H2 listos para dec
 
 Baseline E2: Gate A cerrado en [VERIFICACION E2](../etapa-2/VERIFICACION.md); B en progreso y C pendiente. [Smoke real](../../../evals/results/e2-real-smoke-2026-10-06.md) acredita transporte/contador de una generación, sin cierre de calidad. CLI y adapter Telegram existen; funcionamiento parcial informado por el usuario no sustituye evidencia de piloto completo.
 
-Siguiente secuencia: completar E3-01/E3-02 y E2 B/C; registrar decisiones E3-1/E3-2; completar campañas E3-3/E3-4 y después E3-12…15. Los puertos de Tooling/Knowledge y sus slices ya existen.
+Siguiente secuencia global, después de las tres entregas RAG validadas: completar E3-01/E3-02 y E2 B/C; registrar decisiones E3-1/E3-2; completar campañas E3-3/E3-4 y después E3-12…15. Los puertos de Tooling/Knowledge y sus slices ya existen.
 
 Plan de cierre H1: [H1-CIERRE.md](H1-CIERRE.md) fija tres milestones: M1
 completa equivalencia, ownership y fencing; M2 implementa export/import,
