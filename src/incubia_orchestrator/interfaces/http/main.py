@@ -9,7 +9,7 @@ import signal
 import threading
 from time import monotonic
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from typing import Any
 
 from incubia_orchestrator.bootstrap.d0 import (
@@ -23,6 +23,7 @@ from incubia_orchestrator.bootstrap.d0 import (
 from incubia_orchestrator.modules.conversation.adapters.persistence.postgres import PostgresLedger
 from incubia_orchestrator.modules.conversation.ports.ledger import IdempotencyConflict
 from incubia_orchestrator.foundation.telemetry import HttpMetrics
+from incubia_orchestrator.interfaces.http.draining import DrainingHTTPServer
 
 LOG = logging.getLogger(__name__)
 MAX_BODY_BYTES = 8_192
@@ -36,10 +37,7 @@ def validate_execution_payload(body: object) -> dict:
     return body
 
 
-class E3D0HttpServer(ThreadingHTTPServer):
-    # SIGTERM must not wait indefinitely for a client that stopped reading.
-    daemon_threads = True
-
+class E3D0HttpServer(DrainingHTTPServer):
     def __init__(self, address: tuple[str, int], service: D0Deployment):
         super().__init__(address, E3D0RequestHandler)
         self.service = service

@@ -174,3 +174,21 @@ Retención E2 de 7 días payload / 30 tombstones es baseline sintético; E3-01 f
 ## Release
 
 Adjuntar VERIFICACION con G1–G9, gates, ADR aplicables, costos, incidentes y límites. Responsable registra GO de tráfico real y criterios de rollback. Arranque escalonado con alerta de duplicados, scope, errores y saturación; sin GO el estado permanece staging sintético. El Compose/E3-D0-L local no es un artefacto de release ni autorización para exponer su endpoint sin autenticación.
+
+### Rollback
+
+Las migraciones (`migrations/postgres/001..007`, `migrations/knowledge/*`) son forward-only: no existen scripts *down*. El rollback se resuelve en dos capas independientes.
+
+**Criterios para disparar.** Cualquiera durante el arranque escalonado o tras un release: duplicados de efecto o UNKNOWN_EFFECT por encima del baseline, violación de scope/RLS, readiness false sostenida, errores o saturación fuera de umbral, o falla de migración. Decide el responsable del GO y se registra en VERIFICACION con hora, versión de imagen y migración aplicada.
+
+**1. Rollback de imagen (primera opción).** Detener admisión (readiness false), dejar inbox/outbox durable, desplegar la imagen N-1 por digest fijado (nunca `latest`) y reabrir admisión. No toca el esquema: es seguro porque el esquema N es compatible con la app N-1 por la regla siguiente. Pendientes en PROCESSING/SENDING se tratan como en "Fallos y recuperación"; no se reintenta un efecto por el cambio de versión.
+
+**Regla expand/contract.** Toda migración es *expand* (tablas, columnas nullable o con default, índices, policies recreadas en el mismo archivo, `IF NOT EXISTS`). Un paso *contract* (DROP/RENAME de tabla o columna, cambio de tipo, `SET NOT NULL`, TRUNCATE/DELETE) solo se publica en un release posterior a que ninguna imagen desplegable lo necesite, con backfill previo y anotado aquí con la versión de app mínima. Baseline aceptado: los `SET NOT NULL` de scope en `002_e3_h1_rls.sql` y `006_e3_d0_runtime_claims.sql`, pre-release y precedidos de backfill. El check offline `tests/unit/test_e3_migration_rollback.py` falla ante cualquier paso no aditivo nuevo, policy eliminada sin recrear o DDL no idempotente.
+
+**2. Rollback de esquema/datos (último recurso).** Solo si un contract o una corrupción impide operar a N-1. No se escribe SQL inverso a mano: se restaura.
+1. Congelar escrituras (readiness false, workers detenidos) y exportar el estado actual por scope como evidencia: `scripts/e3/h1_backup.py export --deployment-id … --tenant-id … --output …`.
+2. Crear DB/rama Neon aislada desde el punto previo al release (o vacía) y aplicar la cadena de migraciones hasta la versión que N-1 espera (las migraciones son idempotentes).
+3. Restaurar el paquete del backup pre-release con `scripts/e3/h1_backup.py import --package … --database-url-env INCUBIA_MIGRATION_DATABASE_URL` (rol migrator); el restore valida manifest/hash, rechaza conflictos y deja auditoría en `restore_audit`.
+4. Apuntar la imagen N-1 a la DB restaurada; las entregas posteriores al punto de backup quedan en cuarentena y se reconcilian (IDs/offsets/efectos) antes de autorizar consumo, como en "Restore y retención".
+
+**Verificación post-rollback.** Readiness true con la imagen N-1; `schema_migrations` coincide con lo esperado; conteos y hashes por tabla del reporte de restore iguales al manifest; probe autenticado OK; RLS: consulta sin contexto de tenant devuelve cero filas; sin duplicados nuevos en deliveries; RPO/RTO observados registrados en VERIFICACION. Un rollback no ejecutado contra Neon real sigue siendo evidencia offline, no G de release.

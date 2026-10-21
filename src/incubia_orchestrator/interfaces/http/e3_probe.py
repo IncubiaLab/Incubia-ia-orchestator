@@ -9,13 +9,14 @@ import re
 import signal
 import threading
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
 from incubia_orchestrator.bootstrap.e3_grounded import compose_grounded_workflow
 from incubia_orchestrator.foundation.contracts.execution import ExecutionScope
+from incubia_orchestrator.interfaces.http.draining import DrainingHTTPServer
 from incubia_orchestrator.modules.audit.adapters.sqlite import SqliteAuditLog
 from incubia_orchestrator.modules.governance.adapters.policy.in_process.engine import Authority, InProcessPolicyEngine
 from incubia_orchestrator.modules.knowledge.adapters.openai_embedding import EmbeddingBudget, OpenAIEmbedding
@@ -68,9 +69,7 @@ class ProbeService:
                 "evidence_count": len(answer.evidence)}
 
 
-class ProbeHttpServer(ThreadingHTTPServer):
-    daemon_threads = True
-
+class ProbeHttpServer(DrainingHTTPServer):
     def __init__(self, address, service: ProbeService):
         super().__init__(address, ProbeHandler)
         self.service = service
