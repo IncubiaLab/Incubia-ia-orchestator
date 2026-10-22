@@ -18,8 +18,6 @@ Example (offline, no credentials involved)::
       --output-dir /private/rag-v1-bundles \\
       --deployment-id incubialab --source-id drive:file-1 --source-version v1
 """
-from __future__ import annotations
-
 import argparse
 import hashlib
 import json
@@ -34,14 +32,15 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
-# Tests load this script directly via importlib.util.spec_from_file_location
-# without registering it in sys.modules. Python 3.14's dataclasses needs
-# sys.modules[cls.__module__] to exist (for postponed-annotation lookups,
-# since this file uses `from __future__ import annotations`), so register a
-# placeholder entry ourselves; this has no effect under a normal `import`.
-if __name__ not in sys.modules:
-    import types as _types
-    sys.modules[__name__] = _types.ModuleType(__name__)
+# Note: this file deliberately does NOT use `from __future__ import
+# annotations`. Tests load this script directly via
+# importlib.util.spec_from_file_location + exec_module, which never registers
+# it in sys.modules; under postponed (string) annotations, Python 3.14's
+# dataclasses unconditionally does sys.modules[cls.__module__].__dict__ while
+# classifying fields and crashes with AttributeError when that lookup misses.
+# Using real runtime annotations (the style already used elsewhere in this
+# repo, e.g. openfoodfacts.py) sidesteps that code path entirely instead of
+# papering over it with a sys.modules placeholder.
 
 from incubia_orchestrator.modules.knowledge.private_artifacts import (  # noqa: E402
     DIR_MODE,
@@ -68,7 +67,11 @@ def ingest_ready_from_reviews(*, acl_review: str, extraction_review: str) -> boo
 
 def _slug(value: str) -> str:
     cleaned = _SLUG_RE.sub("-", value).strip("-")
-    return cleaned or "x"
+    if not cleaned or set(cleaned) <= {"."}:
+        # Empty, ".", ".." (or any all-dots string) are not usable path
+        # components: each one is either meaningless or a traversal segment.
+        raise ConversionError("value does not contain a usable path component")
+    return cleaned
 
 
 def _digest_component(value: str) -> str:
@@ -148,7 +151,15 @@ class _BundlePaths:
 
 def _bundle_paths(private_base: Path, *, deployment_id: str, source_id: str,
                    source_version: str) -> _BundlePaths:
-    bundle_dir = private_base / _slug(deployment_id) / _digest_component(source_id) / _slug(source_version)
+    # Every identifier is digest-suffixed (not just slugified) so that two
+    # distinct raw values can never collide on the same bundle directory
+    # merely because they sanitize to the same slug (e.g. "a/b" and "a:b").
+    bundle_dir = (
+        private_base
+        / _digest_component(deployment_id)
+        / _digest_component(source_id)
+        / _digest_component(source_version)
+    )
     return _BundlePaths(bundle_dir, bundle_dir / "document.md", bundle_dir / "manifest.json")
 
 
@@ -164,7 +175,18 @@ def _makedirs_private(path: Path) -> None:
 
 
 def _write_private_file(path: Path, data: bytes) -> None:
-    path.write_bytes(data)
+    # Create the file already at FILE_MODE via os.open's mode argument, rather
+    # than Path.write_bytes() (which creates at 0o666 & ~umask and only gets
+    # chmod'd afterward) -- this closes the window where bundle content would
+    # briefly be group/world readable.
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, FILE_MODE)
+    try:
+        os.write(fd, data)
+    finally:
+        os.close(fd)
+    # os.open's mode is still subject to umask; pin the exact mode regardless
+    # of the process umask (this chmod narrows or leaves it unchanged, it
+    # never widens access, so it reopens no window).
     os.chmod(path, FILE_MODE)
 
 
@@ -196,8 +218,24 @@ def prepare(source: Path, output_dir: Path, *, deployment_id: str, source_id: st
         source_version=request.source_version,
     )
 
-    _makedirs_private(paths.bundle_dir)
-    _write_private_file(paths.document_path, markdown)
+    # output_dir alone passing containment is not enough: output_dir can be an
+    # outside-the-repo *ancestor* of the repo root, in which case appending the
+    # deployment/source/version components could still land back inside it.
+    # Re-resolve the fully composed bundle directory and re-check it against
+    # the repo root, and also require it to still be nested under the already
+    # validated private_base, before anything is created.
+    resolved_bundle_dir = resolve_private_artifact_dir(paths.bundle_dir, repo_root=repo_root)
+    if not resolved_bundle_dir.is_relative_to(private_base):
+        raise ConversionError("composed bundle path escapes the private output directory")
+    paths = _BundlePaths(
+        resolved_bundle_dir, resolved_bundle_dir / "document.md", resolved_bundle_dir / "manifest.json"
+    )
+
+    try:
+        _makedirs_private(paths.bundle_dir)
+        _write_private_file(paths.document_path, markdown)
+    except OSError as exc:
+        raise ConversionError("failed to create the private bundle on disk") from exc
 
     acl_review = REVIEW_PENDING
     extraction_review = REVIEW_PENDING
@@ -219,7 +257,10 @@ def prepare(source: Path, output_dir: Path, *, deployment_id: str, source_id: st
         ),
         "generated_at": datetime.now(UTC).isoformat(),
     }
-    _write_private_file(paths.manifest_path, json.dumps(manifest, indent=2, sort_keys=True).encode("utf-8"))
+    try:
+        _write_private_file(paths.manifest_path, json.dumps(manifest, indent=2, sort_keys=True).encode("utf-8"))
+    except OSError as exc:
+        raise ConversionError("failed to create the private bundle on disk") from exc
 
     return paths.manifest_path
 

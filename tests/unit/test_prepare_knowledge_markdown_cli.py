@@ -7,6 +7,7 @@ written under pytest's tmp_path, never inside the repository working tree.
 import importlib.util
 import json
 import os
+import shutil
 import stat
 import sys
 from pathlib import Path
@@ -41,7 +42,101 @@ def test_output_dir_inside_repo_is_rejected(tmp_path):
         assert not inside_repo.exists()
     finally:
         if inside_repo.exists():
-            inside_repo.rmdir()
+            shutil.rmtree(inside_repo)
+
+
+def test_composed_bundle_path_inside_repo_is_rejected(tmp_path, monkeypatch):
+    """Fix-round-1 finding 1: output_dir itself can be outside the repo while the
+    *composed* bundle_dir (output_dir / deployment-component / source-id-component /
+    source-version-component) still lands inside it, e.g. when output_dir is an
+    ancestor of the real repo root. Reproduce generically (and without ever touching
+    the real repository) by monkeypatching the repo-root finder to a fake repo rooted
+    exactly where the composed bundle path would land."""
+    output_dir = tmp_path / "outside"
+    output_dir.mkdir()
+    kwargs = _kwargs()
+    bundle_dir = (
+        output_dir.resolve()
+        / module._digest_component(kwargs["deployment_id"])
+        / module._digest_component(kwargs["source_id"])
+        / module._digest_component(kwargs["source_version"])
+    )
+    monkeypatch.setattr(module, "_find_repo_root", lambda start: bundle_dir)
+
+    source = tmp_path / "document.md"
+    source.write_bytes(b"# hello\n")
+
+    with pytest.raises(ValueError):
+        module.prepare(source, output_dir, **kwargs)
+    assert not bundle_dir.exists()
+
+
+# --- _slug must reject path-traversal-shaped components ----------------------
+
+@pytest.mark.parametrize("value", ["..", ".", "", "---"])
+def test_slug_rejects_dot_and_empty_components(value):
+    with pytest.raises(ValueError):
+        module._slug(value)
+
+
+# --- deployment_id / source_version must not collide after slugifying --------
+
+def test_distinct_deployment_ids_that_slugify_the_same_do_not_collide(tmp_path):
+    source = tmp_path / "document.md"
+    source.write_bytes(b"# hello\n")
+    manifest_a = module.prepare(source, tmp_path / "bundles", **_kwargs(deployment_id="a/b"))
+    manifest_b = module.prepare(source, tmp_path / "bundles", **_kwargs(deployment_id="a:b"))
+    assert manifest_a.parent != manifest_b.parent
+
+
+# --- OSError during bundle creation must not crash the CLI or leak a path ----
+
+def test_bundle_creation_oserror_is_sanitized_and_returns_two(tmp_path, capsys):
+    source = tmp_path / "document.md"
+    source.write_bytes(b"# hello\n")
+    output_dir = tmp_path / "bundles"
+    deployment_component = module._digest_component("incubialab")
+    blocker = output_dir / deployment_component
+    blocker.parent.mkdir(parents=True)
+    # Occupy the path the converter needs to mkdir into, forcing an OSError.
+    blocker.write_bytes(b"not a directory")
+
+    rc = module.main([
+        str(source),
+        "--output-dir", str(output_dir),
+        "--deployment-id", "incubialab",
+        "--source-id", "drive:file-1",
+        "--source-version", "v1",
+    ])
+    assert rc == 2
+    err = capsys.readouterr().err.strip()
+    assert str(tmp_path) not in err
+
+
+# --- Bundle files must never pass through a world/group-readable window -----
+
+def test_write_private_file_does_not_use_path_write_bytes(tmp_path, monkeypatch):
+    def boom(self, data):
+        raise AssertionError("must not use Path.write_bytes; file would be briefly 0o664")
+
+    monkeypatch.setattr(Path, "write_bytes", boom)
+    target = tmp_path / "secret.bin"
+    module._write_private_file(target, b"hello")
+    assert target.read_bytes() == b"hello"
+    assert stat.S_IMODE(target.stat().st_mode) == 0o600
+
+
+# --- The dataclasses/importlib shim must not permanently poison sys.modules -
+
+def test_loading_the_script_does_not_pollute_sys_modules():
+    # The pinned contract test (test_prepare_knowledge_markdown.py) loads this
+    # same script under the module name "prepare_knowledge_markdown" earlier in
+    # this same test session (when both files are collected together). Loading
+    # it must never leave a placeholder/stub entry behind that a later genuine
+    # `import prepare_knowledge_markdown` could silently receive instead of the
+    # real module.
+    cached = sys.modules.get("prepare_knowledge_markdown")
+    assert cached is None or hasattr(cached, "prepare")
 
 
 # --- Restrictive permissions -------------------------------------------------

@@ -5,7 +5,14 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.e3.neon_branch_guard import BranchGuardError, guard_campaign_environment  # noqa: E402
 
 
 NEON_CLI = "neon@8.3.3"
@@ -54,7 +61,9 @@ def main() -> int:
     if os.getenv("INCUBIA_E3_NEON_TESTS") != "1":
         print("Set INCUBIA_E3_NEON_TESTS=1 to authorize the Neon campaign.", file=sys.stderr)
         return 2
-    if os.getenv("INCUBIA_E3_NEON_BRANCH") != "e3-h1-synthetic":
+    try:
+        guard_campaign_environment(os.environ, expected_branch="e3-h1-synthetic")
+    except BranchGuardError:
         print("Refusing to run: INCUBIA_E3_NEON_BRANCH must be e3-h1-synthetic.", file=sys.stderr)
         return 2
     try:
