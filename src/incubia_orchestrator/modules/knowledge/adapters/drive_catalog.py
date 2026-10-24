@@ -82,6 +82,7 @@ class DriveSourceCatalog:
         config = self._config
         visited_folders: set[str] = set()
         contained_folders: set[str] = {root_id}
+        emitted_source_ids: set[str] = set()
         entries: list[InventoryEntry] = []
         pages_fetched = 0
         queue: deque[tuple[str, int]] = deque([(root_id, 0)])
@@ -99,11 +100,29 @@ class DriveSourceCatalog:
                 page = self._transport.list_children(folder_id, page_token)
                 pages_fetched += 1
 
-                for item in page.items:
-                    if item.trashed:
-                        continue
+                visible_items = tuple(item for item in page.items if not item.trashed)
 
+                # Resolve folder membership for the complete page before
+                # evaluating documents. Drive does not promise an order within
+                # a page, and multi-parent items may name a sibling folder that
+                # appears later in that same page.
+                pending_folders = [
+                    item for item in visible_items
+                    if item.mime_type == _FOLDER_MIME_TYPE and item.shortcut_target_id is None
+                ]
+                changed = True
+                while changed:
+                    changed = False
+                    for folder in pending_folders:
+                        if (folder.source_id not in contained_folders
+                                and any(parent in contained_folders for parent in folder.parents)):
+                            contained_folders.add(folder.source_id)
+                            changed = True
+
+                for item in visible_items:
                     if item.shortcut_target_id is not None:
+                        if _containment(item, contained_folders) != "contained":
+                            continue
                         target = self._transport.get_metadata(item.shortcut_target_id)
                         if target.trashed or _containment(target, contained_folders) != "contained":
                             continue  # excluded with a cause; a shortcut target is never followed
@@ -117,10 +136,14 @@ class DriveSourceCatalog:
                                 "An item's parent chain does not stay within the requested root")
                         resolved = item
 
+                    if resolved.source_id in emitted_source_ids:
+                        continue
+
                     classification = "folder" if resolved.mime_type == _FOLDER_MIME_TYPE else "document"
                     entries.append(InventoryEntry(ref=resolved, root_id=root_id, depth=depth + 1,
                                                    classification=classification,
                                                    acl_state=AclState.UNKNOWN))
+                    emitted_source_ids.add(resolved.source_id)
                     if len(entries) > config.max_documents:
                         raise InventoryLimitError("Drive inventory exceeded the configured document limit")
 
