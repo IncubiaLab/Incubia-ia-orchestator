@@ -25,6 +25,7 @@ from incubia_orchestrator.modules.audit.adapters.postgres import PostgresAuditLo
 from incubia_orchestrator.modules.conversation.adapters.persistence.postgres import PostgresLedger
 from incubia_orchestrator.modules.conversation.ports.ledger import IdempotencyConflict
 from incubia_orchestrator.foundation.limits import AdmissionLimiter, Limits, load_runtime_limits
+from incubia_orchestrator.foundation.pg_pool import PooledConnections
 from incubia_orchestrator.foundation.telemetry import HttpMetrics
 from incubia_orchestrator.interfaces.http.draining import DrainingHTTPServer
 
@@ -182,7 +183,7 @@ def validate_bind_host(host: str) -> None:
     raise ValueError("E3-D0 HTTP must bind loopback outside approved Compose")
 
 
-def build_audit(settings: D0Settings) -> PostgresAuditLog | None:
+def build_audit(settings: D0Settings, pool=None) -> PostgresAuditLog | None:
     """Opt-in durable audit (INCUBIA_D0_AUDIT=postgres, E3-5/G7). Requires the
     incubia_runtime role (INSERT/SELECT on audit_events under RLS); fail closed
     on any other role or value instead of silently running without audit."""
@@ -193,7 +194,7 @@ def build_audit(settings: D0Settings) -> PostgresAuditLog | None:
         raise ValueError("INCUBIA_D0_AUDIT must be 'postgres' when set")
     if unquote(urlsplit(settings.database_url).username or "") != "incubia_runtime":
         raise ValueError("Durable audit requires the incubia_runtime role")
-    return PostgresAuditLog(settings.database_url)
+    return PostgresAuditLog(settings.database_url, pool=pool)
 
 
 def main() -> int:
@@ -203,8 +204,11 @@ def main() -> int:
         validate_bind_host(args.host)
         limits = load_runtime_limits()  # fail closed: invalid/unratified -> exit 1
         settings = D0Settings.from_env()
-        audit = build_audit(settings)
-        service = D0Deployment(settings, PostgresLedger(settings.database_url), D0Runtime(settings), audit)
+        # One bounded pool shared by ledger and audit (same DSN, same role).
+        pool = PooledConnections(settings.database_url, max_size=limits.pool_max_size)
+        audit = build_audit(settings, pool)
+        service = D0Deployment(settings, PostgresLedger(settings.database_url, pool=pool),
+                               D0Runtime(settings), audit)
     except Exception as exc:
         LOG.error("e3_d0_startup_failed type=%s", type(exc).__name__)
         return 1
@@ -217,8 +221,10 @@ def main() -> int:
         LOG.warning("e3_d0_recovery_deferred type=%s", type(exc).__name__)
     try:
         server = E3D0HttpServer((args.host, args.port), service, limits)
+        pool.set_metrics(server.metrics)
     except Exception as exc:
         LOG.error("e3_d0_server_start_failed type=%s", type(exc).__name__)
+        pool.close()
         return 1
 
     def shutdown(signum: int, _frame: object) -> None:
@@ -233,7 +239,8 @@ def main() -> int:
     try:
         server.serve_forever()
     finally:
-        server.server_close()
+        server.server_close()  # drains in-flight requests first
+        pool.close()  # then release pooled connections
         LOG.info("e3_d0_http_stopped")
     return 0
 

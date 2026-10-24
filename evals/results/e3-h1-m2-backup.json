@@ -4,13 +4,13 @@
   "first_restore": {
     "cleared_claims": 0,
     "idempotent": false,
-    "import_id": "c2e15c78-7afb-4540-829d-22b3782bd548",
-    "manifest_hash": "ed17d311ae70cd72f1e97745584b3a64f4defc63905a0eed5a3fc8f7fea4f5b9",
+    "import_id": "466e95f5-dc88-4f80-b809-c4265dec7443",
+    "manifest_hash": "64a76f61d4eb5fd232429cd4d0025f61b6a48e1ac07dc0593c2d6aeb040ee01b",
     "reconciled_unknown_effects": 0,
     "revision_max": 1,
     "revision_min": 1,
-    "rpo_seconds": 2.457363,
-    "rto_seconds": 8.349049418990035,
+    "rpo_seconds": 1.570424,
+    "rto_seconds": 7.0558470580144785,
     "status": "COMPLETED",
     "table_counts": {
       "conversations": 1,
@@ -32,13 +32,13 @@
   "second_restore": {
     "cleared_claims": 0,
     "idempotent": true,
-    "import_id": "c2e15c78-7afb-4540-829d-22b3782bd548",
-    "manifest_hash": "ed17d311ae70cd72f1e97745584b3a64f4defc63905a0eed5a3fc8f7fea4f5b9",
+    "import_id": "466e95f5-dc88-4f80-b809-c4265dec7443",
+    "manifest_hash": "64a76f61d4eb5fd232429cd4d0025f61b6a48e1ac07dc0593c2d6aeb040ee01b",
     "reconciled_unknown_effects": 0,
     "revision_max": 1,
     "revision_min": 1,
-    "rpo_seconds": 16.289795,
-    "rto_seconds": 8.386230162985157,
+    "rpo_seconds": 13.152253,
+    "rto_seconds": 7.485854108992498,
     "status": "COMPLETED",
     "table_counts": {
       "conversations": 1,
@@ -50,5 +50,5 @@
   },
   "status": "passed",
   "synthetic": true,
-  "test_duration_seconds": 49.121
+  "test_duration_seconds": 35.25
 }

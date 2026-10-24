@@ -1,6 +1,6 @@
 # Progreso — etapa 3
 
-Fecha de actualización: 2026-10-23. **Gates E3-1 y E3-2 cerrados por el responsable el 2026-10-23 (la actualización en Linear la gestiona Codex); SLO/límites/presupuesto ratificados; ADR-024 Aceptado; E3-5 con expediente en borrador y campaña integrada pendiente.** E3-D0-L acreditado; H3 con H3 con smoke READ real y H4 con G5 acreditado en Neon y G6 técnico evaluado; falta firma manual.** Los demás gates arquitectónicos permanecen pendientes hasta contar con su decisión formal.
+Fecha de actualización: 2026-10-23. **Gates E3-1, E3-2, E3-3 y E3-4 cerrados por el responsable el 2026-10-23 (la actualización en Linear la gestiona Codex); SLO/límites/presupuesto ratificados; ADR-024 Aceptado; E3-5 con expediente en borrador y campaña integrada pendiente.** E3-D0-L acreditado; H3 acreditado con campaña READ gobernada y H4 acreditado con Neon, READ real y rúbrica aceptada.** Los demás gates arquitectónicos permanecen pendientes hasta contar con su decisión formal.
 
 | Preparación | Estado | Evidencia / pendiente |
 | --- | --- | --- |
@@ -16,14 +16,14 @@ Fecha de actualización: 2026-10-23. **Gates E3-1 y E3-2 cerrados por el respons
 | H0 | En curso | ADR-008/019/020 Accepted; contratos de identidad/ledger y UoW SQLite iniciados en E3-02. Inventario, integración completa, SLO/responsables y cierre E2 B/C pendientes. |
 | H1 | Gate E3-1 cerrado (responsable, 2026-10-23) | M1 y M2 acreditados; M3 integrado passed offline, Compose y Neon. Cierre decidido por el responsable; el registro en Linear está a cargo de Codex. |
 | H2 | Gate E3-2 cerrado (responsable, 2026-10-23) | E3-06 implementó memberships/bindings, scope confiable, policy por rol y revocación local. La campaña local pasó 17/17 y la campaña Neon sintética pasó 9/9 ([evidencia](../../../evals/results/e3-2-campaign-2026-10-15-local.json)); `ready_for_gate`; el artefacto registra `gate_closed=false` (2026-10-15) y el responsable cerró E3-2 el 2026-10-23. |
-| H3 | En progreso | E3-07/08 implementados con registry/discovery scoped, PEP, audit y `business.catalog.lookup`; Open Food Facts v3 pasó smoke READ real ([evidencia](../../../evals/results/e3-3-read-openfoodfacts-2026-10-15.json)); campaña E3-3 completa y decisión formal pendientes. |
-| H4 | G5 acreditado; E3-4 abierto | Modelo local versionado: 40/40 recall y abstención, p95 0,62 s, cero fugas. G6 técnico 24/24, pendiente firma manual y READ real integrado. [G5](../../../evals/results/e3-4-neon-local-2026-10-15.json) · [G6](../../../evals/results/e3-4-g6-neon-local-2026-10-15.json). |
+| H3 | Gate E3-3 cerrado (responsable, 2026-10-23) | E3-07/08 implementados con registry/discovery scoped, PEP, audit y `business.catalog.lookup`; la [campaña READ gobernada](../../../evals/results/e3-3-campaign-2026-10-24.json) acreditó un ALLOW real y cero llamadas para cuatro rutas no autorizadas. |
+| H4 | Gate E3-4 cerrado (responsable, 2026-10-23) | Campaña integrada con modelo local: 80/80 recall y abstención, p95 0,592 s, cero fugas, exact/HNSW, revocación y rollback aprobados. G6 integrado: 24/24 comportamientos, READ real por PEP y cero fallos críticos. El responsable aceptó la rúbrica y la condición pendiente de referencias por actor. [G5](../../../evals/results/e3-4-neon-local-20261024T034222Z.json) · [G6](../../../evals/results/e3-4-g6-neon-local-20261024T034222Z.json). |
 | H5 | En curso | Audit durable (SQLite y Postgres), métricas con scope, límites, runner de carga, pruebas de fallos y shutdown/rollback implementados en `35933b5`/`d703322`; SLO ratificado (p95 ≤5 s, RPO ≤12 h, RTO ≤1 h) y presupuesto Neon/OpenAI aprobado el 2026-10-23. Campaña integrada (carga ≥10 min, fallos bajo carga, restore con volumen, reconciliación de costo) y decisión del gate E3-5 PENDIENTES; ver [VERIFICACION](VERIFICACION.md#e3-5--expediente-borrador). |
 | H6 | Pendiente | Lead/case/evaluación/cierre por implementar. |
 
 Baseline E2: Gate A cerrado en [VERIFICACION E2](../etapa-2/VERIFICACION.md); B en progreso y C pendiente. [Smoke real](../../../evals/results/e2-real-smoke-2026-10-06.md) acredita transporte/contador de una generación, sin cierre de calidad. CLI y adapter Telegram existen; funcionamiento parcial informado por el usuario no sustituye evidencia de piloto completo.
 
-Siguiente secuencia: completar E3-01/E3-02 y E2 B/C; registrar decisiones E3-1/E3-2; completar campañas E3-3/E3-4 y después E3-12…15. Los puertos de Tooling/Knowledge y sus slices ya existen.
+Siguiente secuencia: completar E3-01/E3-02 y E2 B/C; registrar decisiones E3-1…E3-4; continuar con E3-12…15. Los puertos de Tooling/Knowledge y sus slices ya existen.
 
 Plan de cierre H1: [H1-CIERRE.md](H1-CIERRE.md) fija tres milestones: M1
 completa equivalencia, ownership y fencing; M2 implementa export/import,

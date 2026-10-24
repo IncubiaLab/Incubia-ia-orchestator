@@ -42,11 +42,15 @@ def _default_connect(dsn: str) -> Any:
 
 
 class PostgresAuditLog:
-    def __init__(self, database_url: str, *, connect: Callable[[str], Any] = _default_connect):
+    def __init__(self, database_url: str, *, connect: Callable[[str], Any] = _default_connect,
+                 pool: Any = None):
+        """``pool`` (foundation.pg_pool.PooledConnections) is opt-in; scope stays
+        transaction-local (set_config ... true) so pooled reuse cannot leak it."""
         if not database_url:
             raise ValueError("DATABASE_URL is required")
         self._dsn = database_url
         self._connect = connect
+        self._pool = pool
 
     def append(self, event: AuditEvent) -> None:
         self.append_many((event,))
@@ -61,19 +65,27 @@ class PostgresAuditLog:
         if any(e.scope != scope for e in events):
             raise ValueError("append_many requires a single scope")
         rows = [self._row(e) for e in events]
+        if self._pool is not None:
+            with self._pool.connection() as connection:
+                self._write(connection, scope, rows)
+            return
         connection = self._connect(self._dsn)
         try:
-            with connection.transaction():
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        "SELECT set_config('app.deployment_id', %s, true), "
-                        "set_config('app.tenant_id', %s, true)",
-                        (scope.deployment_id, scope.tenant_id),
-                    )
-                    for row in rows:
-                        cursor.execute(_INSERT, row)
+            self._write(connection, scope, rows)
         finally:
             connection.close()
+
+    @staticmethod
+    def _write(connection, scope, rows) -> None:
+        with connection.transaction():
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('app.deployment_id', %s, true), "
+                    "set_config('app.tenant_id', %s, true)",
+                    (scope.deployment_id, scope.tenant_id),
+                )
+                for row in rows:
+                    cursor.execute(_INSERT, row)
 
     @staticmethod
     def _row(event: AuditEvent) -> tuple:

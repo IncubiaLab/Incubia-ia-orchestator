@@ -1,5 +1,16 @@
-"""Produce the 24 synthetic G6 responses and a per-claim review manifest."""
+"""Produce the 24 synthetic G6 responses and a per-claim review manifest.
+
+The tool-read step defaults to an in-process HTTP fixture through the PEP. Set
+both INCUBIA_E3_4_G6_REAL_READ=1 and INCUBIA_E3_READ_REAL=1 to route that same
+step through Open Food Facts, or inject `real_adapter` under the same guards in
+tests. The report states whether that route actually ran (`real_read_executed`).
+Reruns default to a timestamped path so they never overwrite a prior dated
+artifact; pass `result_path` to pick a specific file (as the E3-4 Neon campaign
+already does).
+"""
 import json
+import os
+from datetime import UTC, datetime
 from pathlib import Path
 import httpx
 
@@ -18,7 +29,24 @@ from incubia_orchestrator.modules.orchestration.domain.tools import ToolDescript
 
 ROOT = Path(__file__).resolve().parents[2]
 DATASET = ROOT / "evals/e3"
-RESULT = ROOT / "evals/results/e3-4-g6-local-review-2026-10-15.json"
+RESULT = ROOT / "evals/results/e3-4-g6-local-review-2026-10-15.json"  # historical evidence; never a default target
+
+
+class _CountingAdapter:
+    """Wraps an injected real-read adapter so the report can truthfully state
+    whether that route actually ran, independent of the adapter's own state."""
+
+    def __init__(self, inner):
+        self._inner = inner
+        self.calls = 0
+
+    def execute(self, invocation, descriptor, *, credential=None, audit=None):
+        self.calls += 1
+        return self._inner.execute(invocation, descriptor, credential=credential, audit=audit)
+
+
+def _default_result_path(moment: datetime) -> Path:
+    return ROOT / "evals/results" / f"e3-4-g6-review-{moment.strftime('%Y%m%dT%H%M%S%f')}.json"
 
 
 def _source(source_id):
@@ -31,16 +59,27 @@ def _source(source_id):
     raise ValueError("Unknown synthetic source")
 
 
-def main(retrieval=None, *, result_path=RESULT):
+def main(retrieval=None, *, result_path=None, real_adapter=None, env=None, now=None):
+    env = dict(os.environ if env is None else env)
+    moment = (now or (lambda: datetime.now(UTC)))()
+    out_path = result_path or _default_result_path(moment)
+    real_read_requested = env.get("INCUBIA_E3_4_G6_REAL_READ") == "1"
+    if real_read_requested and env.get("INCUBIA_E3_READ_REAL") != "1":
+        raise RuntimeError("Set INCUBIA_E3_READ_REAL=1 to authorize the real G6 READ")
+    use_real_adapter = real_read_requested
+
     cases = [json.loads(line) for line in (DATASET / "response_cases_v2.jsonl").read_text().splitlines()]
     results = []
     calls = []
-    def fixture(request):
-        calls.append(str(request.url))
-        return httpx.Response(200, json={"status": "success", "product": {
-            "code": "3017620422003", "product_name": "Nutella"}})
-    client = httpx.Client(transport=httpx.MockTransport(fixture))
-    adapter = OpenFoodFactsAdapter(client=client)
+    if use_real_adapter:
+        adapter = _CountingAdapter(real_adapter or OpenFoodFactsAdapter())
+    else:
+        def fixture(request):
+            calls.append(str(request.url))
+            return httpx.Response(200, json={"status": "success", "product": {
+                "code": "3017620422003", "product_name": "Nutella"}})
+        client = httpx.Client(transport=httpx.MockTransport(fixture))
+        adapter = OpenFoodFactsAdapter(client=client)
     descriptor = ToolDescriptor("business.catalog.lookup", version="2.0",
                                 capabilities=frozenset({"business.catalog.lookup"}),
                                 deployment_ids=frozenset({"alpha"}),
@@ -113,14 +152,16 @@ def main(retrieval=None, *, result_path=RESULT):
               "expected_sources_present": all(case["expected_sources_present"] for case in results),
               "critical_failures": sum(case["critical_failure"] for case in results),
               "references_actor_openable_verified": False,
-              "real_read_executed": False,
+              "real_read_requested": real_read_requested,
+              "real_read_executed": use_real_adapter and adapter.calls > 0,
               "neon_retrieval_cases": sum(case["retrieval_mode"] == "neon" for case in results),
-              "read_via_pep_fixture": len(calls) == 6,
+              "read_via_pep_fixture": (not use_real_adapter) and len(calls) == 6,
               "read_fixture_calls": len(calls),
               "tool_audit_events": len(audit.events),
               "manual_rubric_complete": False,
               "gate_closed": False, "results": results}
-    result_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
     print(json.dumps({key: report[key] for key in ("cases", "claim_support", "reference_manifest_validity",
                                                    "expected_behavior", "critical_failures")}))
     return report

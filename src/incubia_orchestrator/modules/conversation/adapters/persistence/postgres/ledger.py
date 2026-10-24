@@ -20,11 +20,26 @@ from incubia_orchestrator.modules.conversation.ports.ledger import (
 
 class PostgresLedger:
     CONNECT_TIMEOUT_SECONDS = 3
+    _HISTORY_SQL = (
+        "SELECT user_text, assistant_text FROM ("
+        "SELECT user_text, assistant_text, created_at, execution_id FROM turns "
+        "WHERE deployment_id=%s AND tenant_id=%s AND conversation_id=%s AND actor_id=%s "
+        "ORDER BY created_at DESC, execution_id DESC LIMIT %s"
+        ") recent ORDER BY created_at, execution_id"
+    )
+    _READY_VERSIONS = {
+        "d0_runtime": "006_e3_d0_runtime_claims.sql",
+        "incubia_runtime": "004_e3_h1_dispatcher_claims.sql",
+    }
 
-    def __init__(self, database_url: str):
+    def __init__(self, database_url: str, *, pool=None):
+        """``pool`` (foundation.pg_pool.PooledConnections) is opt-in for the hot
+        path; without it every transaction opens its own connection (migrator,
+        backup and probes keep that behaviour)."""
         if not database_url:
             raise ValueError("DATABASE_URL is required")
         self.database_url = database_url
+        self._pool = pool
 
     @staticmethod
     def _driver():
@@ -36,29 +51,40 @@ class PostgresLedger:
 
     @contextmanager
     def _transaction(self, scope: ExecutionScope | tuple[str, str] | str | None = None):
+        if self._pool is not None:
+            with self._pool.connection() as connection:
+                with self._scoped(connection, scope):
+                    yield connection
+            return
         connection = self._driver().connect(
             self.database_url, connect_timeout=self.CONNECT_TIMEOUT_SECONDS
         )
         try:
-            with connection.transaction():
-                if scope is not None:
-                    if isinstance(scope, str):
-                        with connection.cursor() as cursor:
-                            cursor.execute(
-                                "SELECT set_config('app.deployment_id', %s, true)",
-                                (scope,),
-                            )
-                    else:
-                        deployment_id, tenant_id = self._scope_values(scope)
-                        with connection.cursor() as cursor:
-                            cursor.execute(
-                                "SELECT set_config('app.deployment_id', %s, true), "
-                                "set_config('app.tenant_id', %s, true)",
-                                (deployment_id, tenant_id),
-                            )
+            with self._scoped(connection, scope):
                 yield connection
         finally:
             connection.close()
+
+    @contextmanager
+    def _scoped(self, connection, scope):
+        # Scope is set with transaction-local set_config inside THIS transaction,
+        # so it never survives on a pooled connection after COMMIT/ROLLBACK.
+        with connection.transaction():
+            if scope is not None:
+                if isinstance(scope, str):
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT set_config('app.deployment_id', %s, true)", (scope,),
+                        )
+                else:
+                    deployment_id, tenant_id = self._scope_values(scope)
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT set_config('app.deployment_id', %s, true), "
+                            "set_config('app.tenant_id', %s, true)",
+                            (deployment_id, tenant_id),
+                        )
+            yield
 
     @staticmethod
     def _scope_values(scope: ExecutionScope | tuple[str, str]) -> tuple[str, str]:
@@ -92,19 +118,15 @@ class PostgresLedger:
         try:
             with self._transaction() as connection:
                 with connection.cursor() as cursor:
-                    cursor.execute("SELECT current_user")
-                    role = cursor.fetchone()[0]
-                    required_version = {
-                        "d0_runtime": "006_e3_d0_runtime_claims.sql",
-                        "incubia_runtime": "004_e3_h1_dispatcher_claims.sql",
-                    }.get(role)
-                    if required_version is None:
-                        return False
+                    # One round trip: role plus the migration versions it may require.
                     cursor.execute(
-                        "SELECT 1 FROM schema_migrations WHERE version=%s",
-                        (required_version,),
+                        "SELECT current_user, ARRAY(SELECT version FROM schema_migrations "
+                        "WHERE version = ANY(%s))",
+                        (list(self._READY_VERSIONS.values()),),
                     )
-                    return cursor.fetchone() is not None
+                    role, versions = cursor.fetchone()
+                    required_version = self._READY_VERSIONS.get(role)
+                    return required_version is not None and required_version in versions
         except Exception:
             return False
 
@@ -324,26 +346,79 @@ class PostgresLedger:
             raise ValueError("A trusted scope is required to claim an event")
         with self._transaction(scope) as connection:
             with connection.cursor() as cursor:
-                token = self._acquire_claim_in_transaction(
-                    cursor, scope, "execution", execution_id, owner_id, lease_seconds
-                )
-                if token is None:
-                    return None
+                return self._claim_event_in_transaction(
+                    cursor, execution_id, scope, owner_id, lease_seconds)
+
+    @classmethod
+    def _claim_event_in_transaction(cls, cursor, execution_id, scope, owner_id, lease_seconds):
+        token = cls._acquire_claim_in_transaction(
+            cursor, scope, "execution", execution_id, owner_id, lease_seconds
+        )
+        if token is None:
+            return None
+        cursor.execute(
+            "UPDATE inbox_events SET state='PROCESSING' WHERE execution_id=%s::uuid "
+            "AND deployment_id=%s AND tenant_id=%s AND state IN ('RECEIVED', 'PROCESSING')",
+            (execution_id, scope.deployment_id, scope.tenant_id),
+        )
+        if cursor.rowcount != 1:
+            cursor.execute(
+                "UPDATE resource_claims SET lease_until=clock_timestamp(), "
+                "updated_at=clock_timestamp() WHERE deployment_id=%s AND tenant_id=%s "
+                "AND resource_type=%s AND resource_key=%s AND owner_id=%s AND generation=%s",
+                (token.deployment_id, token.tenant_id, token.resource_type,
+                 token.resource_key, token.owner_id, token.generation),
+            )
+            return None
+        return token
+
+    def claim_execution(
+        self, execution_id: str, *, scope: ExecutionScope, owner_id: str,
+        lease_seconds: float = 60,
+    ) -> tuple[ClaimToken | None, ClaimToken | None, str | None]:
+        """Event claim + conversation claim in ONE transaction (saves round trips).
+
+        Returns (event_token, conversation_token, busy) with busy in
+        {None, "event", "conversation"}. If the conversation is busy the whole
+        transaction rolls back, so no event claim or PROCESSING state is left.
+        """
+        class _Busy(Exception):
+            pass
+
+        try:
+            with self._transaction(scope) as connection:
+                with connection.cursor() as cursor:
+                    event = self._claim_event_in_transaction(
+                        cursor, execution_id, scope, owner_id, lease_seconds)
+                    if event is None:
+                        return None, None, "event"
+                    conversation = self._acquire_claim_in_transaction(
+                        cursor, scope, "conversation", conversation_claim_key(scope),
+                        owner_id, lease_seconds)
+                    if conversation is None:
+                        raise _Busy
+                    return event, conversation, None
+        except _Busy:
+            return None, None, "conversation"
+
+    def conversation_snapshot(
+        self, scope: ExecutionScope, *, limit: int = 20,
+    ) -> tuple[tuple[ConversationTurn, ...], int]:
+        """History and current revision in one transaction."""
+        if limit < 1:
+            raise ValueError("History limit must be positive")
+        with self._transaction(scope) as connection:
+            with connection.cursor() as cursor:
                 cursor.execute(
-                    "UPDATE inbox_events SET state='PROCESSING' WHERE execution_id=%s::uuid "
-                    "AND deployment_id=%s AND tenant_id=%s AND state IN ('RECEIVED', 'PROCESSING')",
-                    (execution_id, scope.deployment_id, scope.tenant_id),
+                    "SELECT COALESCE((SELECT revision FROM conversations WHERE deployment_id=%s "
+                    "AND tenant_id=%s AND conversation_id=%s AND actor_id=%s), 0)",
+                    (scope.deployment_id, scope.tenant_id, scope.conversation_id, scope.actor_id),
                 )
-                if cursor.rowcount != 1:
-                    cursor.execute(
-                        "UPDATE resource_claims SET lease_until=clock_timestamp(), "
-                        "updated_at=clock_timestamp() WHERE deployment_id=%s AND tenant_id=%s "
-                        "AND resource_type=%s AND resource_key=%s AND owner_id=%s AND generation=%s",
-                        (token.deployment_id, token.tenant_id, token.resource_type,
-                         token.resource_key, token.owner_id, token.generation),
-                    )
-                    return None
-                return token
+                revision = cursor.fetchone()[0]
+                cursor.execute(self._HISTORY_SQL, (
+                    scope.deployment_id, scope.tenant_id, scope.conversation_id,
+                    scope.actor_id, limit))
+                return tuple(ConversationTurn(*row) for row in cursor.fetchall()), revision
 
     def renew_claim(self, token: ClaimToken, *, lease_seconds: float = 60) -> bool:
         seconds = self._lease_seconds(lease_seconds)
@@ -463,11 +538,7 @@ class PostgresLedger:
         with self._transaction(scope) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
-                    "SELECT user_text, assistant_text FROM ("
-                    "SELECT user_text, assistant_text, created_at, execution_id FROM turns "
-                    "WHERE deployment_id=%s AND tenant_id=%s AND conversation_id=%s AND actor_id=%s "
-                    "ORDER BY created_at DESC, execution_id DESC LIMIT %s"
-                    ") recent ORDER BY created_at, execution_id",
+                    self._HISTORY_SQL,
                     (scope.deployment_id, scope.tenant_id, scope.conversation_id, scope.actor_id, limit),
                 )
                 return tuple(ConversationTurn(*row) for row in cursor.fetchall())
