@@ -1,6 +1,6 @@
 # Roadmap — etapa 3: persistencia compartida, tooling y conocimiento
 
-Fecha de actualización: 2026-10-15. Tier 3 significa tercera etapa de desarrollo. El resultado buscado es un piloto integrado que pueda acreditar condiciones de producción con evidencia. E3-D0-L está acreditado; H1 y H2 tienen expedientes técnicos listos para decisión; E3-07/08 tienen READ real de humo y E3-09/10/11 tienen G5 acreditado con modelo local versionado y G6 técnico evaluado; falta firma manual de G6; no modifica el estado pendiente de los gates arquitectónicos E3-0…E3-6.
+Fecha de actualización: 2026-10-23. El responsable cerró los gates E3-1 y E3-2 el 2026-10-23 (Linear a cargo de Codex) y ratificó SLO, límites y presupuesto de la campaña integrada. Tier 3 significa tercera etapa de desarrollo. El resultado buscado es un piloto integrado que pueda acreditar condiciones de producción con evidencia. E3-D0-L está acreditado; H1 y H2 tienen expedientes técnicos listos para decisión; E3-07/08 tienen READ real de humo y E3-09/10/11 tienen G5 acreditado con modelo local versionado y G6 técnico evaluado; falta firma manual de G6; E3-1 y E3-2 están cerrados por decisión del responsable; E3-0, E3-3, E3-4, E3-5 y E3-6 permanecen abiertos.
 
 ## Punto de partida
 
@@ -32,11 +32,11 @@ E3-D0 permite ensayar antes el ciclo de entrega local con Docker Compose, Postgr
 
 Monolito modular con contratos propios, PostgreSQL administrado en Neon para servicio compartido, identidad/tenant confiables, una integración externa READ gobernada y RetrievalPort sobre pgvector aislado por deployment, audit y operación medidos. Leads y casos se registran internamente con autorización/consentimiento; exports externos son incrementos posteriores. CLI conserva modo offline y Telegram sus garantías de inbox/outbox.
 
-E3-D0 añade una instancia local única de la misma aplicación para el MVP. Docker Compose no aprueba una topología productiva: no decide Kubernetes, múltiples réplicas, broker, microservicios ni ratifica ADR-024. ADR-022 y ADR-024 continúan como decisiones propuestas; monedas, ejes y círculos son recorridos internos del monolito, nunca unidades de despliegue.
+E3-D0 añade una instancia local única de la misma aplicación para el MVP. Docker Compose no aprueba una topología productiva: no decide Kubernetes, múltiples réplicas, broker ni microservicios; la topología productiva la fija ADR-024, Aceptado por el responsable el 2026-10-23 (opción A, un contenedor, con ruta a N réplicas bajo disparadores medidos). ADR-022 continúa como decisión propuesta; monedas, ejes y círculos son recorridos internos del monolito, nunca unidades de despliegue.
 
 ## Baseline de deployment E3-D0
 
-**E3-D0 no es E3-0.** E3-0 es el gate arquitectónico de H0; E3-D0 es una pista preliminar y paralela de operación local. No cierra H1–H5, no acredita G2–G9 y no ratifica ADR-024.
+**E3-D0 no es E3-0.** E3-0 es el gate arquitectónico de H0; E3-D0 es una pista preliminar y paralela de operación local. No cierra H1–H5 ni acredita G2–G9; por sí solo no ratifica ADR-024 (aceptado después por decisión del responsable).
 
 | Nivel | Alcance y salida | Límites de la evidencia |
 | --- | --- | --- |
@@ -73,7 +73,7 @@ En E3-D0-L el ingress sólo se publica en `127.0.0.1`. Recibe mensaje y clave de
 | H5. Operación | E3-12/13: audit/métricas, deployment, carga, fallos y rollback | **E3-5:** G7/G9 y SLO acordados con mediciones; restore/shutdown y límites operativos reproducibles. |
 | H6. Validación integrada | E3-14/15: lead/case internos, evaluación real y expediente | **E3-6:** G1–G9 completos, cero fallos críticos, presupuesto reconciliado y decisión de release registrada. |
 
-Para H1, E3-H1-N es una preparación de infraestructura (no un gate): rama Neon sintética temporal, base Control Plane, roles separados, DSNs y runner explícito. M1 y M2 están acreditados; la campaña integrada M3 pasó offline (27/27), Compose local y Neon (8/8) en la rama sintética. El expediente quedó `ready_for_gate`, pero `gate_closed=false` hasta registrar la decisión formal E3-1. Consultar evidencia vigente en [RUNBOOK](RUNBOOK.md), [VERIFICACION](VERIFICACION.md) y [PROGRESS](PROGRESS.md).
+Para H1, E3-H1-N es una preparación de infraestructura (no un gate): rama Neon sintética temporal, base Control Plane, roles separados, DSNs y runner explícito. M1 y M2 están acreditados; la campaña integrada M3 pasó offline (27/27), Compose local y Neon (8/8) en la rama sintética. El expediente quedó `ready_for_gate`, pero el artefacto registra `gate_closed=false` (estado a 2026-10-13); el responsable cerró E3-1 el 2026-10-23. Consultar evidencia vigente en [RUNBOOK](RUNBOOK.md), [VERIFICACION](VERIFICACION.md) y [PROGRESS](PROGRESS.md).
 
 El cierre de H1 queda organizado en tres milestones: [M1 contrato,
 ownership y fencing](H1-CIERRE.md#m1--contrato-compartido-ownership-y-fencing-completo),
@@ -99,7 +99,7 @@ El grafo muestra dependencias de trabajo; PLAN-E3 detalla prerequisites. E3-D0-L
 
 ## Decisiones por resolver
 
-Neon relacional, driver `psycopg`, migraciones y región/plan sintéticos están concretados en H1; la operación productiva y la decisión E3-1 siguen pendientes. ADR-008 ya fija Conversation/UoW; ADR-009/019 deben cerrar el recorte de memoria y su frontera con runtime. ADR-010 fija pgvector y una base por deployment para Knowledge; E3-10 aún debe ratificar modelo semántico, dimensión e índices con evidencia real. ADR-014/015/024 delimitan audit, retries y topología en H5. ADR-005/006 gobiernan tooling/policy ya aceptados; ADR-021 sigue bloqueando mutations externas nuevas. ADR-012/resume no se implementa por declarar un caso interno.
+Neon relacional, driver `psycopg`, migraciones y región/plan sintéticos están concretados en H1; la operación productiva sigue pendiente; la decisión E3-1 fue tomada por el responsable el 2026-10-23. ADR-008 ya fija Conversation/UoW; ADR-009/019 deben cerrar el recorte de memoria y su frontera con runtime. ADR-010 fija pgvector y una base por deployment para Knowledge; E3-10 aún debe ratificar modelo semántico, dimensión e índices con evidencia real. ADR-014 (audit) y ADR-015 (timeouts/reintentos) están Aceptados (Linear HEC-37/HEC-38); ADR-024 (topología) está Aceptado desde 2026-10-23. Los tres delimitan H5. ADR-005/006 gobiernan tooling/policy ya aceptados; ADR-021 sigue bloqueando mutations externas nuevas. ADR-012/resume no se implementa por declarar un caso interno.
 
 Monolito modular como propuesta de trabajo: API/worker/broker se separan solo si mediciones y lifecycle lo justifican. No se requieren microservicios, despliegues por capability ni un proceso/contenedor por moneda, eje o círculo.
 
@@ -109,7 +109,7 @@ Mutations externas empresariales, export a CRM/helpdesk, campañas/envíos proac
 
 ## Primer incremento y cierre
 
-E3-D0-L ya acredita la base local. Completar E3-01/E3-02 y el cierre E2 B/C; registrar decisiones E3-1/E3-2; completar campañas E3-3/E3-4 y después E3-12…15. Todos los gates arquitectónicos E3 permanecen pendientes; el cierre técnico exige la evidencia de VERIFICACION. Las fechas históricas de Linear y esta carpeta no fijan compromisos de entrega.
+E3-D0-L ya acredita la base local. Completar E3-01/E3-02 y el cierre E2 B/C; E3-1 y E3-2 están cerrados por el responsable (2026-10-23); completar campañas E3-3/E3-4 y después E3-12…15 (E3-5 con expediente en borrador). Los demás gates arquitectónicos E3 permanecen pendientes; el cierre técnico exige la evidencia de VERIFICACION. Las fechas históricas de Linear y esta carpeta no fijan compromisos de entrega.
 
 
 Actualización E3-4 (2026-10-15): [G5 local en Neon](../../../evals/results/e3-4-neon-local-2026-10-15.json) pasó 40/40 recall, 40/40 abstención, p95 0,6177 s, cero fugas, exact/HNSW y pruebas de revocación/rollback. [G6 técnico](../../../evals/results/e3-4-g6-neon-local-2026-10-15.json) evaluó 24 casos: 12/12 afirmaciones respaldadas, 6/6 referencias del manifiesto y cero fallos críticos; la URL pública READ respondió 200 anónimo. El gate sigue abierto por rúbrica manual sin firma y READ de G6 ejecutada con fixture HTTP. El resultado OpenAI anterior fallido se conserva como historial; el modelo local versionado es el candidato actual.

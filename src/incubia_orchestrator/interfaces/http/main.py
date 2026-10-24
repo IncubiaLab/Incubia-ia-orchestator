@@ -9,8 +9,9 @@ import signal
 import threading
 from time import monotonic
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 from incubia_orchestrator.bootstrap.d0 import (
     D0Deployment,
@@ -20,9 +21,13 @@ from incubia_orchestrator.bootstrap.d0 import (
     ExecutionUnavailable,
     InputRejected,
 )
+from incubia_orchestrator.modules.audit.adapters.postgres import PostgresAuditLog
 from incubia_orchestrator.modules.conversation.adapters.persistence.postgres import PostgresLedger
 from incubia_orchestrator.modules.conversation.ports.ledger import IdempotencyConflict
+from incubia_orchestrator.foundation.limits import AdmissionLimiter, Limits, load_runtime_limits
+from incubia_orchestrator.foundation.pg_pool import PooledConnections
 from incubia_orchestrator.foundation.telemetry import HttpMetrics
+from incubia_orchestrator.interfaces.http.draining import DrainingHTTPServer
 
 LOG = logging.getLogger(__name__)
 MAX_BODY_BYTES = 8_192
@@ -36,13 +41,14 @@ def validate_execution_payload(body: object) -> dict:
     return body
 
 
-class E3D0HttpServer(ThreadingHTTPServer):
-    # SIGTERM must not wait indefinitely for a client that stopped reading.
-    daemon_threads = True
-
-    def __init__(self, address: tuple[str, int], service: D0Deployment):
+class E3D0HttpServer(DrainingHTTPServer):
+    def __init__(self, address: tuple[str, int], service: D0Deployment,
+                 limits: Limits | None = None):
         super().__init__(address, E3D0RequestHandler)
         self.service = service
+        self.limits = limits
+        self.admission = (AdmissionLimiter(limits.tenant.admission_rate_per_minute)
+                          if limits is not None else None)
         self.metrics = HttpMetrics(service.settings.deployment_id, service.settings.tenant_id)
 
 
@@ -61,15 +67,20 @@ class E3D0RequestHandler(BaseHTTPRequestHandler):
         super().setup()
         self.connection.settimeout(10)
 
-    def _send_json(self, status: HTTPStatus, body: dict) -> None:
+    def _send_json(self, status: HTTPStatus, body: dict, headers: dict[str, str] | None = None) -> None:
         try:
             encoded = json.dumps(body, separators=(",", ":")).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(encoded)))
             self.send_header("Cache-Control", "no-store")
+            for name, value in (headers or {}).items():
+                self.send_header(name, value)
             self.end_headers()
             self.wfile.write(encoded)
+            started = getattr(self, "_metric_started", None)
+            if started is not None and status == HTTPStatus.OK:
+                self.server.metrics.stage_latency("reception_to_delivery", (monotonic() - started) * 1000)
         finally:
             started = getattr(self, "_metric_started", None)
             if started is not None:
@@ -114,6 +125,14 @@ class E3D0RequestHandler(BaseHTTPRequestHandler):
             return
         self._metric_started = monotonic()
         self.server.metrics.started()
+        admission = self.server.admission
+        if admission is not None and not admission.try_acquire(self.server.service.settings.tenant_id):
+            self.server.metrics.rejection("limit", "TENANT_RATE")
+            self.close_connection = True  # request body is left unread
+            self._send_json(HTTPStatus.TOO_MANY_REQUESTS, {"error": "rate_limited"},
+                            {"Retry-After": str(admission.retry_after_seconds),
+                             "Connection": "close"})
+            return
         try:
             body = self._body()
             result = self.server.service.execute(
@@ -134,6 +153,7 @@ class E3D0RequestHandler(BaseHTTPRequestHandler):
             LOG.error("execution_failed type=%s", type(exc).__name__)
             self._send_json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "execution_unavailable"})
         else:
+            self.server.metrics.stage_latency("reception_to_outcome", (monotonic() - self._metric_started) * 1000)
             self._send_json(HTTPStatus.OK, result)
 
     def do_PUT(self) -> None:
@@ -163,13 +183,32 @@ def validate_bind_host(host: str) -> None:
     raise ValueError("E3-D0 HTTP must bind loopback outside approved Compose")
 
 
+def build_audit(settings: D0Settings, pool=None) -> PostgresAuditLog | None:
+    """Opt-in durable audit (INCUBIA_D0_AUDIT=postgres, E3-5/G7). Requires the
+    incubia_runtime role (INSERT/SELECT on audit_events under RLS); fail closed
+    on any other role or value instead of silently running without audit."""
+    mode = os.getenv("INCUBIA_D0_AUDIT", "")
+    if not mode:
+        return None
+    if mode != "postgres":
+        raise ValueError("INCUBIA_D0_AUDIT must be 'postgres' when set")
+    if unquote(urlsplit(settings.database_url).username or "") != "incubia_runtime":
+        raise ValueError("Durable audit requires the incubia_runtime role")
+    return PostgresAuditLog(settings.database_url, pool=pool)
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     try:
         args = parse_args()
         validate_bind_host(args.host)
+        limits = load_runtime_limits()  # fail closed: invalid/unratified -> exit 1
         settings = D0Settings.from_env()
-        service = D0Deployment(settings, PostgresLedger(settings.database_url), D0Runtime(settings))
+        # One bounded pool shared by ledger and audit (same DSN, same role).
+        pool = PooledConnections(settings.database_url, max_size=limits.pool_max_size)
+        audit = build_audit(settings, pool)
+        service = D0Deployment(settings, PostgresLedger(settings.database_url, pool=pool),
+                               D0Runtime(settings), audit)
     except Exception as exc:
         LOG.error("e3_d0_startup_failed type=%s", type(exc).__name__)
         return 1
@@ -181,9 +220,11 @@ def main() -> int:
     except Exception as exc:
         LOG.warning("e3_d0_recovery_deferred type=%s", type(exc).__name__)
     try:
-        server = E3D0HttpServer((args.host, args.port), service)
+        server = E3D0HttpServer((args.host, args.port), service, limits)
+        pool.set_metrics(server.metrics)
     except Exception as exc:
         LOG.error("e3_d0_server_start_failed type=%s", type(exc).__name__)
+        pool.close()
         return 1
 
     def shutdown(signum: int, _frame: object) -> None:
@@ -198,7 +239,8 @@ def main() -> int:
     try:
         server.serve_forever()
     finally:
-        server.server_close()
+        server.server_close()  # drains in-flight requests first
+        pool.close()  # then release pooled connections
         LOG.info("e3_d0_http_stopped")
     return 0
 

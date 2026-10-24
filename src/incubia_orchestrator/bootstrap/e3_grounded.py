@@ -25,6 +25,7 @@ def compose_grounded_workflow(
     read_request: Callable[[str, str, ExecutionScope], ReadRequest | None],
     credentials: CredentialResolverPort | None = None,
     deadline_seconds: float = 10,
+    metrics=None,
 ) -> GroundedWorkflow:
     """Build an opt-in workflow; caller supplies trusted scope and adapters.
 
@@ -37,5 +38,6 @@ def compose_grounded_workflow(
     registry = InProcessToolRegistry(descriptors)
     executor = InProcessToolExecutor(InProcessToolAdapterRegistry(adapters), credentials)
     tool = ExecuteTool(registry, executor, policy, audit)
-    return GroundedWorkflow(GroundedResponse(retrieval), InProcessToolDiscovery(registry),
-                            tool, read_request, deadline_seconds=deadline_seconds)
+    return GroundedWorkflow(GroundedResponse(retrieval, metrics=metrics), InProcessToolDiscovery(registry),
+                            tool, read_request, deadline_seconds=deadline_seconds,
+                            audit=audit)

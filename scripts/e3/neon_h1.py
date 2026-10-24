@@ -241,7 +241,13 @@ def quote_existing_env() -> None:
     try:
         for line in OUTPUT.read_text(encoding="utf-8").splitlines():
             key, value = line.split("=", 1)
-            values[key] = value
+            try:
+                words = shlex.split(value, posix=True)
+            except ValueError as exc:
+                raise PreparationError("Local Neon env file has invalid shell quoting") from exc
+            if len(words) != 1:
+                raise PreparationError("Local Neon env file values must contain one shell word")
+            values[key] = words[0]
         runtime = _normalize_and_validate_dsn(values["DATABASE_URL"], role=RUNTIME_ROLE, pooled=True)
         migrator = _normalize_and_validate_dsn(
             values["INCUBIA_MIGRATION_DATABASE_URL"], role=MIGRATOR_ROLE, pooled=False

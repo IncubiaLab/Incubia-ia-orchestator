@@ -30,3 +30,44 @@ La campaña [Neon con embedding local](../../../evals/results/e3-4-neon-local-20
 La [revisión G6 con Neon](../../../evals/results/e3-4-g6-neon-local-2026-10-15.json) ejecutó 24 casos (15 con retrieval Neon y 9 fixtures adversariales/READ), con 12/12 afirmaciones respaldadas por texto extractivo, 6/6 referencias publicadas presentes en la evidencia scoped, 24/24 comportamientos esperados y cero fallos críticos. La salida combinada conserva una fuente Knowledge y una READ a través del PEP; se auditaron 24 eventos y hubo 6 lecturas del fixture HTTP. Los enlaces de `docs.example.org` del corpus se suprimen; la única URL pública publicada respondió HTTP 200 con lectura anónima. Una pregunta inicial vaga produjo tres abstenciones; se aclaró el escenario y se repitió la campaña con hash nuevo, sin modificar el split val de retrieval.
 
 **Decisión formal:** E3-4 permanece abierto. El juicio de afirmaciones y referencias anterior es verificable automáticamente, pero la rúbrica manual por el responsable del gate aún no está firmada y G6 usó un fixture para las READ en esta campaña. `gate_closed=false` se conserva en los artefactos. El expediente técnico queda listo para esa revisión y una campaña de READ real integrada si el criterio exige que ocurra en la misma ejecución.
+
+## READ real G6 preparada (2026-10-24)
+
+`scripts/e3/run_h4_g6_review.py` mantiene el fixture HTTP como ruta
+predeterminada y ahora sólo usa Open Food Facts real cuando concurren ambos
+opt-ins: `INCUBIA_E3_4_G6_REAL_READ=1` e `INCUBIA_E3_READ_REAL=1`. La llamada
+continúa pasando por el mismo PEP; el reporte distingue `real_read_requested`,
+`real_read_executed` y `read_via_pep_fixture`. Sin ambos flags, pedir la ruta
+real falla antes de sustituir el fixture. Los reruns generan un archivo fechado
+en vez de sobrescribir evidencia histórica.
+
+La campaña integrada debe incluir además los guards Neon existentes y sólo
+usar datos sintéticos, por ejemplo:
+
+    INCUBIA_E3_H4_NEON_TESTS=1 INCUBIA_E3_NEON_BRANCH=e3-h1-synthetic \
+    INCUBIA_E3_H4_EMBEDDING=local INCUBIA_E3_4_G6_REAL_READ=1 \
+    INCUBIA_E3_READ_REAL=1 .venv/bin/python -m scripts.e3.run_h4_neon_campaign
+
+No se ejecutó ese comando el 2026-10-24 porque el entorno no tenía un DSN Neon
+autorizado. Esta preparación no modifica la rúbrica humana,
+`manual_rubric_complete=false` ni `gate_closed=false`; los tres siguen siendo
+responsabilidad del responsable del gate tras revisar una ejecución real.
+
+## Campaña integrada ejecutada (2026-10-24 UTC)
+
+La campaña se ejecutó después con modelo local versionado, dos bases y roles
+temporales Neon y READ real a través del PEP. El [resultado G5](../../../evals/results/e3-4-neon-local-20261024T034222Z.json)
+registró 80 consultas val, recall@5 1,00, abstención 1,00, p95 0,592 s, cero
+fugas cross-deployment, comparación exact/HNSW sin diferencias, revocación y
+rollback de generación aprobados. El [resultado G6](../../../evals/results/e3-4-g6-neon-local-20261024T034222Z.json)
+registró 24 escenarios, 12/12 afirmaciones respaldadas, 6/6 referencias del
+manifest, cero fallos críticos, 15 retrievals Neon, seis READ reales y 24
+eventos de audit.
+
+## Decisión del gate
+
+El responsable aceptó la rúbrica y la condición de referencias por actor, y
+cerró E3-4 el 2026-10-23. Los artefactos conservan
+`references_actor_openable_verified=false`, `manual_rubric_complete=false` y
+`gate_closed=false` por diseño: son salidas técnicas que no pueden
+autoautorizar una decisión humana posterior.

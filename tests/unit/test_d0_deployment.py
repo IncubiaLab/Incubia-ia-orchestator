@@ -187,3 +187,81 @@ def test_d0_non_loopback_bind_requires_the_compose_container_marker(monkeypatch)
     validate_bind_host("0.0.0.0")
     with pytest.raises(ValueError):
         validate_bind_host("192.0.2.10")
+
+
+def test_d0_audit_emits_correlated_events_before_commit_and_fails_closed():
+    from incubia_orchestrator.modules.audit.adapters.memory import InMemoryAuditLog
+
+    audit = InMemoryAuditLog()
+    ledger = Ledger()
+    service = D0Deployment(D0Settings("postgresql://ignored", "d0", "tenant", "actor"),
+                           ledger, Runtime(), audit)
+    result = service.execute(message="hola", conversation_id="c-audit", idempotency_key="k1")
+    assert {e.execution_id for e in audit.events} == {result["execution_id"]}
+    assert {e.event_type.value for e in audit.events} >= {"workflow.outcome", "retrieval.completed"}
+
+    class Broken:
+        def append(self, event):
+            raise RuntimeError("audit down")
+
+    ledger2 = Ledger()
+    failing = D0Deployment(D0Settings("postgresql://ignored", "d0", "tenant", "actor"),
+                           ledger2, Runtime(), Broken())
+    with pytest.raises(RuntimeError):
+        failing.execute(message="hola", conversation_id="c-audit", idempotency_key="k2")
+    assert not ledger2.commits  # nothing delivered when audit cannot be written
+
+
+class BatchedLedger(Ledger):
+    """Ledger exposing the round-trip-saving batched operations."""
+
+    def __init__(self):
+        super().__init__()
+        self.calls = []
+        self.busy = None
+
+    def claim_execution(self, execution_id, *, scope, owner_id, lease_seconds):
+        self.calls.append("claim_execution")
+        if self.busy:
+            return None, None, self.busy
+        event = self.claim(execution_id, scope=scope, owner_id=owner_id, lease_seconds=lease_seconds)
+        conversation = self.acquire_claim(scope, resource_type="conversation", resource_key="c",
+                                          owner_id=owner_id, lease_seconds=lease_seconds)
+        return event, conversation, None
+
+    def conversation_snapshot(self, scope, *, limit):
+        self.calls.append("snapshot")
+        return self.conversation_history(scope, limit=limit), self.conversation_revision(scope)
+
+    def claim(self, *a, **kw):
+        self.calls.append("claim")
+        return super().claim(*a, **kw)
+
+    def conversation_history(self, scope, *, limit):
+        self.calls.append("history")
+        return super().conversation_history(scope, limit=limit)
+
+    def conversation_revision(self, scope):
+        self.calls.append("revision")
+        return super().conversation_revision(scope)
+
+
+def test_d0_uses_batched_claims_and_snapshot_without_extra_round_trips():
+    ledger = BatchedLedger()
+    service = D0Deployment(D0Settings("postgresql://ignored", "d0", "tenant", "actor"), ledger, Runtime())
+    first = service.execute(message="venta", conversation_id="c1", idempotency_key="k1")
+    second = service.execute(message="venta", conversation_id="c1", idempotency_key="k2")
+    assert (first["revision"], second["revision"]) == (1, 2)
+    # revision is read once, inside the snapshot (history+revision), not separately.
+    assert ledger.calls.count("snapshot") == 2
+    assert ledger.calls.count("claim_execution") == 2
+
+
+def test_d0_batched_busy_conversation_maps_to_in_progress():
+    from incubia_orchestrator.bootstrap.d0 import ExecutionInProgress
+    ledger = BatchedLedger()
+    ledger.busy = "conversation"
+    service = D0Deployment(D0Settings("postgresql://ignored", "d0", "tenant", "actor"), ledger, Runtime())
+    with pytest.raises(ExecutionInProgress):
+        service.execute(message="venta", conversation_id="c1", idempotency_key="k1")
+    assert ledger.commits == []

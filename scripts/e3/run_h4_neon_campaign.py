@@ -62,6 +62,18 @@ def _rows(name: str) -> list[dict]:
     return [json.loads(line) for line in (DATASET / name).read_text().splitlines()]
 
 
+def result_paths(mode: str, started_at: datetime) -> tuple[Path, Path]:
+    """Create new evidence paths; never overwrite historical E3-4 results."""
+    if mode not in {"hash", "openai", "local"}:
+        raise ValueError("Unknown H4 embedding mode")
+    label = "local" if mode == "local" else "openai-pooled" if mode == "openai" else "mechanics"
+    suffix = started_at.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return (
+        RESULTS / f"e3-4-neon-{label}-{suffix}.json",
+        RESULTS / f"e3-4-g6-neon-{label}-{suffix}.json",
+    )
+
+
 def _api_key() -> str:
     value = os.getenv("OPENAI_API_KEY", "")
     if value:
@@ -108,12 +120,11 @@ def main() -> int:
             (DATASET / "retrieval.jsonl").read_bytes()).hexdigest():
             raise RuntimeError("Val changed after dev calibration")
     threshold = calibration["threshold"] if calibration else 0.2
-    result_path = RESULTS / ("e3-4-neon-local-2026-10-15.json" if use_local else
-                             "e3-4-neon-openai-pooled-2026-10-15.json" if use_api else
-                             "e3-4-neon-mechanics-2026-10-15.json")
+    started_at = datetime.now(timezone.utc)
+    result_path, g6_result_path = result_paths(mode, started_at)
     report = {"branch": "e3-h1-synthetic", "dataset_sha256": json.loads((DATASET / "manifest.json").read_text())["hashes"],
               "embedding": embedding.model_version, "gate_closed": False,
-              "started_at": datetime.now(timezone.utc).isoformat()}
+              "started_at": started_at.isoformat()}
     pools = None
     with psycopg.connect(owner_dsn, autocommit=True, connect_timeout=10) as admin:
         try:
@@ -206,7 +217,7 @@ def main() -> int:
                 report["hnsw_exact_top5_set_differences"] = index_differences
                 report["hnsw_recall_at_5"] = hnsw_recall_hits / hnsw_respondable
             if use_local:
-                g6 = run_g6_review(store, result_path=RESULTS / "e3-4-g6-neon-local-2026-10-15.json")
+                g6 = run_g6_review(store, result_path=g6_result_path)
                 report["g6_assessed"] = True
                 report["g6_expected_behavior"] = g6["expected_behavior"]
                 report["g6_critical_failures"] = g6["critical_failures"]

@@ -243,7 +243,7 @@ INSERT INTO schema_migrations(version) VALUES (5);""")
         return tuple(ConversationTurn(row[0], row[1]) for row in rows)
 
     def pending_deliveries(self):
-        return self._connection.execute("SELECT execution_id,response_id,destination_ref,payload_json FROM deliveries WHERE state='PENDING' ORDER BY created_at", ()).fetchall()
+        return self._connection.execute("SELECT execution_id,response_id,destination_ref,payload_json FROM deliveries WHERE state='PENDING' AND (next_attempt_at IS NULL OR next_attempt_at<=?) ORDER BY created_at", (self._now(),)).fetchall()
 
     def mark_delivery_unknown(self, execution_id, response_id, destination_ref):
         with self._transaction():
@@ -252,6 +252,30 @@ INSERT INTO schema_migrations(version) VALUES (5);""")
     def mark_delivery_failed(self, execution_id, response_id, destination_ref, *, next_attempt_at=None):
         with self._transaction():
             self._connection.execute("UPDATE deliveries SET state='FAILED',next_attempt_at=? WHERE execution_id=? AND response_id=? AND destination_ref=? AND state='SENDING'", (next_attempt_at,execution_id,response_id,destination_ref))
+
+    def reschedule_delivery(self, execution_id, response_id, destination_ref, *, next_attempt_at, max_attempts):
+        """Return a KNOWN-not-sent delivery to PENDING, or FAILED once attempts are exhausted.
+
+        Only a row still SENDING under this reservation is touched, so UNKNOWN_EFFECT,
+        SENT and already-rescheduled rows are never resurrected. ``attempts`` was
+        incremented by reserve_delivery. Returns the new state, or None if no row matched."""
+        with self._transaction():
+            cursor = self._connection.execute(
+                "UPDATE deliveries SET state=CASE WHEN attempts<? THEN 'PENDING' ELSE 'FAILED' END,"
+                "next_attempt_at=CASE WHEN attempts<? THEN ? ELSE NULL END "
+                "WHERE execution_id=? AND response_id=? AND destination_ref=? AND state='SENDING'",
+                (max_attempts, max_attempts, next_attempt_at, execution_id, response_id, destination_ref))
+            if cursor.rowcount != 1:
+                return None
+        return self.delivery_state(execution_id, response_id, destination_ref)
+
+    def delivery_attempts(self, execution_id, response_id, destination_ref):
+        row = self._connection.execute("SELECT attempts FROM deliveries WHERE execution_id=? AND response_id=? AND destination_ref=?", (execution_id, response_id, destination_ref)).fetchone()
+        return row[0] if row else 0
+
+    def reception_time(self, execution_id):
+        row = self._connection.execute("SELECT received_at FROM inbox_events WHERE execution_id=?", (execution_id,)).fetchone()
+        return row[0] if row else None
 
     def inspect(self):
         events = self._connection.execute("SELECT execution_id FROM inbox_events WHERE state='NEEDS_INSPECTION'").fetchall()

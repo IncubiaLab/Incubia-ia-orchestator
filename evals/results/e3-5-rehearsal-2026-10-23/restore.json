@@ -1,0 +1,9 @@
+{
+  "duration_seconds": 9.507,
+  "error": "RuntimeError: Neon CLI command failed: branches create",
+  "gate_closed": false,
+  "phase": "restore",
+  "run_id": "e3-5-2026-10-24-575d36",
+  "status": "error",
+  "synthetic": true
+}

@@ -1,0 +1,10 @@
+{
+  "privileges": [
+    "INSERT",
+    "SELECT",
+    "UPDATE"
+  ],
+  "recover": "run_e3_5_campaign.py --recover-grants <this file>",
+  "role": "incubia_runtime",
+  "table": "inbox_events"
+}

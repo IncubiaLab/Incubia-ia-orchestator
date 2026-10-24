@@ -1,0 +1,276 @@
+{
+  "audit_correlation": {
+    "available": true,
+    "coverage": 1.0,
+    "executions": 70,
+    "ok": true,
+    "with_audit": 70
+  },
+  "duration_seconds": 228.271,
+  "gate_closed": false,
+  "integrity": {
+    "duplicate_deliveries": 0,
+    "ok": true,
+    "revision_mismatch": 0,
+    "turns": 70
+  },
+  "phase": "load",
+  "profiles": {
+    "burst": {
+      "authenticated": true,
+      "concurrency": 5,
+      "cost_delta": {},
+      "duration_observed_seconds": 14.614,
+      "duration_target_seconds": null,
+      "errors": 0,
+      "http_status_counts": {
+        "200": 5
+      },
+      "interval_seconds": 60.0,
+      "latency_ms": {
+        "mean": 14445.66,
+        "p50": 14556.93,
+        "p95": 14611.21,
+        "p99": 14611.21
+      },
+      "limit_rejections": 0,
+      "meets_min_duration": false,
+      "metrics_after_cost": [],
+      "pool": {
+        "max": 0,
+        "peak_in_use": 0,
+        "timeouts_delta": 0,
+        "wait_count_delta": 0,
+        "wait_ms_total_delta": 0.0,
+        "waiting_last": 0
+      },
+      "profile": "burst",
+      "rate_target_rps": null,
+      "rejections_after": [],
+      "requests": 5,
+      "resources": {
+        "cpu_percent_max": 9.0,
+        "cpu_percent_mean": 5.08,
+        "rss_mb_last": 94.7,
+        "rss_mb_max": 94.8,
+        "samples": 9,
+        "source": "proc"
+      },
+      "revisions_consistent": true,
+      "rps_observed": 0.342,
+      "seed": "e3-5-2026-10-24-21bd71-burst",
+      "sessions": 5,
+      "stage_latency_ms": {
+        "reception_to_delivery": {
+          "buckets": {
+            "+Inf": 70,
+            "10": 0,
+            "100": 0,
+            "1000": 0,
+            "250": 0,
+            "50": 0,
+            "500": 0,
+            "5000": 0
+          },
+          "count": 70,
+          "p50": "+Inf",
+          "p95": "+Inf",
+          "p99": "+Inf"
+        },
+        "reception_to_outcome": {
+          "buckets": {
+            "+Inf": 70,
+            "10": 0,
+            "100": 0,
+            "1000": 0,
+            "250": 0,
+            "50": 0,
+            "500": 0,
+            "5000": 0
+          },
+          "count": 70,
+          "p50": "+Inf",
+          "p95": "+Inf",
+          "p99": "+Inf"
+        }
+      },
+      "started_at": "2026-10-24T02:48:27.780473+00:00",
+      "status": "passed",
+      "success_count": 5,
+      "unique_execution_ids": 5,
+      "waves": 1
+    },
+    "constant": {
+      "authenticated": true,
+      "concurrency": 5,
+      "cost_delta": {},
+      "duration_observed_seconds": 150.615,
+      "duration_target_seconds": 30.0,
+      "errors": 0,
+      "http_status_counts": {
+        "200": 60
+      },
+      "interval_seconds": null,
+      "latency_ms": {
+        "mean": 66410.0,
+        "p50": 60631.86,
+        "p95": 119445.39,
+        "p99": 121114.25
+      },
+      "limit_rejections": 0,
+      "meets_min_duration": false,
+      "metrics_after_cost": [],
+      "pool": {
+        "max": 0,
+        "peak_in_use": 0,
+        "timeouts_delta": 0,
+        "wait_count_delta": 0,
+        "wait_ms_total_delta": 0.0,
+        "waiting_last": 0
+      },
+      "profile": "constant",
+      "rate_target_rps": 2.0,
+      "rejections_after": [],
+      "requests": 60,
+      "resources": {
+        "cpu_percent_max": 9.0,
+        "cpu_percent_mean": 6.25,
+        "rss_mb_last": 94.7,
+        "rss_mb_max": 94.8,
+        "samples": 77,
+        "source": "proc"
+      },
+      "revisions_consistent": true,
+      "rps_observed": 0.398,
+      "seed": "e3-5-2026-10-24-21bd71-constant",
+      "sessions": 5,
+      "stage_latency_ms": {
+        "reception_to_delivery": {
+          "buckets": {
+            "+Inf": 65,
+            "10": 0,
+            "100": 0,
+            "1000": 0,
+            "250": 0,
+            "50": 0,
+            "500": 0,
+            "5000": 0
+          },
+          "count": 65,
+          "p50": "+Inf",
+          "p95": "+Inf",
+          "p99": "+Inf"
+        },
+        "reception_to_outcome": {
+          "buckets": {
+            "+Inf": 65,
+            "10": 0,
+            "100": 0,
+            "1000": 0,
+            "250": 0,
+            "50": 0,
+            "500": 0,
+            "5000": 0
+          },
+          "count": 65,
+          "p50": "+Inf",
+          "p95": "+Inf",
+          "p99": "+Inf"
+        }
+      },
+      "started_at": "2026-10-24T02:48:13.158843+00:00",
+      "status": "passed",
+      "success_count": 60,
+      "unique_execution_ids": 60,
+      "waves": null
+    },
+    "sessions": {
+      "authenticated": true,
+      "concurrency": 5,
+      "cost_delta": {},
+      "duration_observed_seconds": 60.004,
+      "duration_target_seconds": 30.0,
+      "errors": 0,
+      "http_status_counts": {
+        "200": 5
+      },
+      "interval_seconds": 60.0,
+      "latency_ms": {
+        "mean": 17197.62,
+        "p50": 17197.89,
+        "p95": 17200.53,
+        "p99": 17200.53
+      },
+      "limit_rejections": 0,
+      "meets_min_duration": false,
+      "metrics_after_cost": [],
+      "pool": {
+        "max": 0,
+        "peak_in_use": 0,
+        "timeouts_delta": 0,
+        "wait_count_delta": 0,
+        "wait_ms_total_delta": 0.0,
+        "waiting_last": 0
+      },
+      "profile": "sessions",
+      "rate_target_rps": null,
+      "rejections_after": [],
+      "requests": 5,
+      "resources": {
+        "cpu_percent_max": 9.0,
+        "cpu_percent_mean": 1.57,
+        "rss_mb_last": 94.5,
+        "rss_mb_max": 94.6,
+        "samples": 31,
+        "source": "proc"
+      },
+      "revisions_consistent": true,
+      "rps_observed": 0.083,
+      "seed": "e3-5-2026-10-24-21bd71-sessions",
+      "sessions": 5,
+      "stage_latency_ms": {
+        "reception_to_delivery": {
+          "buckets": {
+            "+Inf": 5,
+            "10": 0,
+            "100": 0,
+            "1000": 0,
+            "250": 0,
+            "50": 0,
+            "500": 0,
+            "5000": 0
+          },
+          "count": 5,
+          "p50": "+Inf",
+          "p95": "+Inf",
+          "p99": "+Inf"
+        },
+        "reception_to_outcome": {
+          "buckets": {
+            "+Inf": 5,
+            "10": 0,
+            "100": 0,
+            "1000": 0,
+            "250": 0,
+            "50": 0,
+            "500": 0,
+            "5000": 0
+          },
+          "count": 5,
+          "p50": "+Inf",
+          "p95": "+Inf",
+          "p99": "+Inf"
+        }
+      },
+      "started_at": "2026-10-24T02:45:42.537595+00:00",
+      "status": "passed",
+      "success_count": 5,
+      "unique_execution_ids": 5,
+      "waves": null
+    }
+  },
+  "run_id": "e3-5-2026-10-24-21bd71",
+  "short_run": true,
+  "status": "failed",
+  "synthetic": true
+}

@@ -4,7 +4,7 @@ Estado: E3-H1-N completó el preflight inicial; E3-03/04/05 tienen implementaci�
 
 ## E3-D0-L — baseline local Docker Compose
 
-Este procedimiento acredita sólo el baseline local de instancia única. No es E3-0, no aprueba ADR-024, Kubernetes, réplicas, broker ni microservicios, y no sustituye la validación Neon/H1. Ejecutarlo exclusivamente con datos y scopes sintéticos. La publicación del servicio debe permanecer en `127.0.0.1`; el endpoint local sin autenticación está prohibido en staging y producción.
+Este procedimiento acredita sólo el baseline local de instancia única. No es E3-0, no sustituye a ADR-024 (Aceptado 2026-10-23: un contenedor con ruta a réplicas bajo criterios medidos), no aprueba Kubernetes, réplicas, broker ni microservicios, y no sustituye la validación Neon/H1. Ejecutarlo exclusivamente con datos y scopes sintéticos. La publicación del servicio debe permanecer en `127.0.0.1`; el endpoint local sin autenticación está prohibido en staging y producción.
 
 1. Preparar las variables locales de configuración y las dos credenciales de PostgreSQL (migrador y runtime) fuera del repositorio. No copiar secretos a la imagen, argumentos de build, logs ni evidencias.
    Copiar `deploy/e3-d0.env.example` a `deploy/e3-d0.env`, reemplazar valores URL-safe y usar siempre `docker compose --env-file deploy/e3-d0.env ...`; Compose no carga ese archivo anidado automáticamente.
@@ -64,9 +64,9 @@ en staging/producción ni usarlo para declarar cerrado E3-5.
 ### E3-H1-N — preparación inicial de Neon
 
 Esta preparación es infraestructura para E3-03/04/05, no evidencia de salida
-E3-1. La rama `e3-h1-synthetic` deriva de `production`; la rama de trabajo
+E3-1. La rama `e3-h1-synthetic` se recreó el 2026-10-23 desde `feat-knowledge-base` (`br-broad-waterfall-b54l45qj`, endpoint `ep-empty-cake-b5rld909`) y expira el 2026-11-06; los roles `incubia_runtime` e `incubia_migrator` son NOBYPASSRLS. Hasta entonces derivó de `production`; la rama de trabajo
 predeterminada no recibe escrituras de la campaña. El proyecto no cambia de
-región ni plan. La expiración actual de la rama es de siete días y la ventana
+región ni plan. La expiración vigente se fijó en 2026-11-06 (antes siete días) y la ventana
 PITR observada es de seis horas; el runbook de restore debe medir el alcance
 real disponible, sin presentar esa ventana como backup independiente.
 
@@ -106,7 +106,7 @@ Desde la raíz del repo, operar con este procedimiento:
    Las pruebas ordinarias siguen bloqueadas de red.
 4. Antes de migrar, revisar que la rama no haya expirado y confirmar que sigue
    derivada del origen sintético. Si expiró, crear una nueva rama desde
-   `production`, repetir la preparación y correr de nuevo la campaña; las
+   `feat-knowledge-base` (origen usado el 2026-10-23), repetir la preparación y correr de nuevo la campaña; las
    migraciones se aplican por versión y los tests limpian sus filas sintéticas.
 5. Aplicar migraciones sólo con `INCUBIA_MIGRATION_DATABASE_URL` directa y
    `incubia_migrator`; runtime usa `DATABASE_URL` pooled con TLS y no posee
@@ -119,7 +119,7 @@ La campaña posterior a M1 aplicó `004_e3_h1_dispatcher_claims.sql`,
 pasó 8/8 pruebas Neon. La prueba M2 exportó,
 eliminó y restauró un scope sintético con una fila por tabla; el segundo import
 del mismo manifest fue idempotente. RPO/RTO observados: 1.60/4.96 s y
-9.94/4.32 s. El artefacto sanitizado está en
+9.94/4.32 s (2026-10-10; repetido el 2026-10-23 sobre la rama recreada: RPO 2.12 s / RTO 4.88 s, `evals/results/e3-h1-m2-backup-2026-10-23.json`). El artefacto sanitizado está en
 `evals/results/e3-h1-m2-neon-2026-10-10.json`.
 
 No preparar pgvector ni una base Knowledge en H1; corresponde a H4/ADR-010.
@@ -174,3 +174,21 @@ Retención E2 de 7 días payload / 30 tombstones es baseline sintético; E3-01 f
 ## Release
 
 Adjuntar VERIFICACION con G1–G9, gates, ADR aplicables, costos, incidentes y límites. Responsable registra GO de tráfico real y criterios de rollback. Arranque escalonado con alerta de duplicados, scope, errores y saturación; sin GO el estado permanece staging sintético. El Compose/E3-D0-L local no es un artefacto de release ni autorización para exponer su endpoint sin autenticación.
+
+### Rollback
+
+Las migraciones (`migrations/postgres/001..007`, `migrations/knowledge/*`) son forward-only: no existen scripts *down*. El rollback se resuelve en dos capas independientes.
+
+**Criterios para disparar.** Cualquiera durante el arranque escalonado o tras un release: duplicados de efecto o UNKNOWN_EFFECT por encima del baseline, violación de scope/RLS, readiness false sostenida, errores o saturación fuera de umbral, o falla de migración. Decide el responsable del GO y se registra en VERIFICACION con hora, versión de imagen y migración aplicada.
+
+**1. Rollback de imagen (primera opción).** Detener admisión (readiness false), dejar inbox/outbox durable, desplegar la imagen N-1 por digest fijado (nunca `latest`) y reabrir admisión. No toca el esquema: es seguro porque el esquema N es compatible con la app N-1 por la regla siguiente. Pendientes en PROCESSING/SENDING se tratan como en "Fallos y recuperación"; no se reintenta un efecto por el cambio de versión.
+
+**Regla expand/contract.** Toda migración es *expand* (tablas, columnas nullable o con default, índices, policies recreadas en el mismo archivo, `IF NOT EXISTS`). Un paso *contract* (DROP/RENAME de tabla o columna, cambio de tipo, `SET NOT NULL`, TRUNCATE/DELETE) solo se publica en un release posterior a que ninguna imagen desplegable lo necesite, con backfill previo y anotado aquí con la versión de app mínima. Baseline aceptado: los `SET NOT NULL` de scope en `002_e3_h1_rls.sql` y `006_e3_d0_runtime_claims.sql`, pre-release y precedidos de backfill. El check offline `tests/unit/test_e3_migration_rollback.py` falla ante cualquier paso no aditivo nuevo, policy eliminada sin recrear o DDL no idempotente.
+
+**2. Rollback de esquema/datos (último recurso).** Solo si un contract o una corrupción impide operar a N-1. No se escribe SQL inverso a mano: se restaura.
+1. Congelar escrituras (readiness false, workers detenidos) y exportar el estado actual por scope como evidencia: `scripts/e3/h1_backup.py export --deployment-id … --tenant-id … --output …`.
+2. Crear DB/rama Neon aislada desde el punto previo al release (o vacía) y aplicar la cadena de migraciones hasta la versión que N-1 espera (las migraciones son idempotentes).
+3. Restaurar el paquete del backup pre-release con `scripts/e3/h1_backup.py import --package … --database-url-env INCUBIA_MIGRATION_DATABASE_URL` (rol migrator); el restore valida manifest/hash, rechaza conflictos y deja auditoría en `restore_audit`.
+4. Apuntar la imagen N-1 a la DB restaurada; las entregas posteriores al punto de backup quedan en cuarentena y se reconcilian (IDs/offsets/efectos) antes de autorizar consumo, como en "Restore y retención".
+
+**Verificación post-rollback.** Readiness true con la imagen N-1; `schema_migrations` coincide con lo esperado; conteos y hashes por tabla del reporte de restore iguales al manifest; probe autenticado OK; RLS: consulta sin contexto de tenant devuelve cero filas; sin duplicados nuevos en deliveries; RPO/RTO observados registrados en VERIFICACION. Un rollback no ejecutado contra Neon real sigue siendo evidencia offline, no G de release.

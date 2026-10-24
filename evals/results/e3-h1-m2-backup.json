@@ -1,0 +1,54 @@
+{
+  "branch": "e3-h1-synthetic",
+  "critical_failures": 0,
+  "first_restore": {
+    "cleared_claims": 0,
+    "idempotent": false,
+    "import_id": "466e95f5-dc88-4f80-b809-c4265dec7443",
+    "manifest_hash": "64a76f61d4eb5fd232429cd4d0025f61b6a48e1ac07dc0593c2d6aeb040ee01b",
+    "reconciled_unknown_effects": 0,
+    "revision_max": 1,
+    "revision_min": 1,
+    "rpo_seconds": 1.570424,
+    "rto_seconds": 7.0558470580144785,
+    "status": "COMPLETED",
+    "table_counts": {
+      "conversations": 1,
+      "deliveries": 1,
+      "inbox_events": 1,
+      "outcomes": 1,
+      "turns": 1
+    }
+  },
+  "milestone": "M2",
+  "rows": {
+    "conversations": 1,
+    "deliveries": 1,
+    "inbox_events": 1,
+    "outcomes": 1,
+    "turns": 1
+  },
+  "schema_version": "e3-h1-m2/v1",
+  "second_restore": {
+    "cleared_claims": 0,
+    "idempotent": true,
+    "import_id": "466e95f5-dc88-4f80-b809-c4265dec7443",
+    "manifest_hash": "64a76f61d4eb5fd232429cd4d0025f61b6a48e1ac07dc0593c2d6aeb040ee01b",
+    "reconciled_unknown_effects": 0,
+    "revision_max": 1,
+    "revision_min": 1,
+    "rpo_seconds": 13.152253,
+    "rto_seconds": 7.485854108992498,
+    "status": "COMPLETED",
+    "table_counts": {
+      "conversations": 1,
+      "deliveries": 1,
+      "inbox_events": 1,
+      "outcomes": 1,
+      "turns": 1
+    }
+  },
+  "status": "passed",
+  "synthetic": true,
+  "test_duration_seconds": 35.25
+}
