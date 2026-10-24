@@ -1,0 +1,94 @@
+{
+  "checks": {
+    "counts_match_manifest": true,
+    "migrations_complete": true,
+    "pgvector_ok_or_absent": true,
+    "quarantine_ok": true,
+    "rpo_ok": true,
+    "rto_ok": true,
+    "temp_branch_deleted": true
+  },
+  "duration_seconds": 768.966,
+  "export_counts": {
+    "conversations": 630,
+    "deliveries": 1118,
+    "inbox_events": 1128,
+    "outcomes": 1115,
+    "turns": 1115
+  },
+  "export_duration_seconds": 8.215193,
+  "gate_closed": false,
+  "migrations": {
+    "applied_count": 8,
+    "expected": [
+      "001_e3_d0_ledger",
+      "002_e3_h1_rls",
+      "003_e3_h1_claims",
+      "004_e3_h1_dispatcher_claims",
+      "005_e3_h1_backup",
+      "006_e3_d0_runtime_claims",
+      "007_e3_h2_identity",
+      "008_e3_g7_audit"
+    ],
+    "missing": [],
+    "ok": true
+  },
+  "pgvector": {
+    "available": false,
+    "ok": false,
+    "reason": "knowledge tables absent in restored branch"
+  },
+  "pgvector_note": "knowledge tables absent: vector index not checked",
+  "phase": "restore",
+  "quarantine": {
+    "checks": {
+      "claims_cleared": true,
+      "in_flight_quarantined": true,
+      "no_sending_left": true,
+      "post_backup_delivery_absent": true
+    },
+    "claims": 0,
+    "delivery_states": {
+      "DELIVERED": 495,
+      "PENDING": 618,
+      "UNKNOWN_EFFECT": 5
+    },
+    "marker_present": 0,
+    "ok": true
+  },
+  "restore_report": {
+    "cleared_claims": 0,
+    "idempotent": false,
+    "import_id": "61f57106-7195-4329-98a2-9c6356c18927",
+    "manifest_hash": "56a23b4bb4b114e2081f651bfda2fee1a7c92f585f0ac4830058cc6992e80dc7",
+    "reconciled_unknown_effects": 5,
+    "revision_max": 10,
+    "revision_min": 1,
+    "rpo_seconds": 11.727053,
+    "rto_seconds": 738.7589259910164,
+    "status": "COMPLETED",
+    "table_counts": {
+      "conversations": 630,
+      "deliveries": 1118,
+      "inbox_events": 1128,
+      "outcomes": 1115,
+      "turns": 1115
+    }
+  },
+  "rpo_rto": {
+    "rpo_ok": true,
+    "rpo_seconds": 1.827,
+    "rpo_target_seconds": 43200,
+    "rto_ok": true,
+    "rto_seconds": 754.108,
+    "rto_target_seconds": 3600
+  },
+  "run_id": "e3-5-2026-10-24-49df50",
+  "status": "passed",
+  "synthetic": true,
+  "temp_branch": {
+    "deleted": true,
+    "expiry_minutes": 120,
+    "name": "e3-5-restore-2026-10-24-49df50"
+  }
+}

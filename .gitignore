@@ -9,3 +9,6 @@ __pycache__/
 logs/
 .neon
 node_modules/
+
+# gstack local state
+.gstack/
