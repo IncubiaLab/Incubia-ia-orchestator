@@ -34,3 +34,13 @@ def test_rejects_unsafe_dsn_without_echoing_it(dsn):
 def test_requires_deployment_id():
     with pytest.raises(KnowledgeDsnError):
         knowledge_runtime_resolver({ENV_VAR: GOOD}, deployment_id="")
+
+
+def test_ingest_resolver_requires_ingestor_role():
+    from incubia_orchestrator.modules.knowledge.adapters.runtime_dsn import (
+        INGEST_ENV_VAR, knowledge_ingest_resolver)
+    ingest = GOOD.replace("incubia_kb_runtime", "incubia_kb_ingestor")
+    resolve = knowledge_ingest_resolver({INGEST_ENV_VAR: ingest}, deployment_id="incubialab")
+    assert resolve("incubialab") == ingest and resolve("other") == ""
+    with pytest.raises(KnowledgeDsnError):
+        knowledge_ingest_resolver({INGEST_ENV_VAR: GOOD}, deployment_id="incubialab")
