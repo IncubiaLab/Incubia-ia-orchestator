@@ -1,0 +1,48 @@
+{
+  "gate": "E3-3",
+  "gate_closed": false,
+  "generated_at": "2026-10-24T03:11:56.461907+00:00",
+  "product_ref": "3017620422003",
+  "cases": [
+    {
+      "name": "allow",
+      "status": "SUCCESS",
+      "error": null,
+      "audit_events": 4,
+      "adapter_calls_during_case": 1
+    },
+    {
+      "name": "deny",
+      "status": "DENIED",
+      "error": "POLICY_DENIED",
+      "audit_events": 3,
+      "adapter_calls_during_case": 0
+    },
+    {
+      "name": "indeterminate",
+      "status": "FAILED",
+      "error": "POLICY_UNAVAILABLE",
+      "audit_events": 3,
+      "adapter_calls_during_case": 0
+    },
+    {
+      "name": "require_approval",
+      "status": "DENIED",
+      "error": "APPROVAL_REQUIRED",
+      "audit_events": 3,
+      "adapter_calls_during_case": 0
+    },
+    {
+      "name": "invalid_input",
+      "status": "DENIED",
+      "error": "INVALID_INPUT",
+      "audit_events": 2,
+      "adapter_calls_during_case": 0
+    }
+  ],
+  "allow_executed_via_adapter": true,
+  "zero_call_safety": true,
+  "total_adapter_calls": 1,
+  "note": "gate_closed stays false: closing E3-3 is the owner's decision after reviewing this evidence.",
+  "budget_usd_approved": 0.01
+}

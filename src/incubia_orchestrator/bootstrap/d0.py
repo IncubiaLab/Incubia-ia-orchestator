@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import re
+from time import monotonic
 from dataclasses import dataclass
 from typing import Protocol
 from uuid import uuid4
@@ -21,6 +22,8 @@ from incubia_orchestrator.foundation.contracts.execution import (
     ExecutionInput,
     to_dict,
 )
+from incubia_orchestrator.modules.audit.domain.audit import AuditEvent, AuditEventType
+from incubia_orchestrator.modules.audit.ports.sink import AuditSinkPort
 from incubia_orchestrator.modules.conversation.ports.ledger import (
     ClaimToken,
     ConversationCommit,
@@ -181,14 +184,32 @@ _CONVERSATION_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
 class D0Deployment:
     """HTTP-facing application service with an inbox-to-outbox durable commit."""
 
-    def __init__(self, settings: D0Settings, ledger: D0Ledger, runtime: D0RuntimePort):
+    def __init__(self, settings: D0Settings, ledger: D0Ledger, runtime: D0RuntimePort,
+                 audit: AuditSinkPort | None = None):
         self.settings = settings
+        self._audit = audit
         self._ledger = ledger
         self._runtime = runtime
         self._claim_lease_seconds = 120
+        self._ready_until = 0.0
+
+    # Positive readiness is reused briefly on the execute path (saves one Neon
+    # round trip per request); /readyz and any failure always re-check, and every
+    # later ledger call still fails closed on its own.
+    READY_CACHE_SECONDS = 5.0
 
     def ready(self) -> bool:
         return self._ledger.ready()
+
+    def _ready_for_execute(self) -> bool:
+        now = monotonic()
+        if now < self._ready_until:
+            return True
+        if not self._ledger.ready():
+            self._ready_until = 0.0
+            return False
+        self._ready_until = now + self.READY_CACHE_SECONDS
+        return True
 
     def recover_interrupted(self) -> int:
         return self._ledger.recover_interrupted(
@@ -216,6 +237,31 @@ class D0Deployment:
             except Exception:
                 pass
 
+    def _audit_execution(self, *, execution_id: str, scope: ExecutionScope, adapters: dict) -> None:
+        """G7: durable events correlated by execution_id, written before the commit.
+
+        Fails closed (ADR-ORCH-014): an audit failure propagates, the execution is
+        returned to RECEIVED and nothing is delivered."""
+        if self._audit is None:
+            return
+        steps = (
+            (AuditEventType.TOOL_COMPLETED, "tool", "d0-deterministic-tool"),
+            (AuditEventType.RETRIEVAL, "retrieval", "d0-deterministic-retrieval"),
+            (AuditEventType.OUTCOME, "outcome", "d0-runtime"),
+        )
+        events = [AuditEvent.now(
+            event_id=str(uuid4()), event_type=event_type,
+            tool_call_id=f"{execution_id}:{label}", execution_id=execution_id,
+            scope=scope, tool_id=tool_id, resource=f"d0:{label}",
+            status="ok", metadata={"evidence_count": 0, "abstained": label == "retrieval"},
+        ) for event_type, label, tool_id in steps]
+        batch = getattr(self._audit, "append_many", None)
+        if batch is not None:
+            batch(events)  # one atomic round trip on durable sinks
+        else:
+            for event in events:
+                self._audit.append(event)
+
     @staticmethod
     def _validate(message: object, conversation_id: object, idempotency_key: object) -> tuple[str, str, str]:
         if not isinstance(message, str) or not message.strip() or len(message) > 4_000:
@@ -236,7 +282,7 @@ class D0Deployment:
         message, conversation_id, idempotency_key = self._validate(
             message, conversation_id, idempotency_key
         )
-        if not self.ready():
+        if not self._ready_for_execute():
             raise ExecutionUnavailable("E3-D0 is not ready to accept executions")
         scope = self.settings.scope_for(conversation_id)
         payload = {"conversation_id": conversation_id, "message": message}
@@ -256,24 +302,39 @@ class D0Deployment:
         if reservation.state not in {"RECEIVED", "PROCESSING"}:
             raise ExecutionInProgress("The idempotency key is being processed")
         owner_id = str(uuid4())
-        event_claim = self._ledger.claim(
-            reservation.execution_id, scope=scope, owner_id=owner_id,
-            lease_seconds=self._claim_lease_seconds,
-        )
-        if event_claim is None:
-            raise ExecutionInProgress("The idempotency key is being processed")
-        conversation_claim = self._ledger.acquire_claim(
-            scope, resource_type="conversation", resource_key=conversation_claim_key(scope),
-            owner_id=owner_id, lease_seconds=self._claim_lease_seconds,
-        )
-        if conversation_claim is None:
-            self._return_to_received_safely(
-                reservation.execution_id, scope, event_claim, None
+        batched = getattr(self._ledger, "claim_execution", None)
+        if batched is not None:  # one transaction instead of two (fewer DB round trips)
+            event_claim, conversation_claim, busy = batched(
+                reservation.execution_id, scope=scope, owner_id=owner_id,
+                lease_seconds=self._claim_lease_seconds)
+            if busy == "event":
+                raise ExecutionInProgress("The idempotency key is being processed")
+            if busy == "conversation":
+                raise ExecutionInProgress("The conversation is being processed")
+        else:
+            event_claim = self._ledger.claim(
+                reservation.execution_id, scope=scope, owner_id=owner_id,
+                lease_seconds=self._claim_lease_seconds,
             )
-            raise ExecutionInProgress("The conversation is being processed")
+            if event_claim is None:
+                raise ExecutionInProgress("The idempotency key is being processed")
+            conversation_claim = self._ledger.acquire_claim(
+                scope, resource_type="conversation", resource_key=conversation_claim_key(scope),
+                owner_id=owner_id, lease_seconds=self._claim_lease_seconds,
+            )
+            if conversation_claim is None:
+                self._return_to_received_safely(
+                    reservation.execution_id, scope, event_claim, None
+                )
+                raise ExecutionInProgress("The conversation is being processed")
 
         try:
-            history = self._ledger.conversation_history(scope, limit=self.settings.history_limit)
+            snapshot = getattr(self._ledger, "conversation_snapshot", None)
+            if snapshot is not None:  # history + revision in one transaction
+                history, first_revision = snapshot(scope, limit=self.settings.history_limit)
+            else:
+                history = self._ledger.conversation_history(scope, limit=self.settings.history_limit)
+                first_revision = None
             runtime_result = self._runtime.execute(
                 request_id=reservation.request_id,
                 execution_id=reservation.execution_id,
@@ -288,10 +349,23 @@ class D0Deployment:
             raise
 
         completed = runtime_result.completed
+        try:
+            self._audit_execution(execution_id=reservation.execution_id, scope=scope,
+                                  adapters=runtime_result.deterministic_adapters)
+        except Exception:
+            self._return_to_received_safely(
+                reservation.execution_id, scope, event_claim, conversation_claim
+            )
+            raise
         specialty = completed.output.specialty.value if completed.output.specialty else "general"
         try:
             for _ in range(3):
-                revision = self._ledger.conversation_revision(scope)
+                # The conversation claim fences other writers, so the revision read
+                # with the history is current; any conflict re-reads it below.
+                if first_revision is not None:
+                    revision, first_revision = first_revision, None
+                else:
+                    revision = self._ledger.conversation_revision(scope)
                 response = {
                     "status": "completed",
                     "request_id": reservation.request_id,

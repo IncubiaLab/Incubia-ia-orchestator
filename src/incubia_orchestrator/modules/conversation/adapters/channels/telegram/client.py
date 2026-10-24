@@ -51,7 +51,8 @@ class TelegramClient:
                 seconds = None
             raise TelegramTransportError("RATE_LIMIT", seconds if isinstance(seconds, int) else None)
         if response.status_code >= 500:
-            raise TelegramTransportError("RETRYABLE")
+            # A 5xx may follow a send Telegram already accepted: outcome is uncertain, never retried.
+            raise TelegramTransportError("UNKNOWN_EFFECT")
         if response.status_code in (400, 403):
             raise TelegramTransportError("PERMANENT")
         response.raise_for_status()

@@ -62,12 +62,14 @@ class OpenAIEmbedding:
     model_version = "text-embedding-3-small:384:e3-h4-v1"
     dimension = 384
 
-    def __init__(self, api_key: str, budget: EmbeddingBudget, *, client: httpx.Client | None = None):
+    def __init__(self, api_key: str, budget: EmbeddingBudget, *, client: httpx.Client | None = None,
+                 metrics=None):
         if not api_key:
             raise ValueError("API key required")
         self._api_key, self._budget = api_key, budget
         self._client = client or httpx.Client(timeout=10)
         self._owns_client = client is None
+        self._metrics = metrics
 
     def close(self) -> None:
         if self._owns_client:
@@ -87,10 +89,20 @@ class OpenAIEmbedding:
             )
             response.raise_for_status()
             body = response.json()
-            usage = body.get("usage", {}).get("total_tokens")
+            usage_data = body.get("usage", {})
+            usage = usage_data.get("total_tokens")
             if not isinstance(usage, int) or usage < 0:
                 raise RuntimeError("Embedding response omitted usage")
+            input_tokens = usage_data.get("prompt_tokens", usage)
+            if not isinstance(input_tokens, int) or not 0 <= input_tokens <= usage:
+                raise RuntimeError("Embedding response omitted input usage")
             self._budget.record(usage)
+            if self._metrics is not None:
+                try:
+                    self._metrics.cost("embedding", input_tokens=input_tokens, output_tokens=0,
+                                       usd=input_tokens * self._budget.rate / 1_000_000, reconciled=True)
+                except Exception:
+                    pass
             data = sorted(body.get("data", ()), key=lambda row: row["index"])
             if len(data) != len(texts):
                 raise RuntimeError("Embedding batch length mismatch")

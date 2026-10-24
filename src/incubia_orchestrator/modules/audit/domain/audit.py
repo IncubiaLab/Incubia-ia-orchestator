@@ -13,6 +13,8 @@ class AuditEventType(StrEnum):
     POLICY_DECISION = "tool.policy_decision"
     TOOL_ATTEMPT = "tool.attempt"
     TOOL_COMPLETED = "tool.completed"
+    RETRIEVAL = "retrieval.completed"
+    OUTCOME = "workflow.outcome"
 
 
 @dataclass(frozen=True)
@@ -42,3 +44,18 @@ class AuditEvent:
     @classmethod
     def now(cls, **kwargs) -> "AuditEvent":
         return cls(occurred_at=datetime.now(UTC), **kwargs)
+
+
+# Only bounded, non-content metadata may be persisted by any audit adapter.
+_SAFE_INT_KEYS = ("attempts", "evidence_count")
+_SAFE_BOOL_KEYS = ("descriptor_found", "abstained")
+
+
+def safe_metadata(metadata: dict[str, Any]) -> dict[str, int | bool]:
+    """Whitelist ints/bools; free text (possible customer data/secrets) is dropped."""
+    out: dict[str, int | bool] = {}
+    for key in (*_SAFE_INT_KEYS, *_SAFE_BOOL_KEYS):
+        value = metadata.get(key)
+        if type(value) in (int, bool):
+            out[key] = value
+    return out

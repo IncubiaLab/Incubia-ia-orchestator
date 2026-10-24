@@ -13,10 +13,13 @@ Copias de los ADR de Linear que figuran como **Accepted** o **Proposed** en el [
 | [ORCH-008](ADR-ORCH-008-CONVERSATION-STATE-PERSISTENCE.md) | Accepted | Persistencia de Conversation State |
 | [ORCH-010](ADR-ORCH-010-RAG-VECTOR-STORE.md) | Accepted | Arquitectura RAG y Vector Store |
 | [ORCH-013](ADR-ORCH-013.md) | Accepted | LLMPort |
+| [ORCH-014](ADR-ORCH-014-AUDIT.md) | Accepted | Audit trail durable y fail-closed |
+| [ORCH-015](ADR-ORCH-015-RETRIES.md) | Accepted | Política de timeouts y reintentos |
 | [ORCH-017](ADR-ORCH-017.md) | Proposed | Estructura por módulo y contexto |
 | [ORCH-018](ADR-ORCH-018.md) | Accepted | Dependencias y composition root |
 | [ORCH-019](ADR-ORCH-019.md) | Accepted | Conversation State y GraphState |
 | [ORCH-020](ADR-ORCH-020.md) | Accepted | Tests arquitectónicos y de contrato |
+| [ORCH-024](ADR-ORCH-024-DEPLOYMENT-TOPOLOGY.md) | Aceptado (2026-10-23, responsable) | Topología de despliegue Tier 3: opción A con ruta a B |
 | [ORCH-025](ADR-ORCH-025-NEON-POSTGRESQL-TIER-3.md) | Accepted for Tier 3; rollout gated | PostgreSQL administrado con Neon |
 | [ORCH-026](ADR-ORCH-026-CONTEXT-ARTIFACT-CACHE.md) | Proposed | Jerarquía de caché de artefactos de contexto |
 | [ORCH-027](ADR-ORCH-027-NEON-ROLE-PROVISIONING.md) | Accepted | Provisionamiento de roles PostgreSQL con RLS en Neon |
@@ -24,3 +27,5 @@ Copias de los ADR de Linear que figuran como **Accepted** o **Proposed** en el [
 La serie general del MVP contiene otros estados, entre ellos «Aceptado provisionalmente». Este índice conserva el estado de origen y alcance: ORCH-025 acepta la elección para Tier 3, con activación productiva condicionada por sus gates; no cambia SQLite para Gate A.
 
 Actualización del 2026-10-07: se incorpora ORCH-025, decisión local de Tier 3 para Neon basada en el SAD y ADR-E2-001. ORCH-008 y ORCH-010 quedaron aceptados en Linear: el primero fija Conversation/UoW y el segundo Neon/PostgreSQL + pgvector con una base por deployment para Knowledge. La [planificación Tier 3](../roadmap/etapa-3/ROADMAP.md) define sus gates. La [revisión de etapa 2](../roadmap/etapa-2/LINEAR-ADR.md) registra el inventario de decisiones Linear y las diferencias con la planificación histórica de etapa 1.
+
+Actualización del 2026-10-24: ORCH-014 (Linear HEC-37) y ORCH-015 (Linear HEC-38) están aceptados por el responsable. ORCH-024 fue aceptado el 2026-10-23 (hosting D8, opción A con ruta a B); su registro en Linear está pendiente.

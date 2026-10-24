@@ -1,0 +1,30 @@
+# Example only; no secrets. Valores ratificados por el responsable el 2026-10-23
+# (E3-0/D9; RPO cambiado de 24 h a 12 h).
+# A missing or null value authorizes NO spend and the loader fails closed.
+version: 1
+status: ratified      # ratificado por el responsable, 2026-10-23
+nfr:
+  slo_p95_seconds: 5          # ratificado; simple queries under the agreed load
+  rpo_hours: 12               # ratificado (antes 24 h)
+  rto_hours: 1                # ratificado
+deadlines:
+  # TOOLING proposes 3 s per call, 2 READ attempts, 10 s total, which cannot
+  # satisfy p95 <= 5 s end to end. Ratificado: tool total deadline <= 4 s
+  # (1 s margin for admission, retrieval, generation and delivery). If the
+  # provider cannot meet it, the gate stays open (H5).
+  tool_call_timeout_seconds: 2
+  tool_total_deadline_seconds: 4
+  tool_max_attempts: 2
+eval-e3:
+  max_calls: 200
+  max_input_tokens: 2000
+  max_output_tokens: 500
+  usd_cap: 5.00
+tenant:
+  max_calls: 50
+  max_input_tokens: 2000
+  max_output_tokens: 500
+  usd_cap: 1.00
+  admission_rate_per_minute: 30
+pool:
+  max_size: 10

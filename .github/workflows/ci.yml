@@ -1,0 +1,71 @@
+# CI del orquestador (gate E3-5).
+# - offline: suite completa sin red; los tests marcados `neon` quedan skipped.
+# - neon: campaña opt-in contra la rama sintética e3-h1-synthetic, solo por
+#   workflow_dispatch y con secretos del repositorio (nunca hardcodeados).
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      neon:
+        description: "Ejecutar la campaña opt-in contra Neon (e3-h1-synthetic)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      # --frozen: instala exactamente uv.lock sin re-resolver (no lo modifica).
+      - name: Instalar dependencias
+        run: uv sync --frozen --extra test --extra deployment
+      # No hay linter configurado en pyproject; se valida al menos la compilación.
+      - name: Compilar fuentes
+        run: uv run --frozen python -m compileall -q src tests
+      - name: Tests offline
+        env:
+          PYTHONPATH: src
+        run: uv run --frozen python -m pytest -q
+
+  neon:
+    if: github.event_name == 'workflow_dispatch' && inputs.neon
+    needs: offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: neon-e3
+    env:
+      PYTHONPATH: src
+      INCUBIA_E3_NEON_TESTS: "1"
+      INCUBIA_E3_NEON_BRANCH: e3-h1-synthetic
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      INCUBIA_MIGRATION_DATABASE_URL: ${{ secrets.INCUBIA_MIGRATION_DATABASE_URL }}
+      INCUBIA_E3_H1_BACKUP_EVIDENCE: ${{ secrets.INCUBIA_E3_H1_BACKUP_EVIDENCE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias
+        run: uv sync --frozen --extra test --extra deployment
+      - name: Verificar secretos
+        run: |
+          test -n "$DATABASE_URL" || { echo "Falta el secreto DATABASE_URL"; exit 1; }
+          test -n "$INCUBIA_MIGRATION_DATABASE_URL" || { echo "Falta el secreto INCUBIA_MIGRATION_DATABASE_URL"; exit 1; }
+          # conftest solo habilita red si el host es *.neon.tech; si no, todo saldría skipped en verde.
+          uv run --frozen python -c "import os,sys; from urllib.parse import urlsplit; h=urlsplit(os.environ['DATABASE_URL']).hostname or ''; sys.exit(0 if h.endswith('.neon.tech') else 'DATABASE_URL no apunta a un host *.neon.tech')"
+      - name: Tests Neon (opt-in)
+        run: uv run --frozen python -m pytest -q -m neon -rs

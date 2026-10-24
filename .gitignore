@@ -11,3 +11,6 @@ logs/
 .neon
 node_modules/
 .obsidian
+
+# gstack local state
+.gstack/

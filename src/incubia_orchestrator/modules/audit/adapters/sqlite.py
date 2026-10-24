@@ -9,7 +9,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from incubia_orchestrator.modules.audit.domain.audit import AuditEvent
+from incubia_orchestrator.modules.audit.domain.audit import AuditEvent, safe_metadata
 
 
 class SqliteAuditLog:
@@ -43,9 +43,7 @@ class SqliteAuditLog:
     def append(self, event: AuditEvent) -> None:
         # The audit write commits before the caller may perform external I/O.
         # An exception propagates and therefore fails the operation closed.
-        safe_metadata = {key: event.metadata[key] for key in
-                         ("descriptor_found", "attempts")
-                         if key in event.metadata and type(event.metadata[key]) in (int, bool)}
+        metadata = safe_metadata(event.metadata)
         with self._connect() as connection:
             connection.execute("""INSERT INTO audit_events VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
@@ -55,5 +53,5 @@ class SqliteAuditLog:
                 event.scope.tenant_id, event.scope.conversation_id, event.scope.actor_id,
                 event.tool_id, hashlib.sha256(event.resource.encode()).hexdigest(),
                 event.decision, event.attempt, event.status, event.error_code,
-                json.dumps(safe_metadata, sort_keys=True),
+                json.dumps(metadata, sort_keys=True),
             ))

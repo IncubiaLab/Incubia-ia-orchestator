@@ -1,10 +1,10 @@
 # Goals — etapa 3
 
-Estado: propuestos, pendientes de implementación y evidencia. Los umbrales de calidad son criterios de aceptación de este corte; los SLO productivos se ratifican en H0.
+Estado: propuestos, pendientes de implementación y evidencia. Los umbrales de calidad son criterios de aceptación de este corte; los SLO fueron ratificados por el responsable el 2026-10-23 (ver Presupuestos y NFR).
 
 ## Baseline paralelo E3-D0
 
-E3-D0 no añade un `G0` ni cambia los objetivos G1–G9: es evidencia previa de deployment local y permanece separado de E3-0. Su salida no cierra H1–H5, no acredita Neon/RLS/pgvector/tooling real/LLM ni ratifica ADR-024.
+E3-D0 no añade un `G0` ni cambia los objetivos G1–G9: es evidencia previa de deployment local y permanece separado de E3-0. Su salida no cierra H1–H5, no acredita Neon/RLS/pgvector/tooling real/LLM ni, por sí sola, ratifica ADR-024 (aceptado después por el responsable, 2026-10-23).
 
 | Nivel | Resultado medible | Relación con goals/gates |
 | --- | --- | --- |
@@ -27,11 +27,11 @@ El contrato D0-L sólo recibe `message` y `conversation_id`; el servidor genera 
 
 ## Presupuestos y NFR
 
-Propuesta inicial de ingeniería: RPO ≤24 h y RTO ≤1 h ante pérdida de almacenamiento, conservando recuperación sin repetir efectos. La campaña reporta p50/p95/p99 y n de recepción→outcome y recepción→confirmación de entrega; objetivo provisional p95 ≤5 s para consultas simples bajo la carga acordada. Si depende del proveedor y no se cumple, el gate queda abierto hasta ajustar diseño o ratificar un objetivo nuevo con evidencia.
+SLO ratificados por el responsable el 2026-10-23: RPO ≤12 h (antes propuesto en 24 h) y RTO ≤1 h ante pérdida de almacenamiento, conservando recuperación sin repetir efectos; retención y región sin cambios. La campaña reporta p50/p95/p99 y n de recepción→outcome y recepción→confirmación de entrega; objetivo ratificado p95 ≤5 s para consultas simples bajo la carga acordada. Si depende del proveedor y no se cumple, el gate queda abierto hasta ajustar diseño o ratificar un objetivo nuevo con evidencia. La ratificación fija el objetivo; no acredita su cumplimiento, que la campaña integrada E3-5 aún debe medir.
 
 “80 concurrentes” del SAD se desambigua en H0: medir tanto 80 sesiones activas con mensajes espaciados como una ráfaga de 80 solicitudes en vuelo con fakes; declarar RPS y duración. La campaña real usa el presupuesto autorizado y no presume 80 llamadas simultáneas permitidas por el proveedor. Se reportan colas, saturación, rechazo por límites y errores; ninguna pérdida silenciosa ni duplicación lógica.
 
-`eval-e3` registra `max_calls`, `max_output_tokens`, `usd_cap`, deadline y límites por tenant. Ningún valor nulo autoriza gasto; el responsable fija los valores antes de evaluación real. El estimado se reserva durablemente antes de la llamada y se reconcilia con usage/precios fechados. No reiniciar los contadores CLI/E2.
+`eval-e3` registra `max_calls`, `max_output_tokens`, `usd_cap`, deadline y límites por tenant. Ningún valor nulo autoriza gasto; el responsable aprobó el 2026-10-23 los límites de `config/e3/limits.example.yaml` (`status: ratified`) y el presupuesto de Neon y OpenAI para la campaña integrada. El estimado se reserva durablemente antes de la llamada y se reconcilia con usage/precios fechados. No reiniciar los contadores CLI/E2.
 
 ## Definición de terminado
 

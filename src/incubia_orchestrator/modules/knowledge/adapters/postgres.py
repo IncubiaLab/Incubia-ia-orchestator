@@ -6,7 +6,7 @@ import json
 import math
 import re
 
-from incubia_orchestrator.modules.knowledge.domain import EvidenceItem, RetrievalQuery, Source
+from incubia_orchestrator.modules.knowledge.domain import EmbeddingUnavailable, EvidenceItem, RetrievalQuery, Source
 from incubia_orchestrator.modules.knowledge.ports import EmbeddingPort
 
 
@@ -28,6 +28,7 @@ class PostgresKnowledge:
         self._use_hnsw = use_hnsw
         self._pools = pools
         self._known_deployment_labels = frozenset(label.casefold() for label in known_deployment_labels)
+        self.embedding_ready = True
 
     def _connect(self, deployment_id: str):
         if not deployment_id:
@@ -133,7 +134,15 @@ class PostgresKnowledge:
         if any(label != query.scope.deployment_id.casefold() and label in words
                for label in self._known_deployment_labels):
             return ()
-        vector = self._embedding.embed((query.text,))
+        try:
+            vector = self._embedding.embed((query.text,))
+        except Exception:
+            # Provider exceptions may include request bodies or credentials.
+            vector = None
+        if vector is None:
+            self.embedding_ready = False
+            raise EmbeddingUnavailable("Embedding request failed")
+        self.embedding_ready = True
         if len(vector) != 1:
             raise ValueError("Embedding adapter returned wrong batch size")
         encoded = _vector(vector[0])
