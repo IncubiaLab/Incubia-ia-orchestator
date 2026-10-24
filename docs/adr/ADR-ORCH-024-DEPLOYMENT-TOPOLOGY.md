@@ -1,6 +1,6 @@
 # ADR-ORCH-024 — Topología de despliegue Tier 3
 
-**Estado:** Propuesto — no ratificado; Docker Compose no decide producción  
+**Estado:** Aceptado el 2026-10-23 por el responsable (hector.cruz@sig.systems); Docker Compose no decide producción. La evidencia de la sección «Evidencia que debe ratificarlo» sigue pendiente y condiciona el tráfico real  
 **Fecha:** 2026-10-23  
 **Alcance:** Hosting de la aplicación, red y datos, rollback; decisión D8 / gate E3-5  
 **Relacionados:** ADR-ORCH-010 (una base por deployment para Knowledge), ADR-ORCH-025, ADR-ORCH-027
@@ -39,7 +39,7 @@
 | C. Kubernetes | Máxima flexibilidad | Complejidad y costo no justificados por carga medida; contradice D8 (HTTP/worker separados sólo por necesidad medida) |
 | D. Serverless/funciones | Escala a cero | Tiempo de vida limitado frente a drain de 10 s y llamadas LLM de hasta 30 s; conexiones por request contra pooler; peor control de apagado |
 
-## Decisión propuesta
+## Decisión (aceptada 2026-10-23)
 
 **Opción A como punto de partida, con una ruta explícita a B** si la carga lo
 exige: una sola imagen, un proceso `app` (más migrador one-shot previo al
@@ -52,6 +52,24 @@ Condiciones de borde obligatorias antes de tráfico real: autenticación y TLS
 frente al servicio (el ingress D0 no los tiene), secretos desde el gestor de la
 plataforma (nunca en la imagen), `terminationGracePeriod` >= `drain_seconds` + margen
 y readiness como criterio de admisión.
+
+## Criterios de escala de A a B
+
+El responsable aceptó la opción A con una ruta explícita a B. Se pasa a N réplicas
+(misma imagen, dispatcher de canal con un único dueño por claim) cuando se
+cumpla cualquiera de estos disparadores, medido en la campaña o en operación:
+
+1. El p95 de recepción→outcome supera 5 s de forma sostenida por saturación de la
+   instancia (no por latencia del proveedor).
+2. El RTO ≤1 h o la disponibilidad requerida no se cumple con reinicio de una
+   sola instancia (la caída de la instancia es el punto único de fallo de A).
+3. La CPU/memoria o las solicitudes en vuelo de la instancia se saturan en la
+   carga acordada, o el escalado vertical deja de ser suficiente.
+4. Se exige despliegue sin indisponibilidad (rolling) que A no puede ofrecer.
+
+Antes de habilitar B debe existir evidencia de fencing con 2+ workers sobre Neon
+bajo carga, autenticación de borde y LB con readiness. Los umbrales numéricos
+exactos de CPU/memoria se fijarán con las mediciones de la campaña E3-5.
 
 ## Evidencia que debe ratificarlo
 

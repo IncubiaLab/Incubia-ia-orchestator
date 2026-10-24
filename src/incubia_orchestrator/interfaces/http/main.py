@@ -22,6 +22,7 @@ from incubia_orchestrator.bootstrap.d0 import (
 )
 from incubia_orchestrator.modules.conversation.adapters.persistence.postgres import PostgresLedger
 from incubia_orchestrator.modules.conversation.ports.ledger import IdempotencyConflict
+from incubia_orchestrator.foundation.limits import AdmissionLimiter, Limits, load_runtime_limits
 from incubia_orchestrator.foundation.telemetry import HttpMetrics
 from incubia_orchestrator.interfaces.http.draining import DrainingHTTPServer
 
@@ -38,9 +39,13 @@ def validate_execution_payload(body: object) -> dict:
 
 
 class E3D0HttpServer(DrainingHTTPServer):
-    def __init__(self, address: tuple[str, int], service: D0Deployment):
+    def __init__(self, address: tuple[str, int], service: D0Deployment,
+                 limits: Limits | None = None):
         super().__init__(address, E3D0RequestHandler)
         self.service = service
+        self.limits = limits
+        self.admission = (AdmissionLimiter(limits.tenant.admission_rate_per_minute)
+                          if limits is not None else None)
         self.metrics = HttpMetrics(service.settings.deployment_id, service.settings.tenant_id)
 
 
@@ -59,13 +64,15 @@ class E3D0RequestHandler(BaseHTTPRequestHandler):
         super().setup()
         self.connection.settimeout(10)
 
-    def _send_json(self, status: HTTPStatus, body: dict) -> None:
+    def _send_json(self, status: HTTPStatus, body: dict, headers: dict[str, str] | None = None) -> None:
         try:
             encoded = json.dumps(body, separators=(",", ":")).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(encoded)))
             self.send_header("Cache-Control", "no-store")
+            for name, value in (headers or {}).items():
+                self.send_header(name, value)
             self.end_headers()
             self.wfile.write(encoded)
             started = getattr(self, "_metric_started", None)
@@ -115,6 +122,14 @@ class E3D0RequestHandler(BaseHTTPRequestHandler):
             return
         self._metric_started = monotonic()
         self.server.metrics.started()
+        admission = self.server.admission
+        if admission is not None and not admission.try_acquire(self.server.service.settings.tenant_id):
+            self.server.metrics.rejection("limit", "TENANT_RATE")
+            self.close_connection = True  # request body is left unread
+            self._send_json(HTTPStatus.TOO_MANY_REQUESTS, {"error": "rate_limited"},
+                            {"Retry-After": str(admission.retry_after_seconds),
+                             "Connection": "close"})
+            return
         try:
             body = self._body()
             result = self.server.service.execute(
@@ -170,6 +185,7 @@ def main() -> int:
     try:
         args = parse_args()
         validate_bind_host(args.host)
+        limits = load_runtime_limits()  # fail closed: invalid/unratified -> exit 1
         settings = D0Settings.from_env()
         service = D0Deployment(settings, PostgresLedger(settings.database_url), D0Runtime(settings))
     except Exception as exc:
@@ -183,7 +199,7 @@ def main() -> int:
     except Exception as exc:
         LOG.warning("e3_d0_recovery_deferred type=%s", type(exc).__name__)
     try:
-        server = E3D0HttpServer((args.host, args.port), service)
+        server = E3D0HttpServer((args.host, args.port), service, limits)
     except Exception as exc:
         LOG.error("e3_d0_server_start_failed type=%s", type(exc).__name__)
         return 1

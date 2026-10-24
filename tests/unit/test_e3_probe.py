@@ -35,3 +35,31 @@ def test_real_probe_requires_explicit_opt_in(monkeypatch):
     monkeypatch.delenv("INCUBIA_E3_PROBE_REAL", raising=False)
     with pytest.raises(ValueError, match="opt-in"):
         compose_from_env()
+
+
+@pytest.mark.parametrize("role", ["neondb_owner", "incubia_migrator", "postgres", "runtime"])
+def test_probe_rejects_non_knowledge_runtime_dsn(monkeypatch, role):
+    values = {
+        "INCUBIA_E3_PROBE_REAL": "1", "INCUBIA_E3_PROBE_BRANCH": "e3-h1-synthetic",
+        "INCUBIA_E3_PROBE_DEPLOYMENT_ID": "synthetic-alpha",
+        "INCUBIA_E3_PROBE_TENANT_ID": "synthetic-tenant",
+        "INCUBIA_E3_PROBE_ACTOR_ID": "synthetic-actor",
+        "INCUBIA_E3_PROBE_TOKEN": "t" * 40,
+        "INCUBIA_E3_PROBE_KNOWLEDGE_DSN": (
+            f"postgresql://{role}:secret@ep-example-pooler.us-east-2.aws.neon.tech/"
+            "knowledge_alpha?sslmode=require"),
+        "OPENAI_API_KEY": "test-key",
+    }
+    for name, value in values.items():
+        monkeypatch.setenv(name, value)
+    with pytest.raises(ValueError, match="runtime DSN") as error:
+        compose_from_env()
+    assert "secret" not in str(error.value)
+
+
+def test_knowledge_provisioner_requires_direct_owner_dsn():
+    from scripts.e3.provision_knowledge_runtime import ProvisionError, provision
+
+    with pytest.raises(ProvisionError, match="direct Neon owner DSN"):
+        provision("postgresql://incubia_migrator:secret@ep-example-pooler.us-east-2.aws.neon.tech/"
+                  "knowledge_alpha?sslmode=require", "s" * 40)

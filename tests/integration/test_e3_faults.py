@@ -260,18 +260,39 @@ def test_embeddings_down_fails_fast_with_controlled_error_and_no_leak(tmp_path, 
     assert time.monotonic() - started < BOUND_SECONDS
     assert str(error.value) == "Embedding request failed"
     assert "sk-secret-value" not in repr(error.value.__cause__) + str(error.value)
+    assert error.value.__context__ is None
+    assert store.embedding_ready is False
     assert provider.calls == 1  # sin reintentos ocultos
     assert budget.snapshot()["calls"] == 1  # la reserva fail-closed se conserva
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "Hallazgo E3-5: una caída de embeddings propaga RuntimeError por GroundedResponse.answer; "
-    "con un Tool READ sano la respuesta no degrada a evidencia solo-Tool ni abstiene."))
 def test_embeddings_down_degrades_to_abstention_instead_of_exception(tmp_path):
     from incubia_orchestrator.modules.orchestration.application.grounded_response import GroundedResponse
+    from incubia_orchestrator.foundation.telemetry import HttpMetrics
     store, _ = _knowledge(tmp_path, _Provider(httpx.Response(503)))
-    answer = GroundedResponse(store).answer(SCOPE, "zapatos", "sales.advice")
+    metrics = HttpMetrics(SCOPE.deployment_id, SCOPE.tenant_id)
+    answer = GroundedResponse(store, metrics=metrics).answer(SCOPE, "zapatos", "sales.advice")
     assert answer.abstained is True
+    assert answer.retrieval_ran and answer.retrieval_hit_count == 0
+    assert answer.retrieval_error_code == "EMBEDDING_UNAVAILABLE"
+    assert metrics.snapshot()["rejections"] == [
+        {"category": "knowledge", "reason": "EMBEDDING_UNAVAILABLE", "count": 1}]
+
+    tool = EvidenceItem(SCOPE.deployment_id, "catalog", "1", "call:0", "call",
+                        "Zapato sintético", public_ref="https://world.openfoodfacts.org/product/1")
+    answer = GroundedResponse(store).answer(SCOPE, "zapatos", "sales.advice", tool_evidence=(tool,))
+    assert not answer.abstained
+    assert answer.evidence == (tool,)
+    assert answer.text == tool.text
+    assert answer.retrieval_error_code == "EMBEDDING_UNAVAILABLE"
+
+    class BrokenMetrics:
+        def rejection(self, *args):
+            raise RuntimeError("metrics down")
+
+    answer = GroundedResponse(store, metrics=BrokenMetrics()).answer(
+        SCOPE, "zapatos", "sales.advice", tool_evidence=(tool,))
+    assert answer.evidence == (tool,)
 
 
 # --------------------------------------------------------------------------- pool
@@ -310,10 +331,12 @@ class _StubConnection:
 
 
 def test_pool_exhaustion_rejects_fast_and_recovers(tmp_path, monkeypatch):
+    from incubia_orchestrator.foundation.telemetry import HttpMetrics
     real = psycopg_pool.ConnectionPool
     monkeypatch.setattr(pool_module, "ConnectionPool",
                         lambda *a, **k: real(*a, connection_class=_StubConnection, **k))
-    pools = KnowledgePools(lambda _d: "postgresql://unused/x", max_size=2)
+    metrics = HttpMetrics("dep-f", "tenant-f")
+    pools = KnowledgePools(lambda _d: "postgresql://unused/x", max_size=2, metrics=metrics)
     try:
         with ExitStack() as held:
             for _ in range(2):  # agota max_size reteniendo las conexiones
@@ -327,15 +350,27 @@ def test_pool_exhaustion_rejects_fast_and_recovers(tmp_path, monkeypatch):
             assert elapsed < 4.5
         with pools.connection("dep-f"):  # liberadas las retenidas, vuelve a servir
             pass
+        snapshot = metrics.snapshot()["db_pool"]
+        assert snapshot["max"] == 2
+        assert snapshot["wait_count"] == 4
+        assert snapshot["timeouts"] == 1
     finally:
         pools.close()
 
 
 def test_pool_recovers_after_release(monkeypatch):
+    class BrokenMetrics:
+        def pool_stats(self, **kwargs):
+            raise RuntimeError("metrics down")
+
+        def pool_wait(self, *args, **kwargs):
+            raise RuntimeError("metrics down")
+
     real = psycopg_pool.ConnectionPool
     monkeypatch.setattr(pool_module, "ConnectionPool",
                         lambda *a, **k: real(*a, connection_class=_StubConnection, **k))
-    pools = KnowledgePools(lambda _d: "postgresql://unused/x", max_size=1)
+    pools = KnowledgePools(lambda _d: "postgresql://unused/x", max_size=1,
+                           metrics=BrokenMetrics())
     try:
         with pools.connection("dep-f"):
             pass
@@ -473,3 +508,44 @@ def test_concurrent_dispatchers_with_expired_claim_send_exactly_once(tmp_path):
     assert len(sent) == 1
     assert _rows(path, "SELECT state FROM deliveries") == [("SENT",)]
     assert _rows(path, "SELECT count(*) FROM turns") == [(1,)]
+
+
+def _llm_request():
+    from incubia_orchestrator.modules.orchestration.ports.llm import GenerationRequest
+    return GenerationRequest("hola", (), "i", 16)
+
+
+@pytest.mark.parametrize("body", [
+    {"error": {"type": "insufficient_quota", "code": "insufficient_quota"}},
+    {"error": {"code": "credit_balance_exhausted"}},
+])
+def test_llm_quota_429_fails_fast_without_retry(body):
+    from incubia_orchestrator.modules.orchestration.ports.llm import GenerationFailure
+    provider = _Provider(httpx.Response(429, json=body))
+    llm = OpenAILLM(model="m", api_key="k", retries=3, client=provider.client(), sleep=lambda s: None)
+    with pytest.raises(GenerationFailure) as error:
+        llm.generate(_llm_request())
+    assert error.value.code == "PROVIDER_QUOTA" and provider.calls == 1
+
+
+def test_llm_transient_429_retries_with_retry_after_then_succeeds():
+    slept = []
+    provider = _Provider(httpx.Response(429, headers={"retry-after": "2"}, json={"error": {"type": "rate_limit_exceeded"}}),
+                         _ok_llm())
+    llm = OpenAILLM(model="m", api_key="k", retries=2, timeout=30, client=provider.client(), sleep=slept.append)
+    assert llm.generate(_llm_request()).text
+    assert provider.calls == 2 and slept == [2.0]
+
+
+def test_llm_transient_429_is_bounded_and_respects_deadline():
+    from incubia_orchestrator.modules.orchestration.ports.llm import GenerationFailure
+    provider = _Provider(httpx.Response(429, headers={"retry-after": "3600"}))
+    llm = OpenAILLM(model="m", api_key="k", retries=5, timeout=5, client=provider.client(), sleep=lambda s: None)
+    with pytest.raises(GenerationFailure) as error:
+        llm.generate(_llm_request())
+    assert error.value.code == "PROVIDER_RATE_LIMIT" and provider.calls == 1
+    provider = _Provider(httpx.Response(429))
+    llm = OpenAILLM(model="m", api_key="k", retries=2, client=provider.client(), sleep=lambda s: None)
+    with pytest.raises(GenerationFailure):
+        llm.generate(_llm_request())
+    assert provider.calls == 3

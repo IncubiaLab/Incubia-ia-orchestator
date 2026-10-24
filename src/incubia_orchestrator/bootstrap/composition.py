@@ -34,7 +34,7 @@ def _validate_limits(max_output_tokens: int, timeout: float, retries: int, *, fa
 
 
 def _build_llm(*, fake: bool, model: str | None, max_output_tokens: int,
-               timeout: float, retries: int):
+               timeout: float, retries: int, metrics=None):
     _validate_limits(max_output_tokens, timeout, retries, fake=fake)
     if not fake:
         _load_local_env()
@@ -48,7 +48,7 @@ def _build_llm(*, fake: bool, model: str | None, max_output_tokens: int,
     budget_path = Path(os.getenv("INCUBIA_BUDGET_FILE", str(Path.home() / ".local/state/incubia/api-budget.json")))
     return OpenAILLM(model=selected_model,
                      api_key=os.getenv("OPENAI_API_KEY", ""), timeout=timeout, retries=retries,
-                     limiter=MonthlyCallLimiter(budget_path)), selected_model
+                     limiter=MonthlyCallLimiter(budget_path), metrics=metrics), selected_model
 
 
 class ScopedGeneration:
@@ -109,11 +109,11 @@ def _load_local_env() -> None:
 
 
 def compose(*, fake: bool, model: str | None = None, max_output_tokens: int = REAL_MAX_OUTPUT_TOKENS,
-            timeout: float = 30, retries: int = 0) -> HandleMessage:
+            timeout: float = 30, retries: int = 0, metrics=None) -> HandleMessage:
     """Construye el chat local con proveedor, policy y grafo para una sesión."""
     llm, selected_model = _build_llm(fake=fake, model=model,
                                      max_output_tokens=max_output_tokens,
-                                     timeout=timeout, retries=retries)
+                                     timeout=timeout, retries=retries, metrics=metrics)
     profiles = profiles_for(selected_model)
     scope = ExecutionScope("local", "local", str(uuid4()), "local-user")
     policy = InProcessPolicyEngine(Authority("local", "local", frozenset({"local-user"})))
@@ -124,9 +124,9 @@ def compose(*, fake: bool, model: str | None = None, max_output_tokens: int = RE
 def compose_scoped(*, fake: bool, model: str | None = None,
                    max_output_tokens: int = REAL_MAX_OUTPUT_TOKENS,
                    timeout: float = 30, retries: int = 0,
-                   membership_port=None) -> Callable:
+                   membership_port=None, metrics=None) -> Callable:
     """Compose a reusable generator for channel adapters with trusted scopes."""
     llm, selected_model = _build_llm(fake=fake, model=model,
                                      max_output_tokens=max_output_tokens,
-                                     timeout=timeout, retries=retries)
+                                     timeout=timeout, retries=retries, metrics=metrics)
     return ScopedGeneration(llm, selected_model, max_output_tokens, membership_port)

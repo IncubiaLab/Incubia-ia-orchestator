@@ -66,9 +66,11 @@ def test_grounded_response_abstains_and_sanitizes_references():
     expired = datetime.now(timezone.utc) - timedelta(seconds=1)
     response = GroundedResponse(FakeRetrieval((item(),)))
     assert response.answer(SCOPE, "Evidence", "answer", deadline=expired).abstained
+    assert not response.answer(SCOPE, "Evidence", "answer", deadline=expired).retrieval_ran
     answer = response.answer(SCOPE, "Evidence", "answer",
                              tool_evidence=(item("beta"), item(ref="https://host.example/path?token=secret")))
     assert answer.text == "Evidence fact.\nEvidence fact."
+    assert answer.retrieval_ran and answer.retrieval_hit_count == 1
     assert answer.public_references == ("https://docs.incubia.org/source",)
     assert not GroundedResponse(FakeRetrieval(())).answer(SCOPE, "Evidence", "answer",
                                tool_evidence=(item(ref="https://docs.example.org/source"),)

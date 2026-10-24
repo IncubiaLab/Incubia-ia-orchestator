@@ -1,4 +1,6 @@
 """OpenAI Responses HTTP adapter. Client injection keeps tests offline."""
+import time
+
 import httpx
 from incubia_orchestrator.modules.orchestration.adapters.llm.monthly_limit import MonthlyCallLimiter
 from incubia_orchestrator.foundation.contracts.execution import TokenUsage
@@ -8,7 +10,8 @@ from incubia_orchestrator.modules.orchestration.ports.llm import GenerationFailu
 class OpenAILLM:
     def __init__(self, *, model: str, api_key: str, timeout: float = 30,
                  retries: int = 0, client: httpx.Client | None = None,
-                 limiter: MonthlyCallLimiter | None = None, metrics=None):
+                 limiter: MonthlyCallLimiter | None = None, metrics=None,
+                 deadline_seconds: float | None = None, sleep=time.sleep, clock=time.monotonic):
         if not model:
             raise ValueError("Define INCUBIA_MODEL/--model")
         if not api_key:
@@ -19,6 +22,9 @@ class OpenAILLM:
         self.client = client or httpx.Client(timeout=timeout)
         self.limiter = limiter
         self.metrics = metrics
+        # Total budget for transient-429 waits; Retry-After never exceeds what is left.
+        self.deadline_seconds = timeout if deadline_seconds is None else deadline_seconds
+        self._sleep, self._clock = sleep, clock
 
     def generate(self, request: GenerationRequest) -> GenerationResponse:
         try:
@@ -33,6 +39,25 @@ class OpenAILLM:
             except Exception:
                 pass
         return response
+
+    @staticmethod
+    def _is_quota_error(response) -> bool:
+        try:
+            error = response.json().get("error") or {}
+            return (error.get("type") == "insufficient_quota"
+                    or error.get("code") in ("insufficient_quota", "credit_balance_exhausted"))
+        except (ValueError, AttributeError):
+            return False
+
+    @staticmethod
+    def _retry_delay(response, attempt: int) -> float:
+        try:
+            value = float(response.headers.get("retry-after"))
+            if value >= 0 and value == value and value != float("inf"):
+                return value
+        except (TypeError, ValueError):
+            pass
+        return min(0.5 * 2 ** attempt, 8.0)
 
     def _record_failure(self, code: str) -> None:
         if self.metrics is None:
@@ -55,31 +80,36 @@ class OpenAILLM:
         messages.append({"role": "user", "content": request.text})
         body = {"model": request.model or self.model, "instructions": request.instructions, "input": messages,
                 "max_output_tokens": request.max_output_tokens, "store": False}
+        deadline = self._clock() + self.deadline_seconds
         for attempt in range(self.retries + 1):
             try:
                 response = self.client.post("https://api.openai.com/v1/responses", json=body,
                                             headers={"Authorization": f"Bearer {self.api_key}"},
                                             timeout=self.timeout)
             except httpx.TimeoutException:
-                if attempt < self.retries:
+                if attempt < self.retries and self._clock() < deadline:
                     continue
                 raise GenerationFailure("PROVIDER_TIMEOUT") from None
             except httpx.TransportError:
-                if attempt < self.retries:
+                if attempt < self.retries and self._clock() < deadline:
                     continue
                 raise GenerationFailure("PROVIDER_UNAVAILABLE") from None
-            if response.status_code in (429, 500, 502, 503, 504) and attempt < self.retries:
-                continue
             if response.status_code == 401:
                 raise GenerationFailure("PROVIDER_AUTH")
             if response.status_code == 429:
-                try:
-                    error = response.json().get("error") or {}
-                    if error.get("type") == "insufficient_quota" or error.get("code") == "credit_balance_exhausted":
-                        raise GenerationFailure("PROVIDER_QUOTA")
-                except (ValueError, AttributeError):
-                    pass
+                # Quota/credit exhaustion is not transient: fail fast, never retry.
+                if self._is_quota_error(response):
+                    raise GenerationFailure("PROVIDER_QUOTA")
+                if attempt < self.retries:
+                    delay = self._retry_delay(response, attempt)
+                    if delay <= deadline - self._clock():
+                        if delay > 0:
+                            self._sleep(delay)
+                        continue
                 raise GenerationFailure("PROVIDER_RATE_LIMIT")
+            if response.status_code in (500, 502, 503, 504) and attempt < self.retries \
+                    and self._clock() < deadline:
+                continue
             if response.status_code >= 400:
                 raise GenerationFailure("PROVIDER_ERROR")
             try:

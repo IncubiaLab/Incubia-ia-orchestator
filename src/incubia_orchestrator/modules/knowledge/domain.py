@@ -6,6 +6,10 @@ from enum import StrEnum
 from incubia_orchestrator.foundation.contracts.execution import ExecutionScope
 
 
+class EmbeddingUnavailable(RuntimeError):
+    """A bounded, secret-free signal that retrieval could not embed its query."""
+
+
 class GenerationStatus(StrEnum):
     BUILDING = "BUILDING"
     VALIDATING = "VALIDATING"

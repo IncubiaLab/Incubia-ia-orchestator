@@ -12,9 +12,9 @@ Fecha de revisión: 2026-10-15. Esta planificación no ratifica ADR globales abi
 | D5 Integración | Una fuente READ por Tool Layer | Open Food Facts v3 pasó smoke READ; completar campaña E3-3 y operación/presupuesto. |
 | D6 RAG | ADR-010 Accepted: Neon/PostgreSQL + pgvector, una base por deployment. Slice offline usa dimensión 384 y `hash-384-v1-offline` sólo en pruebas. | Seleccionar y versionar modelo semántico real antes de indexar datos no sintéticos; acreditar exacta/HNSW, ingestión, revocación y operación en bases separadas. |
 | D7 Efectos | Mutations externas apagadas; leads/cases internos autorizados | No exigir ADR-021 para una READ, sí para efectos nuevos; inspección de entrega heredada de E2. |
-| D8 Infraestructura | Monolito modular; E3-D0 aporta una imagen única local, sin broker inicialmente | Ratificar recorte ADR-024 tras carga/shutdown; Docker Compose no decide producción. HTTP/worker solo por necesidad medida. |
-| D9 Operación | RPO 24 h / RTO 1 h y latencia provisional de GOALS | Responsable ratifica SLO, retención, región/costo en E3-01. |
-| D10 Evaluación | eval-e3 independiente, límites sin fijar | Registrar presupuesto antes de APIs reales; conservar contadores previos. |
+| D8 Infraestructura | **Resuelto 2026-10-23:** opción A (un contenedor) con ruta documentada a B (N réplicas); ADR-024 Aceptado | Disparadores de escala a B en ADR-024; la evidencia de carga/shutdown/rollback sigue pendiente en E3-5. Docker Compose no decide producción. |
+| D9 Operación | **Resuelto 2026-10-23:** p95 ≤5 s, RPO ≤12 h (antes 24 h), RTO ≤1 h; retención/región sin cambios | Ratificado por el responsable; el cumplimiento se mide en la campaña E3-5. |
+| D10 Evaluación | eval-e3 independiente; límites ratificados 2026-10-23 (`config/e3/limits.example.yaml`) y presupuesto Neon/OpenAI de la campaña integrada aprobado | Conservar contadores previos; reconciliar costo facturado en E3-5. |
 
 ## Baseline E3-D0 y frontera de autoridad
 
@@ -37,7 +37,7 @@ Diseño/fixtures E3 puede avanzar con Gates B/C E2 abiertos. E3-D0-L puede ejecu
 | LLM propone acción fuera de scope | PEP determinista en cada acceso; prompts no amplían permisos. |
 | Gates nominales sin evidencia | VERIFICACION enlaza ejecución/configuración/commit y mantiene pendientes visibles. |
 | Endpoint local sin autenticación expuesto fuera de su alcance | Publicar sólo en `127.0.0.1`, rechazar identidad/deployment del payload y prohibirlo en staging/producción. |
-| Compose se interpreta como topología productiva | Declarar E3-D0 como instancia única local; ADR-024, réplicas y Kubernetes siguen sin ratificar. |
+| Compose se interpreta como topología productiva | Declarar E3-D0 como instancia única local; ADR-024 quedó Aceptado el 2026-10-23 (opción A con ruta a B); réplicas y Kubernetes siguen fuera de esta etapa. |
 | Loop de negocio convertido en proceso infinito o despliegues por dominio | Un request termina tras outcome/commit; encadenar por HTTP y mantener monedas/ejes/círculos dentro del monolito. |
 
 Si una dependencia requiere un proveedor, credencial o decisión del responsable, terminar fixtures y contratos y registrar el bloqueo concreto en PROGRESS; no declarar completada la integración real.

@@ -35,7 +35,8 @@ class DispatcherAlreadyActive(RuntimeError):
 class TelegramRunner:
     def __init__(self, ledger, client, *, account: str, generate, history_limit: int = 2,
                  bind_unknown=None, owner_id: str | None = None,
-                 dispatcher_lease_seconds: float = 60, identity_resolver=None):
+                 dispatcher_lease_seconds: float = 60, identity_resolver=None,
+                 metrics=None, max_delivery_attempts: int = 3, retry_backoff_seconds: float = 5.0):
         if history_limit < 0:
             raise ValueError("history_limit must be non-negative")
         self.ledger, self.client, self.account, self.generate = ledger, client, account, generate
@@ -44,6 +45,9 @@ class TelegramRunner:
         self._identity_resolver = identity_resolver
         if self._identity_resolver is None and hasattr(ledger, "resolve") and hasattr(ledger, "get"):
             self._identity_resolver = BoundScopeResolver(ledger, ledger)
+        self.metrics = metrics
+        self.max_delivery_attempts = max(1, max_delivery_attempts)
+        self.retry_backoff_seconds = retry_backoff_seconds
         self._owner_id = owner_id or str(uuid4())
         self._dispatcher_lease_seconds = dispatcher_lease_seconds
         try:
@@ -250,9 +254,28 @@ class TelegramRunner:
             except TelegramTransportError as error:
                 if error.code == "UNKNOWN_EFFECT":
                     self.ledger.mark_delivery_unknown(execution_id, response_id, destination)
+                elif error.code in ("RATE_LIMIT", "RETRYABLE"):
+                    # Known-not-sent (429 / 5xx / connect failure): bounded reschedule.
+                    attempts = self.ledger.delivery_attempts(execution_id, response_id, destination)
+                    delay = error.retry_after if error.code == "RATE_LIMIT" and error.retry_after \
+                        else self.retry_backoff_seconds * 2 ** max(0, attempts - 1)
+                    retry_at = (datetime.now(UTC) + timedelta(seconds=delay)).isoformat()
+                    self.ledger.reschedule_delivery(execution_id, response_id, destination,
+                                                    next_attempt_at=retry_at,
+                                                    max_attempts=self.max_delivery_attempts)
                 else:
-                    retry_at = ((datetime.now(UTC) + timedelta(seconds=error.retry_after)).isoformat()
-                                if error.code == "RATE_LIMIT" and error.retry_after else None)
-                    self.ledger.mark_delivery_failed(execution_id, response_id, destination, next_attempt_at=retry_at)
+                    self.ledger.mark_delivery_failed(execution_id, response_id, destination)
             else:
-                self.ledger.mark_delivery_sent(execution_id, response_id, destination, message_id)
+                if self.ledger.mark_delivery_sent(execution_id, response_id, destination, message_id):
+                    self._record_delivery_latency(execution_id)
+
+    def _record_delivery_latency(self, execution_id):
+        if self.metrics is None:
+            return
+        try:
+            received = self.ledger.reception_time(execution_id)
+            if received:
+                elapsed = (datetime.now(UTC) - datetime.fromisoformat(received)).total_seconds() * 1000
+                self.metrics.stage_latency("reception_to_delivery", max(0.0, elapsed))
+        except Exception:
+            pass

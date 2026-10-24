@@ -1,6 +1,6 @@
 # Verificación — etapa 3
 
-Estado: E3-D0-L está acreditado con Compose local. E3-H1-N preparó Neon; E3-03/04/05 pasaron la campaña integrada offline, Compose y Neon sintético. E3-07/08 tienen tooling, fixture HTTP y una fuente READ real Open Food Facts v3; el smoke real pasó, pero la campaña completa E3-3 sigue pendiente. La campaña M3 pasó offline, Compose y Neon; el runner produjo `ready_for_gate` con `gate_closed=false`. M2 restauró filas e informó RPO/RTO. E3-2 también quedó `ready_for_gate`. E3-09/10/11 tienen slice offline y campaña pgvector en dos bases Neon sintéticas; G5 pasó con el modelo local versionado; G6 técnico pasó y falta la firma manual. E3-1 permanece abierto hasta registrar la decisión formal. No se cerró ningún gate arquitectónico; E3-0…E3-6 permanecen pendientes.
+Estado: E3-D0-L está acreditado con Compose local. E3-H1-N preparó Neon; E3-03/04/05 pasaron la campaña integrada offline, Compose y Neon sintético. E3-07/08 tienen tooling, fixture HTTP y una fuente READ real Open Food Facts v3; el smoke real pasó, pero la campaña completa E3-3 sigue pendiente. La campaña M3 pasó offline, Compose y Neon; el runner produjo `ready_for_gate` con `gate_closed=false`. M2 restauró filas e informó RPO/RTO. E3-2 también quedó `ready_for_gate`. E3-09/10/11 tienen slice offline y campaña pgvector en dos bases Neon sintéticas; G5 pasó con el modelo local versionado; G6 técnico pasó y falta la firma manual. Actualización 2026-10-23: el responsable cerró E3-1 y E3-2 (el registro en Linear lo realiza Codex); SLO (p95 ≤5 s, RPO ≤12 h, RTO ≤1 h), límites de `config/e3/limits.example.yaml` y presupuesto Neon/OpenAI quedaron ratificados; ADR-ORCH-024 está Aceptado. E3-5 tiene expediente en borrador ([abajo](#e3-5--expediente-borrador)) con la campaña integrada pendiente. E3-0, E3-3, E3-4, E3-5 y E3-6 permanecen abiertos.
 
 | Gate | Tareas | Goals | Evidencia exigida | Estado |
 | --- | --- | --- | --- | --- |
@@ -8,11 +8,11 @@ Estado: E3-D0-L está acreditado con Compose local. E3-H1-N preparó Neon; E3-03
 | E3-D0-R | Validación real diferida tras H1–H4 | — | Neon, pgvector, READ y LLM autorizados con presupuesto, audit y métricas separados | No iniciado; no sustituye G2–G9 |
 | E3-H1-N | Preparación inicial de Neon | G2/G3/G9 | Rama sintética, roles runtime/migrador, TLS, endpoints pool/direct, grants y runner opt-in | [Preflight](E3-H1-N-PREFLIGHT.md): roles/grants/DSNs protegidos; migraciones `001`–`006` y campaña Neon final 8/8. No es gate ni cierra E3-1 |
 | E3-0 | 01/02 + cierre E2 | G1 | A/B/C, contratos, decisiones, SLO/retención/presupuesto/responsables | Pendiente |
-| E3-1 | 03/04/05 | G2/G3/G9 | Suite contrato DB, carrera multi-proceso/fencing, migración, aislamiento Neon, restore | [Campaña M3](../../../evals/results/e3-1-campaign-2026-10-13-final.json): offline 27/27, Compose passed, Neon 8/8; `ready_for_gate`, decisión E3-1 pendiente |
-| E3-2 | 06 | G3 | Dos tenants/dos actores, revocación, roles/RLS/pool y discovery fake | [Campaña E3-2](../../../evals/results/e3-2-campaign-2026-10-15-local.json): local 17/17 y Neon 9/9 passed; `ready_for_gate`, `gate_closed=false` hasta decisión formal |
+| E3-1 | 03/04/05 | G2/G3/G9 | Suite contrato DB, carrera multi-proceso/fencing, migración, aislamiento Neon, restore | [Campaña M3](../../../evals/results/e3-1-campaign-2026-10-13-final.json): offline 27/27, Compose passed, Neon 8/8; `ready_for_gate`; **cerrado por el responsable el 2026-10-23** (Linear a cargo de Codex) |
+| E3-2 | 06 | G3 | Dos tenants/dos actores, revocación, roles/RLS/pool y discovery fake | [Campaña E3-2](../../../evals/results/e3-2-campaign-2026-10-15-local.json): local 17/17 y Neon 9/9 passed; `ready_for_gate`; **cerrado por el responsable el 2026-10-23** (Linear a cargo de Codex) |
 | E3-3 | 07/08 | G4/G7 | READ real controlada, DENY cero llamadas, output/errores/límites y audit | [Smoke real Open Food Facts](../../../evals/results/e3-3-read-openfoodfacts-2026-10-15.json) passed; campaña completa, presupuesto/operación y decisión de gate pendientes |
 | E3-4 | 09/10/11 | G5/G6 | Dataset congelado, métricas retrieval y grounding, índices/revocación/injection y aislamiento real | [G5 local Neon](../../../evals/results/e3-4-neon-local-2026-10-15.json) aprobado; [G6 técnico](../../../evals/results/e3-4-g6-neon-local-2026-10-15.json) aprobado. Falta firma manual y READ real integrado; gate abierto. |
-| E3-5 | 12/13 | G2/G3/G7/G9 | Tracing/audit, shutdown, carga, fallos, SLO y restore/rollback | [Campaña D0 local](../../../evals/results/e3-ops-local-2026-10-15.md): ráfaga 80, sesiones 80 × 10 min, caída DB y shutdown con replay passed; integración H3/H4, restore/rollback, SLO y decisión pendientes |
+| E3-5 | 12/13 | G2/G3/G7/G9 | Tracing/audit, shutdown, carga, fallos, SLO y restore/rollback | [Campaña D0 local](../../../evals/results/e3-ops-local-2026-10-15.md): ráfaga 80, sesiones 80 × 10 min, caída DB y shutdown con replay passed; expediente en borrador en [E3-5](#e3-5--expediente-borrador); campaña integrada y decisión PENDIENTES |
 | E3-6 | 14/15 | G1–G9 | Lead/case idempotentes, consentimiento, E2E multicanal, rúbrica real/costo y GO registrado | Pendiente |
 
 ## Estrategia
@@ -60,6 +60,42 @@ E3-09/10/11 (2026-10-15): `python3 scripts/e3/build_knowledge_dataset.py` regene
 Campaña pgvector E3-4 del 2026-10-15: dos bases y roles temporales en `e3-h1-synthetic`, 30 fuentes sintéticas por deployment, búsqueda exacta sobre 80 val. Recall@5 40/40, abstención 0/40, fugas cross-deployment 0 y p95 6,27 s. El p95 incluye una conexión Neon nueva por consulta, como hace el adapter actual; no representa una medición con pool. Revocación y reingesta idempotente pasaron; limpieza de bases/roles se verificó. Resultado `g5_passed=false`, `g6_assessed=false`, `gate_closed=false`. HNSW, reindex/rollback bajo carga, injection documental y permisos de referencias por actor no están acreditados. El runner y el resultado están en `scripts/e3/run_h4_neon_campaign.py` y `evals/results/e3-4-neon-mechanics-2026-10-15.json`.
 
 Repetición aprobada con `text-embedding-3-small:384:e3-h4-v1`: [resultado](../../../evals/results/e3-4-neon-openai-2026-10-15.json) 85 llamadas, 4 886 tokens, USD 0,00009772 estimados, recall@5 40/40, abstención 0/40, p95 2,00 s y cero fugas. El costo facturado todavía requiere reconciliación. G5 falló; G6 sigue sin rúbrica. `gate_closed=false`.
+
+## E3-5 — expediente (borrador)
+
+Estado: **borrador; gate abierto.** Se registra sólo la evidencia ya existente en el repositorio. Todo lo marcado PENDIENTE no está evidenciado y no debe leerse como cumplido. Fecha del borrador: 2026-10-23.
+
+**Contexto.** Rama `dev/3-tier-2nd-int`, commits `d703322` (drenaje HTTP, shutdown/rollback, CI), `527e802`, `1bb1bbb` (variables/secretos CI) y `35933b5` (audit Postgres, métricas, límites, runner de carga, fallos, ADR). Responsable: hector.cruz@sig.systems (hhce2303), referido como «responsable». Rama Neon `e3-h1-synthetic` recreada el 2026-10-23 desde `feat-knowledge-base` (`br-broad-waterfall-b54l45qj`, endpoint `ep-empty-cake-b5rld909`), expira el 2026-11-06; roles `incubia_runtime`/`incubia_migrator` NOBYPASSRLS. Los límites y el SLO están en `config/e3/limits.example.yaml` (`status: ratified`, p95 5 s, RPO 12 h, RTO 1 h).
+
+| Componente | Evidencia disponible | Fuente | Estado |
+| --- | --- | --- | --- |
+| Shutdown / drenaje | `DrainingHTTPServer` espera requests en vuelo hasta `drain_seconds=10`; SIGTERM con replay, kill durante PROCESSING (recuperable), reinicio antes del vencimiento de lease, kill durante SENDING → `UNKNOWN_EFFECT` sin reenvío, Telegram reintentado tras reinicio | `tests/integration/test_e3_shutdown.py` (6 pruebas), `d703322` | Cubierto offline/local; no ejecutado bajo carga en la plataforma elegida |
+| Rollback de migraciones | Archivos contiguos, expand/contract, backfill previo a NOT NULL, políticas recreadas, idempotencia al reaplicar y procedimiento en RUNBOOK | `tests/unit/test_e3_migration_rollback.py`, RUNBOOK (rollback de imagen por digest N-1; esquema/datos por restore) | Cubierto estáticamente; rollback de imagen N-1 NO ejecutado en entorno real |
+| CI | Job offline (`pytest -q` sobre `uv sync --frozen`) y job Neon opt-in (`workflow_dispatch`, entorno `neon-e3`, verifica host `*.neon.tech`) | `.github/workflows/ci.yml`, `d703322`, `527e802` | Definido; no hay resultado de CI enlazado en este borrador |
+| Neon sintético | Suite marcada Neon 10/10 pasada el 2026-10-23 sobre la rama recreada | Reportado por el responsable; sin artefacto propio en `evals/results` | Aprobado por declaración; archivar la salida del runner |
+| G7 audit durable | `PostgresAuditLog` + migración `008_e3_g7_audit.sql` (RLS por scope, runtime sólo INSERT/SELECT, columnas de identificador acotadas), fail-closed antes de I/O del Tool, eventos de policy/tool/retrieval/outcome por `execution_id`, canario de secretos; prueba Neon dedicada | `tests/unit/test_postgres_audit.py`, `tests/integration/neon/test_g7_audit.py`, `35933b5` | Offline y prueba Neon incluida en la suite 10/10; el 100% de correlación exigido por G7 en la campaña integrada PENDIENTE |
+| Métricas | Snapshot con scope, percentiles, pool, costo LLM, rechazos, latencia recepción→outcome/entrega; el exporter que falla no rompe request ni commit; etiquetas sin texto libre ni secretos | `tests/integration/test_e3_metrics_export.py`, `35933b5` | Cubierto offline |
+| Límites | Carga fail-closed (nulo/ausente/cero/negativo/texto/bool no autorizan gasto); valores ratificados el 2026-10-23 | `src/incubia_orchestrator/foundation/limits.py`, `tests/unit/test_e3_limits.py`, `config/e3/limits.example.yaml` | Ratificado; el test debe reflejar `status: ratified` y RPO 12 h |
+| Fallos | LLM, READ, embeddings, pool agotado/recuperación y claim vencido con 2+ workers (commit y envío exactamente una vez; worker obsoleto no puede commit) | `tests/integration/test_e3_faults.py`, `35933b5` | Offline. En `35933b5` la degradación a abstención con embeddings caídos estaba como `xfail` estricto; el hallazgo sigue abierto y no cuenta como evidencia de degradación |
+| Runner de carga | Perfiles constante/ráfaga, destinos remotos autenticados con allowlist; un 200 sin contrato de respuesta cuenta como error | `scripts/e3/load.py`, `tests/unit/test_e3_load.py` | Probado offline |
+| Restore M2 | RPO 2,12 s / RTO 4,88 s (primer restore), segundo import idempotente, 0 fallos críticos, una fila por tabla del ledger | [`e3-h1-m2-backup-2026-10-23.json`](../../../evals/results/e3-h1-m2-backup-2026-10-23.json) | Medido con volumen mínimo; cubre sólo tablas del ledger, no audit ni Knowledge |
+| Campaña D0 local | Ráfaga 80/80 (p95 3,41 s) y 80 sesiones × 600 s, 800/800 (p95 3,88 s), caída de DB y SIGTERM con replay, con fakes (sin LLM/READ/pgvector reales) | [`e3-ops-local-2026-10-15.md`](../../../evals/results/e3-ops-local-2026-10-15.md) | Evidencia local; no sustituye la campaña integrada |
+| Decisión D8 | ADR-ORCH-024 Aceptado (opción A con ruta a B y criterios de escala) | [ADR-024](../../adr/ADR-ORCH-024-DEPLOYMENT-TOPOLOGY.md) | Decidido; su evidencia de ratificación sigue pendiente |
+
+**Comandos reproducibles.** Offline: `PYTHONPATH=src .venv/bin/python -m pytest -q`. Neon: `INCUBIA_E3_NEON_TESTS=1 INCUBIA_E3_NEON_BRANCH=e3-h1-synthetic uv run --isolated --extra test --extra deployment python scripts/e3/run_neon_h1.py` (RUNBOOK).
+
+**PENDIENTE — evidencia de la campaña integrada (no iniciada):**
+
+- [ ] Carga ≥10 min por perfil (ráfaga y sostenido) contra Neon real con rol runtime pooled, con LLM/READ/pgvector autorizados: n, denominadores, RPS, p50/p95/p99, errores, CPU/memoria/conexiones, cero pérdida y duplicados. Debe demostrar p95 ≤5 s o dejar el gate abierto.
+- [ ] Fallos bajo carga (proveedores caídos, saturación del pooler, claim vencido con 2+ workers) repetidos contra Neon.
+- [ ] SIGTERM bajo carga en la plataforma elegida, con `http_drain_abandoned=0` y reconciliación limpia.
+- [ ] Restore con volumen representativo, incluyendo audit y Knowledge (procedimiento aún por definir), con RPO ≤12 h y RTO ≤1 h demostrados, y rollback de imagen N-1 ejecutado.
+- [ ] Reconciliación de costo: uso real de OpenAI y Neon contra los estimados y el `usd_cap` (presupuesto aprobado el 2026-10-23).
+- [ ] 100% de ejecuciones de la campaña con IDs y eventos correlacionados (G7) y logs sin secretos.
+- [ ] Resultado archivado en `evals/results/` y enlace de CI.
+- [ ] Revisión/ratificación de ADR-ORCH-014 y ADR-ORCH-015 (siguen Propuestos).
+
+**Decisión del gate E3-5:** PENDIENTE — `gate_closed=false`. Motivo: falta la campaña integrada. Firma del responsable: PENDIENTE (fecha: ________).
 
 ## Comprobaciones documentales
 

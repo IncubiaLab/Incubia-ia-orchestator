@@ -1,6 +1,6 @@
 # Progreso — etapa 3
 
-Fecha de actualización: 2026-10-15. **E3-D0-L acreditado; H1/H2 listos para decisión; H3 con smoke READ real y H4 con G5 acreditado en Neon y G6 técnico evaluado; falta firma manual.** Los gates arquitectónicos permanecen pendientes hasta contar con su decisión formal.
+Fecha de actualización: 2026-10-23. **Gates E3-1 y E3-2 cerrados por el responsable el 2026-10-23 (la actualización en Linear la gestiona Codex); SLO/límites/presupuesto ratificados; ADR-024 Aceptado; E3-5 con expediente en borrador y campaña integrada pendiente.** E3-D0-L acreditado; H3 con H3 con smoke READ real y H4 con G5 acreditado en Neon y G6 técnico evaluado; falta firma manual.** Los demás gates arquitectónicos permanecen pendientes hasta contar con su decisión formal.
 
 | Preparación | Estado | Evidencia / pendiente |
 | --- | --- | --- |
@@ -14,11 +14,11 @@ Fecha de actualización: 2026-10-15. **E3-D0-L acreditado; H1/H2 listos para dec
 | Hito | Estado | Evidencia / pendiente |
 | --- | --- | --- |
 | H0 | En curso | ADR-008/019/020 Accepted; contratos de identidad/ledger y UoW SQLite iniciados en E3-02. Inventario, integración completa, SLO/responsables y cierre E2 B/C pendientes. |
-| H1 | Listo para decisión E3-1 | M1 y M2 acreditados; M3 integrado passed offline, Compose y Neon. Falta registrar la decisión formal; `gate_closed=false`. |
-| H2 | Listo para decisión E3-2 | E3-06 implementó memberships/bindings, scope confiable, policy por rol y revocación local. La campaña local pasó 17/17 y la campaña Neon sintética pasó 9/9 ([evidencia](../../../evals/results/e3-2-campaign-2026-10-15-local.json)); `ready_for_gate`, `gate_closed=false` hasta la decisión formal. |
+| H1 | Gate E3-1 cerrado (responsable, 2026-10-23) | M1 y M2 acreditados; M3 integrado passed offline, Compose y Neon. Cierre decidido por el responsable; el registro en Linear está a cargo de Codex. |
+| H2 | Gate E3-2 cerrado (responsable, 2026-10-23) | E3-06 implementó memberships/bindings, scope confiable, policy por rol y revocación local. La campaña local pasó 17/17 y la campaña Neon sintética pasó 9/9 ([evidencia](../../../evals/results/e3-2-campaign-2026-10-15-local.json)); `ready_for_gate`; el artefacto registra `gate_closed=false` (2026-10-15) y el responsable cerró E3-2 el 2026-10-23. |
 | H3 | En progreso | E3-07/08 implementados con registry/discovery scoped, PEP, audit y `business.catalog.lookup`; Open Food Facts v3 pasó smoke READ real ([evidencia](../../../evals/results/e3-3-read-openfoodfacts-2026-10-15.json)); campaña E3-3 completa y decisión formal pendientes. |
 | H4 | G5 acreditado; E3-4 abierto | Modelo local versionado: 40/40 recall y abstención, p95 0,62 s, cero fugas. G6 técnico 24/24, pendiente firma manual y READ real integrado. [G5](../../../evals/results/e3-4-neon-local-2026-10-15.json) · [G6](../../../evals/results/e3-4-g6-neon-local-2026-10-15.json). |
-| H5 | En curso | Audit durable local, métricas HTTP y campaña D0 sintética; SLO/operación integrada y gate E3-5 pendientes. |
+| H5 | En curso | Audit durable (SQLite y Postgres), métricas con scope, límites, runner de carga, pruebas de fallos y shutdown/rollback implementados en `35933b5`/`d703322`; SLO ratificado (p95 ≤5 s, RPO ≤12 h, RTO ≤1 h) y presupuesto Neon/OpenAI aprobado el 2026-10-23. Campaña integrada (carga ≥10 min, fallos bajo carga, restore con volumen, reconciliación de costo) y decisión del gate E3-5 PENDIENTES; ver [VERIFICACION](VERIFICACION.md#e3-5--expediente-borrador). |
 | H6 | Pendiente | Lead/case/evaluación/cierre por implementar. |
 
 Baseline E2: Gate A cerrado en [VERIFICACION E2](../etapa-2/VERIFICACION.md); B en progreso y C pendiente. [Smoke real](../../../evals/results/e2-real-smoke-2026-10-06.md) acredita transporte/contador de una generación, sin cierre de calidad. CLI y adapter Telegram existen; funcionamiento parcial informado por el usuario no sustituye evidencia de piloto completo.
@@ -32,10 +32,10 @@ E3-1. El gate permanece abierto hasta la decisión formal.
 
 M3 (2026-10-13): se ejecutó [la campaña integrada](../../../evals/results/e3-1-campaign-2026-10-13-final.json).
 Offline pasó (27/27), E3-D0-L Compose pasó y Neon pasó (8/8) en la rama
-sintética. El runner produjo `ready_for_gate` y conserva `gate_closed=false`
+sintética. El runner produjo `ready_for_gate` y conserva `gate_closed=false` (estado del artefacto; cierre posterior del responsable el 2026-10-23)
 hasta la decisión formal.
 
-E3-D0-L (2026-10-13): se acreditaron imagen Python 3.12 multi-stage/no-root, Compose local con PostgreSQL/migrador/app, ledger PostgreSQL de commit atómico, HTTP loopback, scope sintético, health/readiness, recovery y script de humo. El loop se valida mediante solicitudes HTTP encadenadas: cada una genera `execution_id` nuevo, conserva `conversation_id`, puede tomar otra capability/perfil y termina en commit durable antes del siguiente turno. Scope sintético por configuración; payload sin `deployment_id`/`tenant_id`/`actor_id`; publicación sólo loopback. Smoke completo passed tras sincronizar la salida de `SIGTERM` y añadir la migración local `006_e3_d0_runtime_claims.sql`. Docker Compose no ratifica ADR-024 ni implica Kubernetes, réplicas, microservicios o un contenedor por moneda/eje/círculo.
+E3-D0-L (2026-10-13): se acreditaron imagen Python 3.12 multi-stage/no-root, Compose local con PostgreSQL/migrador/app, ledger PostgreSQL de commit atómico, HTTP loopback, scope sintético, health/readiness, recovery y script de humo. El loop se valida mediante solicitudes HTTP encadenadas: cada una genera `execution_id` nuevo, conserva `conversation_id`, puede tomar otra capability/perfil y termina en commit durable antes del siguiente turno. Scope sintético por configuración; payload sin `deployment_id`/`tenant_id`/`actor_id`; publicación sólo loopback. Smoke completo passed tras sincronizar la salida de `SIGTERM` y añadir la migración local `006_e3_d0_runtime_claims.sql`. Docker Compose no ratifica ADR-024 (aceptado luego por el responsable, 2026-10-23) ni implica Kubernetes, réplicas, microservicios o un contenedor por moneda/eje/círculo.
 
 E3-02 (2026-10-08): se añadieron `Principal`/membresía/binding confiable, `ConversationLedgerPort`, `ConversationCommit` y commit SQLite de turno, revisión, outcome, inbox y outbox en una transacción. Telegram usa el evento tipado y ya no lee `ledger._connection`. En esa fecha pasaron `python3 -m compileall` y un smoke manual; después se creó `.venv` y se ejecutó la suite E3. La validación completa de E3-0 sigue pendiente.
 
@@ -63,3 +63,7 @@ Probe real local (2026-10-15): `interfaces.http.e3_probe` añade entrada loopbac
 
 
 Actualización E3-4 (2026-10-15): [G5 local en Neon](../../../evals/results/e3-4-neon-local-2026-10-15.json) pasó 40/40 recall, 40/40 abstención, p95 0,6177 s, cero fugas, exact/HNSW y pruebas de revocación/rollback. [G6 técnico](../../../evals/results/e3-4-g6-neon-local-2026-10-15.json) evaluó 24 casos: 12/12 afirmaciones respaldadas, 6/6 referencias del manifiesto y cero fallos críticos; la URL pública READ respondió 200 anónimo. El gate sigue abierto por rúbrica manual sin firma y READ de G6 ejecutada con fixture HTTP. El resultado OpenAI anterior fallido se conserva como historial; el modelo local versionado es el candidato actual.
+
+Decisiones del responsable (2026-10-23): SLO p95 ≤5 s, RPO ≤12 h (cambió de 24 h) y RTO ≤1 h; `config/e3/limits.example.yaml` aprobado como estaba propuesto (`status: ratified`); presupuesto de Neon y OpenAI para la campaña integrada aprobado; D8 resuelto con la opción A (un contenedor) y ruta documentada a B, con ADR-ORCH-024 Aceptado y criterios de escala en el propio ADR; gates E3-1 y E3-2 cerrados (Linear a cargo de Codex). ADR-ORCH-014 y ADR-ORCH-015 siguen Propuestos, pendientes de revisión.
+
+Rama Neon (2026-10-23): `e3-h1-synthetic` se recreó desde `feat-knowledge-base` (`br-broad-waterfall-b54l45qj`, endpoint `ep-empty-cake-b5rld909`), con expiración 2026-11-06; los roles `incubia_runtime` e `incubia_migrator` son NOBYPASSRLS. La suite Neon pasó 10/10 y el restore M2 midió RPO 2,12 s / RTO 4,88 s ([evidencia](../../../evals/results/e3-h1-m2-backup-2026-10-23.json)).
