@@ -188,6 +188,9 @@ class FakeLedger:
             return True
         return False
 
+    def lease_state(self, *args):
+        return (self.claim["until"], self.now) if self.claim else (None, None)
+
 
 class FakeNeon:
     def __init__(self, fail_delete=False, mismatch=False):
@@ -242,6 +245,7 @@ def restore_rules():
         ("count(*) FILTER", [(10, 10)]),
         ("GROUP BY state", [("DELIVERED", 90), ("UNKNOWN_EFFECT", 5)]),
         ("AND state=%s", [(5,)]),
+        ("SELECT count(*) FROM turns WHERE", [(20,)]),
         ("role_table_grants", [("INSERT",), ("SELECT",)]),
     ]
 
@@ -261,7 +265,10 @@ def make_deps(db, load_fn=None):
         calls.append(kw)
         status = "failed" if "f-revoked" in kw["seed"] else "passed"
         return load_result(status, seed=kw["seed"])
+    def fire(url, count, label, token=None, timeout=90.0):
+        return [], [(200, f"e{i}") for i in range(count)]
     return runner.Deps(
+        lease_state=ledger.lease_state, fire_requests=fire, in_flight=lambda u, t: 1,
         connect=db, neon=FakeNeon(), load_run=load_fn or default_load, http_status=lambda u, t: 200,
         app_factory=FakeApp, sampler_factory=FakeSampler, proxy_factory=FakeProxy,
         ledger_factory=lambda dsn: ledger, backup_factory=FakeBackup,

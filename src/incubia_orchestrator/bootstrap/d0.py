@@ -21,6 +21,8 @@ from incubia_orchestrator.foundation.contracts.execution import (
     ExecutionInput,
     to_dict,
 )
+from incubia_orchestrator.modules.audit.domain.audit import AuditEvent, AuditEventType
+from incubia_orchestrator.modules.audit.ports.sink import AuditSinkPort
 from incubia_orchestrator.modules.conversation.ports.ledger import (
     ClaimToken,
     ConversationCommit,
@@ -181,8 +183,10 @@ _CONVERSATION_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
 class D0Deployment:
     """HTTP-facing application service with an inbox-to-outbox durable commit."""
 
-    def __init__(self, settings: D0Settings, ledger: D0Ledger, runtime: D0RuntimePort):
+    def __init__(self, settings: D0Settings, ledger: D0Ledger, runtime: D0RuntimePort,
+                 audit: AuditSinkPort | None = None):
         self.settings = settings
+        self._audit = audit
         self._ledger = ledger
         self._runtime = runtime
         self._claim_lease_seconds = 120
@@ -215,6 +219,31 @@ class D0Deployment:
                 self._ledger.release_claim(conversation_claim)
             except Exception:
                 pass
+
+    def _audit_execution(self, *, execution_id: str, scope: ExecutionScope, adapters: dict) -> None:
+        """G7: durable events correlated by execution_id, written before the commit.
+
+        Fails closed (ADR-ORCH-014): an audit failure propagates, the execution is
+        returned to RECEIVED and nothing is delivered."""
+        if self._audit is None:
+            return
+        steps = (
+            (AuditEventType.TOOL_COMPLETED, "tool", "d0-deterministic-tool"),
+            (AuditEventType.RETRIEVAL, "retrieval", "d0-deterministic-retrieval"),
+            (AuditEventType.OUTCOME, "outcome", "d0-runtime"),
+        )
+        events = [AuditEvent.now(
+            event_id=str(uuid4()), event_type=event_type,
+            tool_call_id=f"{execution_id}:{label}", execution_id=execution_id,
+            scope=scope, tool_id=tool_id, resource=f"d0:{label}",
+            status="ok", metadata={"evidence_count": 0, "abstained": label == "retrieval"},
+        ) for event_type, label, tool_id in steps]
+        batch = getattr(self._audit, "append_many", None)
+        if batch is not None:
+            batch(events)  # one atomic round trip on durable sinks
+        else:
+            for event in events:
+                self._audit.append(event)
 
     @staticmethod
     def _validate(message: object, conversation_id: object, idempotency_key: object) -> tuple[str, str, str]:
@@ -288,6 +317,14 @@ class D0Deployment:
             raise
 
         completed = runtime_result.completed
+        try:
+            self._audit_execution(execution_id=reservation.execution_id, scope=scope,
+                                  adapters=runtime_result.deterministic_adapters)
+        except Exception:
+            self._return_to_received_safely(
+                reservation.execution_id, scope, event_claim, conversation_claim
+            )
+            raise
         specialty = completed.output.specialty.value if completed.output.specialty else "general"
         try:
             for _ in range(3):

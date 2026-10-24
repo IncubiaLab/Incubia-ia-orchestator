@@ -11,6 +11,7 @@ from time import monotonic
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 from incubia_orchestrator.bootstrap.d0 import (
     D0Deployment,
@@ -20,6 +21,7 @@ from incubia_orchestrator.bootstrap.d0 import (
     ExecutionUnavailable,
     InputRejected,
 )
+from incubia_orchestrator.modules.audit.adapters.postgres import PostgresAuditLog
 from incubia_orchestrator.modules.conversation.adapters.persistence.postgres import PostgresLedger
 from incubia_orchestrator.modules.conversation.ports.ledger import IdempotencyConflict
 from incubia_orchestrator.foundation.limits import AdmissionLimiter, Limits, load_runtime_limits
@@ -180,6 +182,20 @@ def validate_bind_host(host: str) -> None:
     raise ValueError("E3-D0 HTTP must bind loopback outside approved Compose")
 
 
+def build_audit(settings: D0Settings) -> PostgresAuditLog | None:
+    """Opt-in durable audit (INCUBIA_D0_AUDIT=postgres, E3-5/G7). Requires the
+    incubia_runtime role (INSERT/SELECT on audit_events under RLS); fail closed
+    on any other role or value instead of silently running without audit."""
+    mode = os.getenv("INCUBIA_D0_AUDIT", "")
+    if not mode:
+        return None
+    if mode != "postgres":
+        raise ValueError("INCUBIA_D0_AUDIT must be 'postgres' when set")
+    if unquote(urlsplit(settings.database_url).username or "") != "incubia_runtime":
+        raise ValueError("Durable audit requires the incubia_runtime role")
+    return PostgresAuditLog(settings.database_url)
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     try:
@@ -187,7 +203,8 @@ def main() -> int:
         validate_bind_host(args.host)
         limits = load_runtime_limits()  # fail closed: invalid/unratified -> exit 1
         settings = D0Settings.from_env()
-        service = D0Deployment(settings, PostgresLedger(settings.database_url), D0Runtime(settings))
+        audit = build_audit(settings)
+        service = D0Deployment(settings, PostgresLedger(settings.database_url), D0Runtime(settings), audit)
     except Exception as exc:
         LOG.error("e3_d0_startup_failed type=%s", type(exc).__name__)
         return 1

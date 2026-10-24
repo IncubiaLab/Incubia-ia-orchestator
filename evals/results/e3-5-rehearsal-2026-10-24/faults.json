@@ -1,0 +1,155 @@
+{
+  "duration_seconds": 923.226,
+  "gate_closed": false,
+  "phase": "faults",
+  "run_id": "e3-5-2026-10-24-f1fe18",
+  "status": "failed",
+  "steps": {
+    "claim_expiry_fencing": {
+      "checks": {
+        "a_acquired": true,
+        "b_acquired_after_expiry": true,
+        "b_blocked_while_lease_live": true,
+        "b_renew_ok": true,
+        "generation_increased": true,
+        "stale_a_release_rejected": true,
+        "stale_a_renew_rejected": true
+      },
+      "generations": [
+        1,
+        2
+      ],
+      "status": "passed"
+    },
+    "credential_revocation": {
+      "checks": {
+        "blocked_while_revoked": true,
+        "grants_restored": true,
+        "recovered_after_restore": true
+      },
+      "privileges": [
+        "INSERT",
+        "SELECT",
+        "UPDATE"
+      ],
+      "status": "passed",
+      "status_counts_during": {
+        "503": 1
+      }
+    },
+    "pool_saturation": {
+      "errors": 15,
+      "integrity": {
+        "duplicate_deliveries": 0,
+        "ok": true,
+        "revision_mismatch": 0,
+        "turns": 10
+      },
+      "limit_rejections": 0,
+      "pool": {
+        "max": 0,
+        "peak_in_use": 0,
+        "timeouts_delta": 0,
+        "wait_count_delta": 0,
+        "wait_ms_total_delta": 0.0,
+        "waiting_last": 0
+      },
+      "recovered": false,
+      "requests": 15,
+      "status": "failed",
+      "status_counts": {
+        "0": 15
+      }
+    },
+    "provider_down": {
+      "integrity": {
+        "duplicate_deliveries": 0,
+        "ok": true,
+        "revision_mismatch": 0,
+        "turns": 82
+      },
+      "modes": {
+        "http_5xx": {
+          "errors": 18,
+          "latency_ms": {
+            "mean": 30010.51,
+            "p50": 25031.82,
+            "p95": 45051.68,
+            "p99": 45056.83
+          },
+          "proxy_hits": {},
+          "recovered": false,
+          "requests": 20,
+          "revisions_consistent": true,
+          "status_counts": {
+            "0": 18,
+            "200": 2
+          }
+        },
+        "reset": {
+          "errors": 10,
+          "latency_ms": {
+            "mean": 29745.79,
+            "p50": 24875.23,
+            "p95": 44775.41,
+            "p99": 44890.2
+          },
+          "proxy_hits": {},
+          "recovered": false,
+          "requests": 20,
+          "revisions_consistent": true,
+          "status_counts": {
+            "0": 10,
+            "200": 10
+          }
+        },
+        "timeout": {
+          "errors": 18,
+          "latency_ms": {
+            "mean": 30033.33,
+            "p50": 25032.0,
+            "p95": 45060.27,
+            "p99": 45064.12
+          },
+          "proxy_hits": {},
+          "recovered": true,
+          "requests": 20,
+          "revisions_consistent": true,
+          "status_counts": {
+            "0": 18,
+            "200": 2
+          }
+        }
+      },
+      "status": "failed"
+    },
+    "sigterm_drain": {
+      "checks": {
+        "clean_exit_code": true,
+        "exited_within_deadline": true,
+        "inflight_completed": false,
+        "inflight_started": true,
+        "no_loss_or_duplication": true,
+        "restarted_ready": true
+      },
+      "inflight_at_sigterm": 5,
+      "integrity": {
+        "duplicate_deliveries": 0,
+        "ok": true,
+        "revision_mismatch": 0,
+        "turns": 0
+      },
+      "requests": 5,
+      "status": "failed",
+      "status_counts": {
+        "0": 5
+      },
+      "term": {
+        "drain_seconds": 11.04,
+        "exit_code": 0,
+        "exited_within_deadline": true
+      }
+    }
+  },
+  "synthetic": true
+}

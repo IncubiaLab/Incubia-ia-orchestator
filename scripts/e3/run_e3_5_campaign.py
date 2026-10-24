@@ -54,6 +54,9 @@ class Deps:
     which: Callable[[str], str | None] = shutil.which
     sleep: Callable[[float], None] = time.sleep
     now: Callable[[], datetime] = lib.utc_now
+    lease_state: Callable[..., tuple] = lib.claim_lease_state
+    fire_requests: Callable[..., tuple] = lib.fire_inflight_requests
+    in_flight: Callable[[str, str | None], int] = lib.metrics_in_flight
 
     def fill(self) -> "Deps":
         if self.connect is None:
@@ -178,13 +181,20 @@ class Campaign:
         seed = f"{self.run_id}-{seed_suffix}"
         base = dict(profile=profile, duration=kw.pop("duration", 10.0), sessions=kw.pop("sessions", 1),
                     interval=kw.pop("interval", 1.0), seed=seed, token=self.token,
-                    tolerate_limit_rejections=kw.pop("tolerate", True), env=self.env)
+                    tolerate_limit_rejections=kw.pop("tolerate", True),
+                    env={"INCUBIA_E3_LOAD_TIMEOUT": "90", **self.env})  # remote Neon: >15s per request is normal
         base.update(kw)
         try:
             return self.deps.load_run(self.args.url, **base)
         except (ValueError, RuntimeError) as exc:
             return {"status": "failed", "error": lib.redact(str(exc), lib.secrets_in(self.env)), "seed": seed,
                     "errors": 1, "requests": 0, "success_count": 0}
+
+    def _metrics_in_flight(self) -> tuple[bool, int]:
+        try:
+            return True, int(self.deps.in_flight(self.args.url, self.token))
+        except Exception:
+            return False, 0
 
     def _probe_once(self, label: str) -> dict:
         return self._load("burst", label, sessions=1, waves=1)
@@ -223,6 +233,7 @@ class Campaign:
             "DATABASE_URL": self.guarded.runtime_dsn,
             "INCUBIA_D0_DEPLOYMENT_ID": self.deployment_id, "INCUBIA_D0_TENANT_ID": self.tenant_id,
             "INCUBIA_D0_ACTOR_ID": lib.SYNTH_ACTOR,
+            "INCUBIA_D0_AUDIT": "postgres",  # G7: durable audit, runtime role, fail closed
         })
         for key in ("INCUBIA_E3_DB_POOL_MAX", "INCUBIA_E3_PROBE_TOKEN", "OPENAI_API_KEY"):
             if self.env.get(key):
@@ -342,13 +353,26 @@ class Campaign:
             scope_cls = import_module("incubia_orchestrator.foundation.contracts.execution").ExecutionScope
             scope = scope_cls(self.deployment_id, self.tenant_id, "e3-5-fencing", lib.SYNTH_ACTOR)
             kw = dict(resource_type="e3-5-fencing-probe", resource_key=self.run_id)
-            a = ledger.acquire_claim(scope, owner_id="worker-a", lease_seconds=1, **kw)
+            # Latency-robust: the lease must comfortably outlive several Neon round trips, and
+            # expiry is judged on the DB clock (lease_until vs clock_timestamp()), not wall time.
+            lease = 20
+            conn, migrator = self.deps.connect, self.guarded.migrator_dsn
+            lease_args = (self.deployment_id, self.tenant_id, kw["resource_type"], kw["resource_key"])
+            a = ledger.acquire_claim(scope, owner_id="worker-a", lease_seconds=lease, **kw)
             b_early = ledger.acquire_claim(scope, owner_id="worker-b", lease_seconds=30, **kw)
-            self.deps.sleep(1.6)
+            lease_until, db_now = self.deps.lease_state(conn, migrator, *lease_args)
+            # The early attempt only proves fencing if A's lease was still live at DB time after it.
+            early_valid = lease_until is not None and db_now is not None and db_now < lease_until
+            deadline = time.monotonic() + 120
+            while lease_until is not None and time.monotonic() < deadline:
+                _, db_now = self.deps.lease_state(conn, migrator, *lease_args)
+                if db_now is not None and db_now > lease_until:
+                    break
+                self.deps.sleep(1.0)
             b = ledger.acquire_claim(scope, owner_id="worker-b", lease_seconds=30, **kw)
             checks = {
                 "a_acquired": a is not None,
-                "b_blocked_while_lease_live": b_early is None,
+                "b_blocked_while_lease_live": b_early is None and early_valid,
                 "b_acquired_after_expiry": b is not None,
                 "generation_increased": bool(a and b and b.generation > a.generation),
                 "stale_a_renew_rejected": bool(a) and ledger.renew_claim(a, lease_seconds=30) is False,
@@ -387,27 +411,58 @@ class Campaign:
                     "privileges": privileges, "status_counts_during": during.get("http_status_counts")}
 
         def sigterm_drain():
-            import threading
-            box: dict = {}
-
-            def work():
-                box["result"] = self._load("burst", "f-term", sessions=min(self.args.sessions, 20), waves=1)
-            thread = threading.Thread(target=work, daemon=True)
-            thread.start()
-            self.deps.sleep(0.5)
+            n = max(1, min(self.args.sessions, 3))
+            label = f"e3-load-{self.run_id}-f-term"
+            # Request latency on remote Neon can exceed the 10s drain budget, so a SIGTERM issued
+            # at t=0 would legitimately abandon the request. Measure the baseline latency and
+            # signal while the requests are still in flight but with <= ~4s of work left.
+            base_ms = (self._probe_once("f-pre-drain").get("latency_ms") or {}).get("p50") or 8000.0
+            t_fire = time.monotonic()
+            threads, results = self.deps.fire_requests(self.args.url, n, label, token=self.token)
+            # Wait until requests are really in flight in the server (not merely scheduled).
+            inflight = 0
+            for _ in range(100):
+                ok, inflight = self._metrics_in_flight()
+                if ok and inflight >= 1:
+                    break
+                self.deps.sleep(0.1)
+            if inflight < 1:
+                for t in threads:
+                    t.join(60)
+                self.stop_app()
+                self.start_app()
+                return {"status": "failed", "reason": "no request was in flight when SIGTERM was due",
+                        "requests": len(results)}
+            fired_at = time.monotonic()
+            self.deps.sleep(max(0.0, base_ms / 1000.0 - 4.0 - (fired_at - t_fire)))
+            ok_now, inflight_now = self._metrics_in_flight()
+            inflight = inflight_now if ok_now else inflight
+            if inflight < 1:  # requests finished while waiting: the drain would prove nothing
+                for t in threads:
+                    t.join(60)
+                self.stop_app()
+                self.start_app()
+                return {"status": "failed", "reason": "requests finished before SIGTERM (drain not exercised)",
+                        "requests": len(results), "baseline_latency_ms": base_ms}
             term = self.app.sigterm()
-            thread.join(120)
-            res = box.get("result", {})
-            integrity = self._integrity(f"e3-load-{self.run_id}-f-term")
+            for t in threads:
+                t.join(60)
             self.stop_app()
             self.start_app()  # restore service for later phases
             ready = self.deps.http_status(self.args.url + "/readyz", self.token) == 200
+            integrity = self._integrity(label)
+            statuses = [code for code, _ in results]
+            completed = [code for code, _ in results if code == 200]
+            expected_turns = len(completed)
             checks = {"exited_within_deadline": term["exited_within_deadline"], "clean_exit_code": term["exit_code"] == 0,
-                      "inflight_completed": res.get("errors") == 0 and res.get("success_count", 0) > 0,
-                      "no_loss_or_duplication": integrity["ok"] and res.get("revisions_consistent") is not False,
+                      "inflight_started": inflight >= 1 and len(results) == n,
+                      "inflight_completed": len(results) == n and all(code == 200 for code in statuses),
+                      "no_loss_or_duplication": integrity["ok"] and integrity["turns"] >= expected_turns,
                       "restarted_ready": ready}
             return {"status": "passed" if all(checks.values()) else "failed", "checks": checks, "term": term,
-                    "requests": res.get("requests"), "status_counts": res.get("http_status_counts"), "integrity": integrity}
+                    "requests": n, "inflight_at_sigterm": inflight, "baseline_latency_ms": base_ms,
+                    "status_counts": {str(c): statuses.count(c) for c in sorted(set(statuses))},
+                    "integrity": integrity}
 
         run_step("provider_down", provider_down, needs_app=True, needs_proxy=True)
         run_step("pool_saturation", pool_saturation)

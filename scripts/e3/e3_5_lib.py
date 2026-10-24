@@ -222,8 +222,8 @@ def seed_statements(plan: SeedPlan, deployment_id: str, tenant_id: str) -> list[
     out.append((
         "conversations",
         "INSERT INTO conversations (deployment_id, tenant_id, conversation_id, actor_id, revision) "
-        "SELECT %s, %s, 'e3-5-seed-c' || g, %s, ((%s - g) / %s) + 1 "
-        "FROM generate_series(1, %s) AS g ON CONFLICT DO NOTHING",
+        "SELECT %s, %s, 'e3-5-seed-c' || g, %s, (((%s)::int - g) / (%s)::int) + 1 "
+        "FROM generate_series(1, (%s)::int) AS g ON CONFLICT DO NOTHING",
         (d, t, SYNTH_ACTOR, plan.turns, c, c),
     ))
     for start in range(1, plan.turns + 1, plan.batch):
@@ -233,26 +233,26 @@ def seed_statements(plan: SeedPlan, deployment_id: str, tenant_id: str) -> list[
                     "INSERT INTO inbox_events (deployment_id, tenant_id, channel, channel_account_ref, "
                     "external_event_id, payload_hash, payload_json, request_id, execution_id, state, terminal_at) "
                     f"SELECT %s, %s, 'e3-5-seed', 'e3-5-seed', 'e3-5-seed-' || g, md5('p' || g), '{{}}'::jsonb, "
-                    f"{exe}, {exe}, 'COMPLETED', now() FROM generate_series(%s, %s) AS g ON CONFLICT DO NOTHING",
+                    f"{exe}, {exe}, 'COMPLETED', now() FROM generate_series((%s)::int, (%s)::int) AS g ON CONFLICT DO NOTHING",
                     (d, t, start, end)))
         out.append(("turns",
                     "INSERT INTO turns (execution_id, deployment_id, tenant_id, conversation_id, actor_id, "
                     "user_text, assistant_text) "
-                    f"SELECT {exe}, %s, %s, 'e3-5-seed-c' || (((g - 1) %% %s) + 1), %s, "
+                    f"SELECT {exe}, %s, %s, 'e3-5-seed-c' || (((g - 1) %% (%s)::int) + 1), %s, "
                     "'consulta sintetica ' || g, 'respuesta sintetica ' || g "
-                    "FROM generate_series(%s, %s) AS g ON CONFLICT DO NOTHING",
+                    "FROM generate_series((%s)::int, (%s)::int) AS g ON CONFLICT DO NOTHING",
                     (d, t, c, SYNTH_ACTOR, start, end)))
         out.append(("outcomes",
                     "INSERT INTO outcomes (execution_id, deployment_id, tenant_id, outcome_json) "
                     f"SELECT {exe}, %s, %s, '{{\"status\":\"ok\"}}'::jsonb "
-                    "FROM generate_series(%s, %s) AS g ON CONFLICT DO NOTHING",
+                    "FROM generate_series((%s)::int, (%s)::int) AS g ON CONFLICT DO NOTHING",
                     (d, t, start, end)))
         out.append(("deliveries",
                     "INSERT INTO deliveries (execution_id, deployment_id, tenant_id, response_id, destination_ref, "
                     "payload_json, state) "
                     f"SELECT {exe}, %s, %s, 'r' || g, 'e3-5-seed', '{{}}'::jsonb, "
-                    "CASE WHEN g %% %s = 0 THEN 'SENDING' ELSE 'DELIVERED' END "
-                    "FROM generate_series(%s, %s) AS g ON CONFLICT DO NOTHING",
+                    "CASE WHEN g %% (%s)::int = 0 THEN 'SENDING' ELSE 'DELIVERED' END "
+                    "FROM generate_series((%s)::int, (%s)::int) AS g ON CONFLICT DO NOTHING",
                     (d, t, plan.sending_every, start, end)))
     return out
 
@@ -274,8 +274,8 @@ def knowledge_statements(plan: SeedPlan) -> list[tuple[str, str, tuple]]:
         out.append(("knowledge_chunks",
                     "INSERT INTO knowledge_chunks (generation_id, source_id, source_version, chunk_id, content, embedding) "
                     "SELECT 'e3-5-synth-gen', 'e3-5-synth-source', '1', 'e3-5-chunk-' || g, 'fragmento sintetico ' || g, "
-                    "(SELECT array_agg(sin(g * k::float8))::vector(384) FROM generate_series(1, 384) AS k) "
-                    "FROM generate_series(%s, %s) AS g ON CONFLICT DO NOTHING", (start, end)))
+                    "(SELECT array_agg(sin(g * k::float8))::vector(384) FROM generate_series(1, 384::int) AS k) "
+                    "FROM generate_series((%s)::int, (%s)::int) AS g ON CONFLICT DO NOTHING", (start, end)))
     return out
 
 
@@ -665,6 +665,59 @@ def audit_correlation(connect, dsn: str, deployment_id: str, tenant_id: str, con
             "coverage": round(covered / total, 6) if total else None, "ok": bool(total) and covered == total}
 
 
+def claim_lease_state(connect, dsn: str, deployment_id: str, tenant_id: str,
+                      resource_type: str, resource_key: str) -> tuple[Any, Any]:
+    """(lease_until, db_now) read from the database clock in one statement, so lease
+    expiry is judged against DB time and never against client wall-clock assumptions."""
+    assert_synthetic_scope(deployment_id, tenant_id)
+    with connect(dsn) as conn:
+        with conn.transaction():
+            with conn.cursor() as cur:
+                cur.execute(SCOPE_SET, (deployment_id, tenant_id))
+                cur.execute("SELECT lease_until, clock_timestamp() FROM resource_claims WHERE deployment_id=%s "
+                            "AND tenant_id=%s AND resource_type=%s AND resource_key=%s",
+                            (deployment_id, tenant_id, resource_type, resource_key))
+                row = cur.fetchone()
+    return (row[0], row[1]) if row else (None, None)
+
+
+def metrics_in_flight(url: str, token: str | None = None) -> int:
+    from urllib.request import Request, urlopen
+    headers = {"Authorization": "Bearer " + token} if token else {}
+    with urlopen(Request(url + "/metrics", headers=headers), timeout=5) as r:
+        return int(json.load(r).get("in_flight") or 0)
+
+
+def fire_inflight_requests(url: str, count: int, label: str, *, token: str | None = None,
+                           timeout: float = 90.0) -> tuple[list, list]:
+    """Start `count` real POST /v1/executions in background threads (no metrics bookkeeping,
+    so the target may shut down underneath them). Returns (threads, results); each result is
+    (http_status, execution_id|None) and appended when its request ends."""
+    import threading
+    from urllib.error import HTTPError
+    from urllib.request import Request, urlopen
+    results: list = []
+
+    def one(index: int) -> None:
+        body = json.dumps({"message": "Consulta sintetica", "conversation_id": f"{label}-{index}"}).encode()
+        headers = {"Content-Type": "application/json", "Idempotency-Key": f"{label}-{index}-0"}
+        if token:
+            headers["Authorization"] = "Bearer " + token
+        try:
+            with urlopen(Request(url + "/v1/executions", data=body, headers=headers), timeout=timeout) as r:
+                payload = json.load(r)
+                results.append((r.status, payload.get("execution_id") if isinstance(payload, dict) else None))
+        except HTTPError as exc:
+            results.append((exc.code, None))
+        except Exception:
+            results.append((0, None))
+
+    threads = [threading.Thread(target=one, args=(i,), daemon=True) for i in range(count)]
+    for thread in threads:
+        thread.start()
+    return threads, results
+
+
 GRANT_TABLE = "inbox_events"
 
 
@@ -692,6 +745,13 @@ def set_grants(connect, dsn: str, privileges: list[str], *, revoke: bool, table:
 # ---------------------------------------------------------------- Neon CLI
 
 
+def _sanitize_cli_text(text: str, limit: int = 600) -> str:
+    """Strip connection URIs/passwords from CLI output so errors stay diagnosable but safe."""
+    text = re.sub(r"[A-Za-z][A-Za-z0-9+.-]*://[^\s\"'<>]+", "<url>", text)
+    text = re.sub(r"(?i)(password|passwd|pwd|token|api[_-]?key)(\s*[=:]\s*)\S+", r"\1\2<redacted>", text)
+    return " ".join(text.split())[:limit]
+
+
 class NeonCli:
     """Thin wrapper over the pinned Neon CLI; DSNs are returned, never logged."""
 
@@ -702,7 +762,8 @@ class NeonCli:
         result = self._run(["npx", "--yes", NEON_CLI, *args, "--output", "json", "--analytics", "false"],
                            capture_output=True, text=True, check=False)
         if result.returncode:
-            raise RuntimeError("Neon CLI command failed: " + args[0] + " " + args[1])
+            detail = _sanitize_cli_text((result.stderr or "") + " " + (result.stdout or ""))
+            raise RuntimeError("Neon CLI command failed: " + " ".join(args[:2]) + (f" :: {detail}" if detail else ""))
         return result.stdout
 
     def create_branch(self, name: str, parent: str, expires_at: datetime) -> dict:

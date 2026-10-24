@@ -1,6 +1,6 @@
 # ADR-ORCH-015 — Política de timeouts y reintentos
 
-**Estado:** Propuesto — pendiente de ratificación en el registro de ADRs  
+**Estado:** Aceptado — ratificado por el responsable (Linear HEC-38), 2026-10-24  
 **Fecha:** 2026-10-23  
 **Alcance:** LLM, Tool READ, embeddings, ledger y canal de salida; gate E3-5  
 **Relacionados:** ADR-ORCH-013 (LLMPort), ADR-ORCH-005, ADR-ORCH-025

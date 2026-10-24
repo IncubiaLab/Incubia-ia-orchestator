@@ -93,7 +93,7 @@ Estado: **borrador; gate abierto.** Se registra sólo la evidencia ya existente 
 - [ ] Reconciliación de costo: uso real de OpenAI y Neon contra los estimados y el `usd_cap` (presupuesto aprobado el 2026-10-23).
 - [ ] 100% de ejecuciones de la campaña con IDs y eventos correlacionados (G7) y logs sin secretos.
 - [ ] Resultado archivado en `evals/results/` y enlace de CI.
-- [ ] Revisión/ratificación de ADR-ORCH-014 y ADR-ORCH-015 (siguen Propuestos).
+- [x] ADR-ORCH-014 y ADR-ORCH-015 aceptados por el responsable (Linear HEC-37, HEC-38).
 
 **Decisión del gate E3-5:** PENDIENTE — `gate_closed=false`. Motivo: falta la campaña integrada. Firma del responsable: PENDIENTE (fecha: ________).
 

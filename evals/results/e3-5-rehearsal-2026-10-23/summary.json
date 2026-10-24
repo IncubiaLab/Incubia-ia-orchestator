@@ -1,0 +1,32 @@
+{
+  "all_criteria_passed": false,
+  "branch": "e3-h1-synthetic",
+  "budget_usd_approved": 2.0,
+  "criteria": {
+    "G7_audit_correlation_100pct": "failed",
+    "G9_cost_reconciled": "inconclusive",
+    "G9_faults_recovered": "failed",
+    "G9_load_measured_10min_profiles": "failed",
+    "G9_restore_reproduced": "failed",
+    "G9_rollback_rehearsed": "inconclusive",
+    "G9_zero_loss_duplication_under_load": "inconclusive",
+    "SLO_p95_reception_to_outcome_le_5s": "inconclusive",
+    "SLO_rpo_le_12h": "inconclusive",
+    "SLO_rto_le_1h": "inconclusive"
+  },
+  "dry_run": false,
+  "gate": "E3-5",
+  "gate_closed": false,
+  "generated_at": "2026-10-24T02:07:38.986516+00:00",
+  "note": "gate_closed stays false: closing E3-5 is the owner's decision after reviewing this evidence.",
+  "phases": {
+    "cost": "skipped",
+    "faults": "failed",
+    "load": "failed",
+    "restore": "error",
+    "rollback": "inconclusive",
+    "seed": "error"
+  },
+  "run_id": "e3-5-2026-10-24-575d36",
+  "synthetic": true
+}

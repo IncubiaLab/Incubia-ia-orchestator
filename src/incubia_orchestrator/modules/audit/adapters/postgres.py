@@ -49,15 +49,18 @@ class PostgresAuditLog:
         self._connect = connect
 
     def append(self, event: AuditEvent) -> None:
-        scope = event.scope
+        self.append_many((event,))
+
+    def append_many(self, events: tuple[AuditEvent, ...] | list[AuditEvent]) -> None:
+        """All events of one scope in ONE connection/transaction (atomic, one round trip)."""
+        if not events:
+            return
+        scope = events[0].scope
         if not scope.deployment_id or not scope.tenant_id:
             raise ValueError("A trusted deployment and tenant scope is required")
-        fields = {name: _bounded(name, getattr(event, name)) for name in
-                  ("event_id", "tool_call_id", "execution_id", "tool_id")}
-        fields.update({name: _bounded(name, getattr(scope, name)) for name in
-                       ("conversation_id", "actor_id")})
-        for name in ("status", "error_code", "decision"):
-            fields[name] = _bounded(name, getattr(event, name), optional=True)
+        if any(e.scope != scope for e in events):
+            raise ValueError("append_many requires a single scope")
+        rows = [self._row(e) for e in events]
         connection = self._connect(self._dsn)
         try:
             with connection.transaction():
@@ -67,13 +70,25 @@ class PostgresAuditLog:
                         "set_config('app.tenant_id', %s, true)",
                         (scope.deployment_id, scope.tenant_id),
                     )
-                    cursor.execute(_INSERT, (
-                        fields["event_id"], event.event_type.value, event.occurred_at,
-                        fields["tool_call_id"], fields["execution_id"], scope.deployment_id,
-                        scope.tenant_id, fields["conversation_id"], fields["actor_id"],
-                        fields["tool_id"], hashlib.sha256(event.resource.encode()).hexdigest(),
-                        fields["decision"], event.attempt, fields["status"], fields["error_code"],
-                        json.dumps(safe_metadata(event.metadata), sort_keys=True),
-                    ))
+                    for row in rows:
+                        cursor.execute(_INSERT, row)
         finally:
             connection.close()
+
+    @staticmethod
+    def _row(event: AuditEvent) -> tuple:
+        scope = event.scope
+        fields = {name: _bounded(name, getattr(event, name)) for name in
+                  ("event_id", "tool_call_id", "execution_id", "tool_id")}
+        fields.update({name: _bounded(name, getattr(scope, name)) for name in
+                       ("conversation_id", "actor_id")})
+        for name in ("status", "error_code", "decision"):
+            fields[name] = _bounded(name, getattr(event, name), optional=True)
+        return (
+            fields["event_id"], event.event_type.value, event.occurred_at,
+            fields["tool_call_id"], fields["execution_id"], scope.deployment_id,
+            scope.tenant_id, fields["conversation_id"], fields["actor_id"],
+            fields["tool_id"], hashlib.sha256(event.resource.encode()).hexdigest(),
+            fields["decision"], event.attempt, fields["status"], fields["error_code"],
+            json.dumps(safe_metadata(event.metadata), sort_keys=True),
+        )

@@ -57,7 +57,7 @@ def validate_target(base_url: str, env: dict | None = None) -> str:
 
 
 def _json(url: str, *, body: dict | None = None, key: str | None = None,
-          token: str | None = None) -> tuple[int, dict, float]:
+          token: str | None = None, timeout: float = 15) -> tuple[int, dict, float]:
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = "Bearer " + token
@@ -67,7 +67,7 @@ def _json(url: str, *, body: dict | None = None, key: str | None = None,
                       headers=headers)
     start = time.monotonic()
     try:
-        with _OPENER.open(request, timeout=15) as response:
+        with _OPENER.open(request, timeout=timeout) as response:
             return response.status, json.load(response), (time.monotonic() - start) * 1000
     except HTTPError as exc:
         try:
@@ -107,6 +107,7 @@ def run(base_url: str, *, profile: str, duration: float, sessions: int,
         raise ValueError("duration and interval must be finite and positive")
     if profile == "constant" and not 0 < rate <= MAX_RATE:
         raise ValueError(f"constant profile requires 0 < rate <= {MAX_RATE}")
+    timeout = float((env if env is not None else os.environ).get("INCUBIA_E3_LOAD_TIMEOUT", "15"))
     before_status, before, _ = _json(base_url + "/metrics", token=token)
     if before_status != 200:
         raise RuntimeError("The metrics endpoint is unavailable")
@@ -115,7 +116,7 @@ def run(base_url: str, *, profile: str, duration: float, sessions: int,
     def post(conversation_id: str, key: str):
         return _json(base_url + "/v1/executions",
                      body={"message": "Consulta sintética", "conversation_id": conversation_id},
-                     key=key, token=token)
+                     key=key, token=token, timeout=timeout)
 
     def session(index: int) -> list[tuple[int, dict, float]]:
         results = []

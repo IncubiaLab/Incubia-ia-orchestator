@@ -1,6 +1,6 @@
 # ADR-ORCH-014 — Audit trail durable y fail-closed
 
-**Estado:** Propuesto — pendiente de ratificación en el registro de ADRs  
+**Estado:** Aceptado — ratificado por el responsable (Linear HEC-37), 2026-10-24  
 **Fecha:** 2026-10-23  
 **Alcance:** Governance/Audit, Tool READ, gate E3-5 (G7)  
 **Relacionados:** ADR-ORCH-005, ADR-ORCH-006, ADR-ORCH-025 (que lo cita como no cerrado)
