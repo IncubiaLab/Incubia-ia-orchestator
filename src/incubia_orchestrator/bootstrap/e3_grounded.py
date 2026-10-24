@@ -38,4 +38,5 @@ def compose_grounded_workflow(
     executor = InProcessToolExecutor(InProcessToolAdapterRegistry(adapters), credentials)
     tool = ExecuteTool(registry, executor, policy, audit)
     return GroundedWorkflow(GroundedResponse(retrieval), InProcessToolDiscovery(registry),
-                            tool, read_request, deadline_seconds=deadline_seconds)
+                            tool, read_request, deadline_seconds=deadline_seconds,
+                            audit=audit)

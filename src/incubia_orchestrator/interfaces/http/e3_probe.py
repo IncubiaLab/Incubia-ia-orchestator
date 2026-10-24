@@ -11,13 +11,14 @@ import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 from uuid import uuid4
 
 from incubia_orchestrator.bootstrap.e3_grounded import compose_grounded_workflow
 from incubia_orchestrator.foundation.contracts.execution import ExecutionScope
 from incubia_orchestrator.interfaces.http.draining import DrainingHTTPServer
 from incubia_orchestrator.modules.audit.adapters.sqlite import SqliteAuditLog
+from incubia_orchestrator.modules.audit.adapters.postgres import PostgresAuditLog
 from incubia_orchestrator.modules.governance.adapters.policy.in_process.engine import Authority, InProcessPolicyEngine
 from incubia_orchestrator.modules.knowledge.adapters.openai_embedding import EmbeddingBudget, OpenAIEmbedding
 from incubia_orchestrator.modules.knowledge.adapters.postgres import PostgresKnowledge
@@ -150,7 +151,13 @@ def compose_from_env() -> tuple[ProbeService, tuple[object, ...]]:
                              usd_cap=float(_required("INCUBIA_E3_PROBE_USD_CAP")))
     embedding = OpenAIEmbedding(api_key, budget)
     knowledge = PostgresKnowledge(lambda requested: dsn if requested == deployment else "", embedding)
-    audit = SqliteAuditLog(Path(_required("INCUBIA_E3_PROBE_AUDIT_FILE")))
+    # Durable Postgres audit (G7) when a runtime audit DSN is given; sqlite file otherwise.
+    audit_dsn = os.getenv("INCUBIA_E3_PROBE_AUDIT_DSN", "")
+    # G7: el sink durable sólo usa el rol runtime (INSERT/SELECT); nunca owner/migrator.
+    if audit_dsn and unquote(urlsplit(audit_dsn).username or "") != "incubia_runtime":
+        raise ValueError("INCUBIA_E3_PROBE_AUDIT_DSN must use the incubia_runtime role")
+    audit = (PostgresAuditLog(audit_dsn) if audit_dsn
+             else SqliteAuditLog(Path(_required("INCUBIA_E3_PROBE_AUDIT_FILE"))))
     adapter = OpenFoodFactsAdapter()
     descriptor = ToolDescriptor("business.catalog.lookup", capabilities=frozenset({"business.catalog.lookup"}),
                                 deployment_ids=frozenset({deployment}), tenant_ids=frozenset({tenant}),

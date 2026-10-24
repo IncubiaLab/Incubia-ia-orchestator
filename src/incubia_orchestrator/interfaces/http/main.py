@@ -68,6 +68,9 @@ class E3D0RequestHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(encoded)
+            started = getattr(self, "_metric_started", None)
+            if started is not None and status == HTTPStatus.OK:
+                self.server.metrics.stage_latency("reception_to_delivery", (monotonic() - started) * 1000)
         finally:
             started = getattr(self, "_metric_started", None)
             if started is not None:
@@ -132,6 +135,7 @@ class E3D0RequestHandler(BaseHTTPRequestHandler):
             LOG.error("execution_failed type=%s", type(exc).__name__)
             self._send_json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "execution_unavailable"})
         else:
+            self.server.metrics.stage_latency("reception_to_outcome", (monotonic() - self._metric_started) * 1000)
             self._send_json(HTTPStatus.OK, result)
 
     def do_PUT(self) -> None:

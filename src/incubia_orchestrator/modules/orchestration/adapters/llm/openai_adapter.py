@@ -8,7 +8,7 @@ from incubia_orchestrator.modules.orchestration.ports.llm import GenerationFailu
 class OpenAILLM:
     def __init__(self, *, model: str, api_key: str, timeout: float = 30,
                  retries: int = 0, client: httpx.Client | None = None,
-                 limiter: MonthlyCallLimiter | None = None):
+                 limiter: MonthlyCallLimiter | None = None, metrics=None):
         if not model:
             raise ValueError("Define INCUBIA_MODEL/--model")
         if not api_key:
@@ -18,8 +18,34 @@ class OpenAILLM:
         self.model, self.api_key, self.timeout, self.retries = model, api_key, timeout, retries
         self.client = client or httpx.Client(timeout=timeout)
         self.limiter = limiter
+        self.metrics = metrics
 
     def generate(self, request: GenerationRequest) -> GenerationResponse:
+        try:
+            response = self._generate(request)
+        except GenerationFailure as exc:
+            self._record_failure(exc.code)
+            raise
+        if self.metrics is not None and response.usage is not None:
+            try:
+                self.metrics.cost("llm", input_tokens=response.usage.input_tokens,
+                                  output_tokens=response.usage.output_tokens)
+            except Exception:
+                pass
+        return response
+
+    def _record_failure(self, code: str) -> None:
+        if self.metrics is None:
+            return
+        category = {"PROVIDER_QUOTA": "provider_quota", "PROVIDER_RATE_LIMIT": "provider_limit",
+                    "LOCAL_MONTHLY_LIMIT": "budget", "LOCAL_COOLDOWN": "budget"}.get(code)
+        if category:
+            try:
+                self.metrics.rejection(category, code)
+            except Exception:
+                pass
+
+    def _generate(self, request: GenerationRequest) -> GenerationResponse:
         if self.limiter is not None:
             self.limiter.reserve()
         messages = []
