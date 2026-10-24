@@ -12,6 +12,9 @@ dependencies = ["langgraph==1.2.12", "httpx==0.28.1", "PyYAML==6.0.3"]
 test = ["pytest==8.4.2"]
 deployment = ["psycopg[binary]==3.2.10", "psycopg_pool==3.2.6"]
 knowledge-local = ["fastembed==0.9.0"]
+knowledge-drive = [
+    "google-auth==2.40.3",
+]
 
 [project.scripts]
 incubia = "incubia_orchestrator.interfaces.cli.main:main"
