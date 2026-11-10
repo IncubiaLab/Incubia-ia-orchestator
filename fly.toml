@@ -1,0 +1,23 @@
+app = 'incubia-orchestrator-gateway'
+primary_region = 'dfw'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  INCUBIA_BUDGET_FILE = '/data/api-budget.json'
+  INCUBIA_ORBIT_GATEWAY_PORT = '8081'
+
+[processes]
+  gateway = 'python -m incubia_orchestrator.interfaces.http.orbit_gateway --host 0.0.0.0 --port 8081'
+
+[[mounts]]
+  source = 'gateway_data'
+  destination = '/data'
+
+[[vm]]
+  processes = ['gateway']
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 1024

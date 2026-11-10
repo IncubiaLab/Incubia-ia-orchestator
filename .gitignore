@@ -7,3 +7,5 @@ node_modules/
 .neon
 deploy/*.env
 config/e2/bindings.yaml
+.obsidian
+

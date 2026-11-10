@@ -14,6 +14,11 @@ test = ["pytest==8.4.2"]
 [project.scripts]
 incubia = "incubia_orchestrator.interfaces.cli.main:main"
 incubia-bot = "incubia_orchestrator.interfaces.cli.bot:main"
+incubia-tenant = "incubia_orchestrator.interfaces.cli.tenant:main"
+incubia-orbit-gateway = "incubia_orchestrator.interfaces.http.orbit_gateway:main"
+
+[tool.pytest.ini_options]
+markers = ["neon: opt-in integration campaign against the isolated E3-H1 Neon branch"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/incubia_orchestrator"]

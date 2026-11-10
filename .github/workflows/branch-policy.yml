@@ -1,0 +1,35 @@
+name: branch-policy
+
+on:
+  pull_request:
+    branches: [main, qa, dev]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-promotion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate allowed promotion
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const head = context.payload.pull_request.head.ref;
+            const base = context.payload.pull_request.base.ref;
+            const workBranch = /^(feat|fix|chore|docs)\/.+/.test(head);
+            const allowed =
+              (workBranch && base === 'dev') ||
+              (head === 'dev' && base === 'qa') ||
+              (head === 'qa' && base === 'main') ||
+              (/^hotfix\/.+/.test(head) && base === 'main') ||
+              (head === 'main' && base === 'qa') ||
+              (head === 'qa' && base === 'dev');
+
+            if (!allowed) {
+              core.setFailed(
+                `Promoción no permitida: ${head} → ${base}. ` +
+                'Use feat|fix|chore|docs/* → dev → qa → main. ' +
+                'Los hotfixes van a main y después se propagan main → qa → dev.'
+              );
+            }
