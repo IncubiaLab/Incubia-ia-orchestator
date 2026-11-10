@@ -14,3 +14,7 @@ node_modules/
 
 # gstack local state
 .gstack/
+node_modules/
+.neon
+deploy/*.env
+config/e2/bindings.yaml
