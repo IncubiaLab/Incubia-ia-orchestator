@@ -1,0 +1,145 @@
+{
+  "duration_seconds": 167.817,
+  "gate_closed": false,
+  "phase": "faults",
+  "run_id": "e3-5-2026-10-24-49df50",
+  "status": "failed",
+  "steps": {
+    "claim_expiry_fencing": {
+      "checks": {
+        "a_acquired": true,
+        "b_acquired_after_expiry": true,
+        "b_blocked_while_lease_live": true,
+        "b_renew_ok": true,
+        "generation_increased": true,
+        "stale_a_release_rejected": true,
+        "stale_a_renew_rejected": true
+      },
+      "generations": [
+        1,
+        2
+      ],
+      "status": "passed"
+    },
+    "credential_revocation": {
+      "error": "OSError: [Errno 28] No space left on device",
+      "status": "error"
+    },
+    "pool_saturation": {
+      "errors": 0,
+      "integrity": {
+        "duplicate_deliveries": 0,
+        "ok": true,
+        "revision_mismatch": 0,
+        "turns": 10
+      },
+      "limit_rejections": 5,
+      "pool": {
+        "max": 10,
+        "peak_in_use": 5,
+        "timeouts_delta": 0,
+        "wait_count_delta": 56,
+        "wait_ms_total_delta": 2.46,
+        "waiting_last": 0
+      },
+      "recovered": true,
+      "requests": 15,
+      "status": "passed",
+      "status_counts": {
+        "200": 10,
+        "429": 5
+      }
+    },
+    "provider_down": {
+      "integrity": {
+        "duplicate_deliveries": 0,
+        "ok": true,
+        "revision_mismatch": 0,
+        "turns": 47
+      },
+      "modes": {
+        "http_5xx": {
+          "errors": 0,
+          "latency_ms": {
+            "mean": 4182.78,
+            "p50": 4923.49,
+            "p95": 7094.02,
+            "p99": 7700.86
+          },
+          "proxy_hits": {},
+          "recovered": true,
+          "requests": 20,
+          "revisions_consistent": true,
+          "status_counts": {
+            "200": 15,
+            "429": 5
+          }
+        },
+        "reset": {
+          "errors": 0,
+          "latency_ms": {
+            "mean": 6987.68,
+            "p50": 8271.41,
+            "p95": 10468.61,
+            "p99": 10480.05
+          },
+          "proxy_hits": {},
+          "recovered": true,
+          "requests": 20,
+          "revisions_consistent": true,
+          "status_counts": {
+            "200": 15,
+            "429": 5
+          }
+        },
+        "timeout": {
+          "errors": 0,
+          "latency_ms": {
+            "mean": 5225.39,
+            "p50": 5242.9,
+            "p95": 10979.69,
+            "p99": 11084.22
+          },
+          "proxy_hits": {},
+          "recovered": true,
+          "requests": 20,
+          "revisions_consistent": true,
+          "status_counts": {
+            "200": 14,
+            "429": 6
+          }
+        }
+      },
+      "status": "passed"
+    },
+    "sigterm_drain": {
+      "baseline_latency_ms": 5233.63,
+      "checks": {
+        "clean_exit_code": true,
+        "exited_within_deadline": true,
+        "inflight_completed": true,
+        "inflight_started": true,
+        "no_loss_or_duplication": true,
+        "restarted_ready": true
+      },
+      "inflight_at_sigterm": 3,
+      "integrity": {
+        "duplicate_deliveries": 0,
+        "ok": true,
+        "revision_mismatch": 0,
+        "turns": 3
+      },
+      "requests": 3,
+      "status": "passed",
+      "status_counts": {
+        "200": 3
+      },
+      "term": {
+        "drain_seconds": 5.278,
+        "exit_code": 0,
+        "exited_within_deadline": true
+      }
+    }
+  },
+  "synthetic": true
+}

@@ -1,0 +1,10 @@
+{
+  "duration_seconds": 0.0,
+  "estimated_usd": 0.0,
+  "gate_closed": false,
+  "phase": "cost",
+  "reason": "no LLM cost recorded (fake/no-spend run?)",
+  "run_id": "e3-5-2026-10-24-f1fe18",
+  "status": "skipped",
+  "synthetic": true
+}

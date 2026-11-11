@@ -1,0 +1,29 @@
+{
+  "abstention": 0.0,
+  "branch": "e3-h1-synthetic",
+  "cross_deployment_leaks": 0,
+  "dataset_sha256": {
+    "response_cases.jsonl": "4aed7014d2098bd580c12f0043331f8aea4effcb543434956633fa7ceea53256",
+    "retrieval.jsonl": "11d202b8008995a8d021c40756628d641ec87fd30a352eeae555047f645354eb",
+    "sources.jsonl": "6e3c048ab784c96daabc44c872e5dc2a9e2e50bae81da518514152ab6a2aaf0f"
+  },
+  "embedding": "text-embedding-3-small:384:e3-h4-v1",
+  "embedding_budget": {
+    "actual_tokens": 4886,
+    "calls": 85,
+    "estimated_usd": 9.772e-05,
+    "reserved_tokens": 15286
+  },
+  "finished_at": "2026-10-15T17:12:16.163533+00:00",
+  "g5_passed": false,
+  "g6_assessed": false,
+  "gate_closed": false,
+  "generations_distinct": true,
+  "p95_seconds": 2.0041073669999605,
+  "recall_at_5": 1.0,
+  "respondable": 40,
+  "revocation_excluded": true,
+  "started_at": "2026-10-15T17:09:24.068868+00:00",
+  "unanswerable": 40,
+  "val_queries": 80
+}

@@ -4,13 +4,15 @@ from threading import Barrier, Thread
 import pytest
 
 from incubia_orchestrator.modules.conversation.adapters.persistence.sqlite_ledger import IdempotencyConflict, RunnerAlreadyActive, SqliteLedger
+from incubia_orchestrator.foundation.contracts.execution import ExecutionScope
 
 
 def test_durable_deduplication_recovery_and_unknown_effect(tmp_path):
     path = tmp_path / "e2.sqlite"
     first = SqliteLedger(path)
     reserved = first.reserve_inbox("d", "t", "bot", "1", {"text": "hola"})
-    assert reserved.is_new and first.claim(reserved.execution_id)
+    scope = ExecutionScope("d", "t", "conversation", "actor")
+    assert reserved.is_new and first.claim(reserved.execution_id, scope=scope, owner_id="owner-1")
     first.complete(reserved.execution_id, "r", "telegram:b", {"text": "ok"})
     assert first.reserve_delivery(reserved.execution_id, "r", "telegram:b")
     first.close()
@@ -45,7 +47,8 @@ def test_two_connections_have_one_reservation_and_one_runner(tmp_path):
 def test_purge_removes_payload_then_tombstone(tmp_path):
     ledger = SqliteLedger(tmp_path / "e2.sqlite")
     event = ledger.reserve_inbox("d", "t", "bot", "3", {"text": "old"})
-    assert ledger.claim(event.execution_id)
+    scope = ExecutionScope("d", "t", "conversation", "actor")
+    assert ledger.claim(event.execution_id, scope=scope, owner_id="owner-3")
     ledger.complete(event.execution_id, "r", "telegram:b", {"text": "old"})
     old = datetime.now(UTC) + timedelta(days=1)
     payloads, tombstones = ledger.purge(payload_before=old, tombstone_before=old)

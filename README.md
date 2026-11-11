@@ -1,5 +1,7 @@
 # Incubia Orchestrator — etapa 1
 
+La [guía del código](docs/codigo/README.md) recorre los módulos, el flujo del chatbot y las decisiones que explican su implementación.
+
 Chat local en terminal con LangGraph, tres perfiles (General, Ventas y Marketing) y un único modelo configurable. La ruta local `--fake` no usa red ni credenciales.
 
 La [planificación de etapa 2](docs/roadmap/etapa-2/ROADMAP.md) desarrolla especialistas con contexto propio, routing por capacidades y el primer adaptador Telegram E2E sobre contratos multicanal. Es un roadmap propuesto; las instrucciones de ejecución siguientes corresponden a etapa 1.
@@ -56,6 +58,8 @@ Para comprobar Telegram sin consumir API de OpenAI:
 uv run --project . --extra test incubia-bot run --fake --once --bindings config/e2/bindings.yaml
 ```
 
+El ledger SQLite conserva inbox/outbox, deduplicación y el historial por conversación en `~/.local/state/incubia/telegram.sqlite3`. `--once` procesa los updates pendientes y termina; sin esa opción el proceso continúa haciendo polling. No habilites un webhook ni ejecutes dos runners para el mismo bot.
+
 ## Orbit sobre el runtime compartido
 
 Orbit puede usar el mismo runtime de generación sin entregar la conversación por Telegram. El adaptador HTTP autenticado recibe del BFF la identidad y la evidencia que Orbit ya autorizó, ejecuta `compose_scoped` y devuelve `text/event-stream` para que las respuestas aparezcan en el chat de Orbit. Este endpoint no consulta la base de Orbit, no acepta credenciales del usuario final y no envía mensajes a Telegram.
@@ -67,8 +71,6 @@ El endpoint valida un máximo de 20 elementos y 60 000 caracteres de evidencia, 
 ### Knowledge Base de Orbit
 
 La decisión de almacenamiento para Orbit está registrada en [ADR-KB-NEON-OBJECT-STORAGE](../Incubia%20Orbit/ADR-KB-NEON-OBJECT-STORAGE.md): los originales vivirán en el bucket privado `incubia-knowledge` de Neon Object Storage y el índice semántico continuará en Neon Postgres/pgvector. `neon.ts` declara el bucket para las ramas de este proyecto. La carga, lectura S3, extracción de texto e indexación desde el gateway aún requieren implementación; el gateway actual solo consume la evidencia ya autorizada que Orbit adjunta a cada turno.
-
-El ledger SQLite conserva inbox/outbox, deduplicación y el historial por conversación en `~/.local/state/incubia/telegram.sqlite3`. `--once` procesa los updates pendientes y termina; sin esa opción el proceso continúa haciendo polling. No habilites un webhook ni ejecutes dos runners para el mismo bot.
 
 ## Proveedor real
 

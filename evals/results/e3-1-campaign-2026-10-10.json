@@ -1,0 +1,82 @@
+{
+  "branch": "e3-h1-synthetic",
+  "campaign_id": "69470e0e-c4e3-4a58-bcf6-6b6a78e5a7c7",
+  "checks": [
+    {
+      "check_id": "offline-directed",
+      "command": "/home/hector/.cache/uv/builds-v0/.tmpMDZ8E6/bin/python -m pytest -q tests/unit/test_d0_deployment.py tests/unit/test_d0_postgres_schema.py tests/unit/test_e3_contracts.py tests/integration/test_gate_a_e2e.py tests/integration/test_sqlite_ledger.py tests/integration/test_telegram_runner.py -m 'not neon'",
+      "duration_ms": 6169,
+      "label": "offline contract and recovery suite",
+      "output": "...........................                                              [100%]\n27 passed in 2.61s\n",
+      "reason": null,
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "check_id": "postgres",
+      "command": "",
+      "duration_ms": 0,
+      "label": "local PostgreSQL integration suite",
+      "output": "",
+      "reason": "E3_POSTGRES_TEST_DATABASE_URL is not set",
+      "returncode": null,
+      "status": "pending"
+    },
+    {
+      "check_id": "neon",
+      "command": "/home/hector/.cache/uv/builds-v0/.tmpMDZ8E6/bin/python scripts/e3/run_neon_h1.py",
+      "duration_ms": 165651,
+      "label": "isolated Neon H1 suite",
+      "output": "........                                                                 [100%]\n8 passed in 159.43s (0:02:39)\n",
+      "reason": null,
+      "returncode": 0,
+      "status": "passed"
+    }
+  ],
+  "created_at": "2026-10-10T23:30:39.992924+00:00",
+  "gate_closed": false,
+  "migrations": [
+    {
+      "file": "001_e3_d0_ledger.sql",
+      "sha256": "7bbee13c93a4b5678a83c1aedc8df98e10e38814e29fabc0dcab8313f3173d9d"
+    },
+    {
+      "file": "002_e3_h1_rls.sql",
+      "sha256": "94d00206c6f7502613819ea80e251b073bc8a89101afcac1cc19329332d03a5c"
+    },
+    {
+      "file": "003_e3_h1_claims.sql",
+      "sha256": "aa9201a4976b9b9f8687ec1742749f70d48507de5b30cee920ec3d5eede48bab"
+    },
+    {
+      "file": "004_e3_h1_dispatcher_claims.sql",
+      "sha256": "5a6950d6e2f969270914956627484f26d91f2047288bdfa53205715e36a4eb72"
+    },
+    {
+      "file": "005_e3_h1_backup.sql",
+      "sha256": "3374e4193be5b3b649f961464c783610efc833cc00ca5e7ab4e0c5120ad49654"
+    }
+  ],
+  "milestones": {
+    "M1": {
+      "path": "evals/results/e3-h1-m1-2026-10-10.json",
+      "sha256": "168b6b54815b35a586cbd78672f1f3a5ffcbe625261c513c54856562d65c771b",
+      "status": "passed"
+    },
+    "M2": {
+      "path": "evals/results/e3-h1-m2-neon-2026-10-10.json",
+      "sha256": "5be8b2e6d5389b05c6f0ddf2a31368e511dd49650deeee8825537aa176e9e244",
+      "status": "passed"
+    },
+    "dataset": {
+      "path": "evals/results/e3-h1-dataset-2026-10-10.json",
+      "sha256": "fb9ad70993dfc51208e5b451ac736d820378617d65774e362e339f7072304db4",
+      "status": "passed"
+    }
+  },
+  "reason": "M1, M2, dataset evidence, or campaign checks remain incomplete",
+  "schema_version": "e3-1-campaign/v1",
+  "secret_policy": "DSNs, passwords, tokens and prompt payloads are excluded from this artifact",
+  "status": "open",
+  "synthetic_only": true
+}

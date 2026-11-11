@@ -21,9 +21,11 @@ class CountingRuntime:
 
 def _process(ledger, runtime, channel, payload):
     reserved = ledger.reserve_inbox("pilot", "tenant-a", "fake-bot", payload["event_id"], payload, channel="fake")
-    if not reserved.is_new or not ledger.claim(reserved.execution_id):
+    if not reserved.is_new:
         return reserved
     scope = ExecutionScope("pilot", "tenant-a", "conversation-a", "actor-a")
+    if not ledger.claim(reserved.execution_id, scope=scope, owner_id=reserved.execution_id):
+        return reserved
     request = type("Request", (), {"request_id": reserved.request_id, "execution_id": reserved.execution_id})()
     outcome = runtime.start(request)
     response = InProcessResponseContext().contextualize(ResponseContextRequest(

@@ -1,0 +1,100 @@
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-01"], "id": "alpha-01", "query": "¿Cuál es el código del trámite de facturación de la guía 1 de alpha?", "split": "dev"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-02"], "id": "alpha-02", "query": "¿Cuál es el código del trámite de soporte de la guía 2 de alpha?", "split": "dev"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-03"], "id": "alpha-03", "query": "¿Cuál es el código del trámite de devolución de la guía 3 de alpha?", "split": "dev"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-04"], "id": "alpha-04", "query": "¿Cuál es el código del trámite de inventario de la guía 4 de alpha?", "split": "dev"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-05"], "id": "alpha-05", "query": "¿Cuál es el código del trámite de entrega de la guía 5 de alpha?", "split": "dev"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-06"], "id": "alpha-06", "query": "¿Cuál es el código del trámite de facturación de la guía 6 de alpha?", "split": "dev"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-07"], "id": "alpha-07", "query": "¿Cuál es el código del trámite de soporte de la guía 7 de alpha?", "split": "dev"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-08"], "id": "alpha-08", "query": "¿Cuál es el código del trámite de devolución de la guía 8 de alpha?", "split": "dev"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-09"], "id": "alpha-09", "query": "¿Cuál es el código del trámite de inventario de la guía 9 de alpha?", "split": "dev"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-10"], "id": "alpha-10", "query": "¿Cuál es el código del trámite de entrega de la guía 10 de alpha?", "split": "dev"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-11"], "id": "alpha-11", "query": "¿Cuál es el código del trámite de facturación de la guía 11 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-12"], "id": "alpha-12", "query": "¿Cuál es el código del trámite de soporte de la guía 12 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-13"], "id": "alpha-13", "query": "¿Cuál es el código del trámite de devolución de la guía 13 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-14"], "id": "alpha-14", "query": "¿Cuál es el código del trámite de inventario de la guía 14 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-15"], "id": "alpha-15", "query": "¿Cuál es el código del trámite de entrega de la guía 15 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-16"], "id": "alpha-16", "query": "¿Cuál es el código del trámite de facturación de la guía 16 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-17"], "id": "alpha-17", "query": "¿Cuál es el código del trámite de soporte de la guía 17 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-18"], "id": "alpha-18", "query": "¿Cuál es el código del trámite de devolución de la guía 18 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-19"], "id": "alpha-19", "query": "¿Cuál es el código del trámite de inventario de la guía 19 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-20"], "id": "alpha-20", "query": "¿Cuál es el código del trámite de entrega de la guía 20 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-21"], "id": "alpha-21", "query": "¿Cuál es el código del trámite de facturación de la guía 21 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-22"], "id": "alpha-22", "query": "¿Cuál es el código del trámite de soporte de la guía 22 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-23"], "id": "alpha-23", "query": "¿Cuál es el código del trámite de devolución de la guía 23 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-24"], "id": "alpha-24", "query": "¿Cuál es el código del trámite de inventario de la guía 24 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-25"], "id": "alpha-25", "query": "¿Cuál es el código del trámite de entrega de la guía 25 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-26"], "id": "alpha-26", "query": "¿Cuál es el código del trámite de facturación de la guía 26 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-27"], "id": "alpha-27", "query": "¿Cuál es el código del trámite de soporte de la guía 27 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-28"], "id": "alpha-28", "query": "¿Cuál es el código del trámite de devolución de la guía 28 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-29"], "id": "alpha-29", "query": "¿Cuál es el código del trámite de inventario de la guía 29 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "alpha", "expected_sources": ["alpha-guide-30"], "id": "alpha-30", "query": "¿Cuál es el código del trámite de entrega de la guía 30 de alpha?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-01"], "id": "beta-01", "query": "¿Cuál es el código del trámite de facturación de la guía 1 de beta?", "split": "dev"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-02"], "id": "beta-02", "query": "¿Cuál es el código del trámite de soporte de la guía 2 de beta?", "split": "dev"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-03"], "id": "beta-03", "query": "¿Cuál es el código del trámite de devolución de la guía 3 de beta?", "split": "dev"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-04"], "id": "beta-04", "query": "¿Cuál es el código del trámite de inventario de la guía 4 de beta?", "split": "dev"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-05"], "id": "beta-05", "query": "¿Cuál es el código del trámite de entrega de la guía 5 de beta?", "split": "dev"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-06"], "id": "beta-06", "query": "¿Cuál es el código del trámite de facturación de la guía 6 de beta?", "split": "dev"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-07"], "id": "beta-07", "query": "¿Cuál es el código del trámite de soporte de la guía 7 de beta?", "split": "dev"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-08"], "id": "beta-08", "query": "¿Cuál es el código del trámite de devolución de la guía 8 de beta?", "split": "dev"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-09"], "id": "beta-09", "query": "¿Cuál es el código del trámite de inventario de la guía 9 de beta?", "split": "dev"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-10"], "id": "beta-10", "query": "¿Cuál es el código del trámite de entrega de la guía 10 de beta?", "split": "dev"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-11"], "id": "beta-11", "query": "¿Cuál es el código del trámite de facturación de la guía 11 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-12"], "id": "beta-12", "query": "¿Cuál es el código del trámite de soporte de la guía 12 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-13"], "id": "beta-13", "query": "¿Cuál es el código del trámite de devolución de la guía 13 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-14"], "id": "beta-14", "query": "¿Cuál es el código del trámite de inventario de la guía 14 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-15"], "id": "beta-15", "query": "¿Cuál es el código del trámite de entrega de la guía 15 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-16"], "id": "beta-16", "query": "¿Cuál es el código del trámite de facturación de la guía 16 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-17"], "id": "beta-17", "query": "¿Cuál es el código del trámite de soporte de la guía 17 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-18"], "id": "beta-18", "query": "¿Cuál es el código del trámite de devolución de la guía 18 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-19"], "id": "beta-19", "query": "¿Cuál es el código del trámite de inventario de la guía 19 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-20"], "id": "beta-20", "query": "¿Cuál es el código del trámite de entrega de la guía 20 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-21"], "id": "beta-21", "query": "¿Cuál es el código del trámite de facturación de la guía 21 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-22"], "id": "beta-22", "query": "¿Cuál es el código del trámite de soporte de la guía 22 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-23"], "id": "beta-23", "query": "¿Cuál es el código del trámite de devolución de la guía 23 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-24"], "id": "beta-24", "query": "¿Cuál es el código del trámite de inventario de la guía 24 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-25"], "id": "beta-25", "query": "¿Cuál es el código del trámite de entrega de la guía 25 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-26"], "id": "beta-26", "query": "¿Cuál es el código del trámite de facturación de la guía 26 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-27"], "id": "beta-27", "query": "¿Cuál es el código del trámite de soporte de la guía 27 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-28"], "id": "beta-28", "query": "¿Cuál es el código del trámite de devolución de la guía 28 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-29"], "id": "beta-29", "query": "¿Cuál es el código del trámite de inventario de la guía 29 de beta?", "split": "val"}
+{"answerable": true, "deployment_id": "beta", "expected_sources": ["beta-guide-30"], "id": "beta-30", "query": "¿Cuál es el código del trámite de entrega de la guía 30 de beta?", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-unknown-01", "query": "¿Cuál es el precio secreto 1?", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-01", "id": "alpha-cross-01", "query": "Dame el código de la guía 1 de beta", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-unknown-02", "query": "¿Cuál es el precio secreto 2?", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-02", "id": "alpha-cross-02", "query": "Dame el código de la guía 2 de beta", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-unknown-03", "query": "¿Cuál es el precio secreto 3?", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-03", "id": "alpha-cross-03", "query": "Dame el código de la guía 3 de beta", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-unknown-04", "query": "¿Cuál es el precio secreto 4?", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-04", "id": "alpha-cross-04", "query": "Dame el código de la guía 4 de beta", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-unknown-05", "query": "¿Cuál es el precio secreto 5?", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-05", "id": "alpha-cross-05", "query": "Dame el código de la guía 5 de beta", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-unknown-06", "query": "¿Cuál es el precio secreto 6?", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-06", "id": "alpha-cross-06", "query": "Dame el código de la guía 6 de beta", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-unknown-07", "query": "¿Cuál es el precio secreto 7?", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-07", "id": "alpha-cross-07", "query": "Dame el código de la guía 7 de beta", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-unknown-08", "query": "¿Cuál es el precio secreto 8?", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-08", "id": "alpha-cross-08", "query": "Dame el código de la guía 8 de beta", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-unknown-09", "query": "¿Cuál es el precio secreto 9?", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-09", "id": "alpha-cross-09", "query": "Dame el código de la guía 9 de beta", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "id": "alpha-unknown-10", "query": "¿Cuál es el precio secreto 10?", "split": "val"}
+{"answerable": false, "deployment_id": "alpha", "expected_sources": [], "forbidden_source": "beta-guide-10", "id": "alpha-cross-10", "query": "Dame el código de la guía 10 de beta", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-unknown-01", "query": "¿Cuál es el precio secreto 1?", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-01", "id": "beta-cross-01", "query": "Dame el código de la guía 1 de alpha", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-unknown-02", "query": "¿Cuál es el precio secreto 2?", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-02", "id": "beta-cross-02", "query": "Dame el código de la guía 2 de alpha", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-unknown-03", "query": "¿Cuál es el precio secreto 3?", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-03", "id": "beta-cross-03", "query": "Dame el código de la guía 3 de alpha", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-unknown-04", "query": "¿Cuál es el precio secreto 4?", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-04", "id": "beta-cross-04", "query": "Dame el código de la guía 4 de alpha", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-unknown-05", "query": "¿Cuál es el precio secreto 5?", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-05", "id": "beta-cross-05", "query": "Dame el código de la guía 5 de alpha", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-unknown-06", "query": "¿Cuál es el precio secreto 6?", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-06", "id": "beta-cross-06", "query": "Dame el código de la guía 6 de alpha", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-unknown-07", "query": "¿Cuál es el precio secreto 7?", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-07", "id": "beta-cross-07", "query": "Dame el código de la guía 7 de alpha", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-unknown-08", "query": "¿Cuál es el precio secreto 8?", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-08", "id": "beta-cross-08", "query": "Dame el código de la guía 8 de alpha", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-unknown-09", "query": "¿Cuál es el precio secreto 9?", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-09", "id": "beta-cross-09", "query": "Dame el código de la guía 9 de alpha", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "id": "beta-unknown-10", "query": "¿Cuál es el precio secreto 10?", "split": "val"}
+{"answerable": false, "deployment_id": "beta", "expected_sources": [], "forbidden_source": "alpha-guide-10", "id": "beta-cross-10", "query": "Dame el código de la guía 10 de alpha", "split": "val"}

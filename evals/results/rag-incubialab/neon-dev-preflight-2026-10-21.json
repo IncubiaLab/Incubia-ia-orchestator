@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-21",
+  "project_id": "dawn-thunder-41457275",
+  "branch_id": "br-still-cell-b5cvn1vh",
+  "branch_name": "feat-knowledge-base",
+  "branch_state": "ready",
+  "parent_branch_id": "br-frosty-hall-b5rffy75",
+  "init_source": "parent-schema",
+  "compute_cu": 0.25,
+  "suspend_timeout": "account default (API value 0); custom interval rejected by plan",
+  "database": "incubialab_knowledge_dev",
+  "vector_version": "0.8.6",
+  "public_tables": 0,
+  "roles": {
+    "MIGRATION": {
+      "connected": true,
+      "client_tls": true,
+      "create_schema": true,
+      "privileged": false
+    },
+    "INGEST": {
+      "connected": true,
+      "client_tls": true,
+      "create_schema": false,
+      "privileged": false,
+      "dml_verified": true
+    },
+    "RUNTIME": {
+      "connected": true,
+      "client_tls": true,
+      "create_schema": false,
+      "privileged": false,
+      "write_denied": true
+    }
+  },
+  "credentials_file": "deploy/knowledge-neon.env",
+  "credentials_mode": "0600",
+  "knowledge_migrations_applied": false,
+  "rag_v1_validated": false,
+  "tls_check": "libpq ssl_in_use; pg_stat_ssl sees proxy backend and returned false"
+}

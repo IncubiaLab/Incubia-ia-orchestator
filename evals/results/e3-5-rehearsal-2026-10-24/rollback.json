@@ -1,0 +1,33 @@
+{
+  "duration_seconds": 2.582,
+  "gate_closed": false,
+  "phase": "rollback",
+  "run_id": "e3-5-2026-10-24-f1fe18",
+  "status": "inconclusive",
+  "steps": {
+    "expand_contract_offline": {
+      "status": "passed"
+    },
+    "image_n1": {
+      "reason": "no image N-1 digest provided (--image-n1-digest or INCUBIA_E3_5_IMAGE_N1_DIGEST)",
+      "status": "skipped"
+    },
+    "schema_migrations_chain": {
+      "applied_count": 8,
+      "expected": [
+        "001_e3_d0_ledger",
+        "002_e3_h1_rls",
+        "003_e3_h1_claims",
+        "004_e3_h1_dispatcher_claims",
+        "005_e3_h1_backup",
+        "006_e3_d0_runtime_claims",
+        "007_e3_h2_identity",
+        "008_e3_g7_audit"
+      ],
+      "missing": [],
+      "ok": true,
+      "status": "passed"
+    }
+  },
+  "synthetic": true
+}

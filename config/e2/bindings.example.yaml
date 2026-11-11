@@ -1,11 +1,12 @@
 contract_version: 1
 bindings:
   - channel: telegram
-    channel_account_ref: test-bot
-    external_chat_ref: pseudonymous-chat
-    external_sender_ref: pseudonymous-sender
-    deployment_id: pilot
-    tenant_id: pilot
-    conversation_id: conversation-1
-    actor_id: actor-1
-
+    # auto se reemplaza por el id del bot validado mediante getMe.
+    channel_account_ref: auto
+    # Sustituye ambos valores por los ids reales del chat privado autorizado.
+    external_chat_ref: replace-with-chat-id
+    external_sender_ref: replace-with-sender-id
+    deployment_id: incubia-telegram
+    tenant_id: tenant-demo
+    conversation_id: telegram-private-chat
+    actor_id: telegram-user

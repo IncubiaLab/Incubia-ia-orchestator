@@ -1,0 +1,72 @@
+# Example only. Values are not loaded as authority and this file contains no
+# credentials. A deployment must provision the opaque profile separately.
+tools:
+  - tool_id: business.catalog.lookup
+    version: "1.0"
+    capabilities:
+      - business.catalog.lookup
+    operation_type: READ
+    idempotency_semantics: IDEMPOTENT
+    reversibility: REVERSIBLE
+    destructive: false
+    availability: enabled
+    adapter_key: catalog.http
+    credential_profile_ref: catalog-readonly
+    input_schema_version: "1"
+    input_schema:
+      type: object
+      required: []
+      anyOf:
+        - required: [query]
+        - required: [product_ref]
+      additionalProperties: false
+      properties:
+        query:
+          type: string
+          maxLength: 256
+          pattern: no-url
+    output_schema:
+      type: object
+      required: [items, source, version, fetched_at]
+    deployment_ids: [local]
+    tenant_ids: [demo]
+
+# The actual base URL and credential live in operator-managed configuration.
+# Never accept either from a user invocation.
+catalog:
+  base_url: https://catalog.example.invalid
+  lookup_path: /v1/catalog/lookup
+
+# Selected real READ source for E3-3. The adapter is pinned to this host and
+# uses product_ref (a numeric barcode); query text is not sent to the provider.
+openfoodfacts:
+  base_url: https://world.openfoodfacts.org
+  api_version: v3
+  user_agent: "IncubiaOrchestrator/0.1 (E3 READ)"
+  max_attempts: 1
+
+selected_read_tool:
+  tool_id: business.catalog.lookup
+  version: "2.0"
+  capabilities: [business.catalog.lookup]
+  operation_type: READ
+  idempotency_semantics: IDEMPOTENT
+  reversibility: REVERSIBLE
+  destructive: false
+  availability: enabled
+  adapter_key: catalog.openfoodfacts
+  credential_profile_ref: null
+  input_schema_version: "1"
+  input_schema:
+    type: object
+    required: [product_ref]
+    additionalProperties: false
+    properties:
+      product_ref:
+        type: string
+        maxLength: 18
+  output_schema:
+    type: object
+    required: [items, found, source, version, fetched_at]
+  deployment_ids: [local]
+  tenant_ids: [demo]

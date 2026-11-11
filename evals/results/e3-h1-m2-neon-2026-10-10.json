@@ -1,0 +1,49 @@
+{
+  "schema_version": "e3-h1-m2/v1",
+  "milestone": "M2",
+  "status": "passed",
+  "critical_failures": 0,
+  "synthetic": true,
+  "branch": "e3-h1-synthetic",
+  "migrations": [
+    "001_e3_d0_ledger.sql",
+    "002_e3_h1_rls.sql",
+    "003_e3_h1_claims.sql",
+    "004_e3_h1_dispatcher_claims.sql",
+    "005_e3_h1_backup.sql"
+  ],
+  "rows": {
+    "inbox_events": 1,
+    "conversations": 1,
+    "turns": 1,
+    "outcomes": 1,
+    "deliveries": 1
+  },
+  "first_restore": {
+    "status": "COMPLETED",
+    "idempotent": false,
+    "revision_min": 1,
+    "revision_max": 1,
+    "rpo_seconds": 1.601511,
+    "rto_seconds": 4.962683032004861,
+    "reconciled_unknown_effects": 0,
+    "cleared_claims": 0
+  },
+  "second_restore": {
+    "status": "COMPLETED",
+    "idempotent": true,
+    "revision_min": 1,
+    "revision_max": 1,
+    "rpo_seconds": 9.937333,
+    "rto_seconds": 4.3155032499926165,
+    "reconciled_unknown_effects": 0,
+    "cleared_claims": 0
+  },
+  "test": "tests/integration/neon/test_h1_backup_restore.py",
+  "observed_at": "2026-10-10T23:18:22Z",
+  "limits": [
+    "Scope and payload were synthetic.",
+    "Restore ran on the temporary e3-h1-synthetic branch.",
+    "This evidence does not close E3-1 or establish production SLOs."
+  ]
+}

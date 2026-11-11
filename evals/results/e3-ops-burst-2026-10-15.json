@@ -1,0 +1,61 @@
+{
+  "duration_observed_seconds": 3.98,
+  "duration_target_seconds": null,
+  "gate_closed": false,
+  "http_status_counts": {
+    "200": 80
+  },
+  "interval_seconds": null,
+  "latency_ms": {
+    "mean": 2204.16,
+    "p50": 2167.42,
+    "p95": 3406.18,
+    "p99": 3954.3
+  },
+  "metrics_after": {
+    "deployment_id": "d0-local",
+    "in_flight": 0,
+    "latency_ms_buckets": {
+      "+Inf": 0,
+      "10": 0,
+      "100": 0,
+      "1000": 73,
+      "250": 1,
+      "50": 0,
+      "500": 6,
+      "5000": 0
+    },
+    "peak_in_flight": 30,
+    "requests": 80,
+    "server_errors": 0,
+    "tenant_id": "d0-local-tenant"
+  },
+  "metrics_before": {
+    "deployment_id": "d0-local",
+    "in_flight": 0,
+    "latency_ms_buckets": {
+      "+Inf": 0,
+      "10": 0,
+      "100": 0,
+      "1000": 0,
+      "250": 0,
+      "50": 0,
+      "500": 0,
+      "5000": 0
+    },
+    "peak_in_flight": 0,
+    "requests": 0,
+    "server_errors": 0,
+    "tenant_id": "d0-local-tenant"
+  },
+  "profile": "burst",
+  "requests": 80,
+  "revisions_consistent": true,
+  "rps_observed": 20.101,
+  "seed": "h5-burst-1",
+  "sessions": 80,
+  "started_at": "2026-10-15T17:06:44.962736+00:00",
+  "status": "passed",
+  "synthetic": true,
+  "unique_execution_ids": 80
+}

@@ -1,0 +1,30 @@
+# Neon suite, branch e3-h1-synthetic, commit base 35933b5 + worktree changes
+DATABASE_URL user= incubia_runtime ep= ep-empty-cake-b5rld909-pooler
+INCUBIA_MIGRATION_DATABASE_URL user= incubia_migrator ep= ep-empty-cake-b5rld909
+.......F..                                                               [100%]
+=================================== FAILURES ===================================
+_______ test_dispatcher_claim_is_global_per_telegram_account_and_fenced ________
+
+    def test_dispatcher_claim_is_global_per_telegram_account_and_fenced():
+        account = "e3-h1-dispatcher-" + uuid4().hex
+        first = PostgresLedger(os.environ["DATABASE_URL"])
+        second = PostgresLedger(os.environ["DATABASE_URL"])
+        owner_a = first.acquire_dispatcher_claim(
+            channel="telegram", account_ref=account, owner_id="owner-a", lease_seconds=5
+        )
+        assert owner_a is not None
+        assert second.acquire_dispatcher_claim(
+            channel="telegram", account_ref=account, owner_id="owner-b", lease_seconds=5
+        ) is None
+>       assert first.renew_dispatcher_claim(owner_a, lease_seconds=5)
+E       AssertionError: assert False
+E        +  where False = renew_dispatcher_claim(ClaimToken(deployment_id='', tenant_id='', resource_type='dispatcher', resource_key='telegram:e3-h1-dispatcher-6846032e38ba420e86bf6ccdf7947563', owner_id='owner-a', generation=1), lease_seconds=5)
+E        +    where renew_dispatcher_claim = <incubia_orchestrator.modules.conversation.adapters.persistence.postgres.ledger.PostgresLedger object at 0x7e2503960d70>.renew_dispatcher_claim
+
+tests/integration/neon/test_h1_preflight.py:365: AssertionError
+=========================== short test summary info ============================
+FAILED tests/integration/neon/test_h1_preflight.py::test_dispatcher_claim_is_global_per_telegram_account_and_fenced
+1 failed, 9 passed in 250.61s (0:04:10)
+
+# Nota: el fallo de test_dispatcher_claim_is_global_per_telegram_account_and_fenced fue por latencia
+# (lease 5 s vs ~10 s de llamadas a Neon). Re-ejecutado 3/3 passed; lease del test subido a 30 s: passed.

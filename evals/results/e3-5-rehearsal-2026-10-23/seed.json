@@ -1,0 +1,9 @@
+{
+  "duration_seconds": 1.948,
+  "error": "AmbiguousFunction: function generate_series(smallint, smallint) is not unique\nLINE 1: ...-seed-turn-' || g)::uuid, 'COMPLETED', now() FROM generate_s...\n                                                             ^\nHINT:  Could not choose a best candidate function. You might need to add explicit type casts.",
+  "gate_closed": false,
+  "phase": "seed",
+  "run_id": "e3-5-2026-10-24-575d36",
+  "status": "error",
+  "synthetic": true
+}

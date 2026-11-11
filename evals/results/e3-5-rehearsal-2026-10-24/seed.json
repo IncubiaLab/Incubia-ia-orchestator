@@ -1,0 +1,38 @@
+{
+  "checks": {
+    "conversations_at_least_target": true,
+    "turns_at_least_target": true
+  },
+  "counts_in_scope": {
+    "conversations": 190,
+    "deliveries": 651,
+    "inbox_events": 656,
+    "outcomes": 650,
+    "turns": 650
+  },
+  "duration_seconds": 3.681,
+  "gate_closed": false,
+  "idempotent_rerun": false,
+  "inserted_this_run": {
+    "conversations": 50,
+    "deliveries": 500,
+    "inbox_events": 500,
+    "outcomes": 500,
+    "turns": 500
+  },
+  "knowledge_skipped_reason": "knowledge tables absent",
+  "knowledge_tables_present": false,
+  "phase": "seed",
+  "plan": {
+    "chunks": 20,
+    "conversations": 50,
+    "turns": 500
+  },
+  "run_id": "e3-5-2026-10-24-f1fe18",
+  "scope": {
+    "deployment_id": "e3-5-synth-deployment",
+    "tenant_id": "e3-5-synth-tenant"
+  },
+  "status": "passed",
+  "synthetic": true
+}

@@ -1,8 +1,11 @@
+"""Topología técnica del flujo local de selección y generación."""
+
 from langgraph.graph import START, END, StateGraph
 from incubia_orchestrator.modules.orchestration.adapters.runtime.langgraph.state import GraphState
 
 
 def build_graph(node, select_node=None):
+    """Compila un grafo con selección opcional y generación obligatoria."""
     builder = StateGraph(GraphState)
     if select_node is not None:
         builder.add_node("select_specialty", select_node)

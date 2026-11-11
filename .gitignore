@@ -1,11 +1,18 @@
 .venv
 .env
+/config/e2/bindings.yaml
+/deploy/e3-d0.env
+/deploy/e3-neon.env
+/deploy/e3-probe.env
+/deploy/knowledge-neon.env
+deploy/*.env
+config/e2/bindings.yaml
 __pycache__/
 *.pyc
 logs/
-node_modules/
 .neon
-deploy/*.env
-config/e2/bindings.yaml
+node_modules/
 .obsidian
 
+# gstack local state
+.gstack/
