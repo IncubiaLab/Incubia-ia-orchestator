@@ -8,4 +8,3 @@ Fecha: 2026-11-11.
 - **Readiness y Apagado confiables:** `/readyz` reporta el estado real de la base de datos y de las dependencias, y el drenaje de 60 segundos evita cortar llamadas activas del LLM ante despliegues o reinicios.
 
 [[01-Investigacion/Composicion-P1/Investigacion - composicion ejecutable del orchestrator P1]] · [[Composición ejecutable del orchestrator P1 - contras y riesgos]] · [[Composición ejecutable del orchestrator P1 - decisión]] · [[03-Implementacion/Composición ejecutable del orchestrator P1 - estado de implementación]]
-

@@ -21,4 +21,3 @@ Se adopta la composición productiva unificada para el VPS:
    - `bootstrap/d0.py` y `interfaces/http/main.py` permanecen sin cambios como baseline de prueba local.
 
 [[01-Investigacion/Composicion-P1/Investigacion - composicion ejecutable del orchestrator P1]] · [[Composición ejecutable del orchestrator P1 - beneficios]] · [[Composición ejecutable del orchestrator P1 - contras y riesgos]] · [[03-Implementacion/Composición ejecutable del orchestrator P1 - estado de implementación]]
-

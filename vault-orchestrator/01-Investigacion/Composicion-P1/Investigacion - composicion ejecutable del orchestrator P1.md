@@ -47,4 +47,3 @@ Enlazar: [[Composición ejecutable del orchestrator P1 - decisión]]
 
 ## Estado de implementación
 Enlazar: [[Composición ejecutable del orchestrator P1 - estado de implementación]]
-

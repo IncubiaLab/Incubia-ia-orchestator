@@ -50,6 +50,10 @@ jobs:
         env:
           PYTHONPATH: src
         run: uv run --frozen python -m pytest -q
+      - name: Build and verify VPS container image
+        run: |
+          docker build -t incubia-orchestrator:ci -f Dockerfile.vps .
+          docker run --rm incubia-orchestrator:ci python -c "import psycopg, psycopg_pool; from incubia_orchestrator.foundation.pg_pool import PooledConnections; from incubia_orchestrator.bootstrap.vps import VPSSettings; print('CI container check passed')"
 
   neon:
     if: github.event_name == 'workflow_dispatch' && inputs.neon

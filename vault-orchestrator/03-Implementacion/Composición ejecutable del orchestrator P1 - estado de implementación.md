@@ -18,4 +18,3 @@ fecha: 2026-11-11
 - Unificación del empaquetado (`psycopg_pool`), Dockerfile y runner de migraciones completas.
 
 [[01-Investigacion/Composicion-P1/Investigacion - composicion ejecutable del orchestrator P1]] · [[Composición ejecutable del orchestrator P1 - beneficios]] · [[Composición ejecutable del orchestrator P1 - contras y riesgos]] · [[Composición ejecutable del orchestrator P1 - decisión]]
-

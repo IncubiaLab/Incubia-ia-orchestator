@@ -7,4 +7,3 @@ Fecha: 2026-11-11.
 - **Riesgo de streaming incompleto en SSE:** El adaptador SSE genera los eventos `delta`, `citation` y `done` tras completar la inferencia segura; el streaming token a token se mantiene aplazado para una fase posterior con el fin de garantizar la auditoría fail-closed antes de emitir bytes al cliente.
 
 [[01-Investigacion/Composicion-P1/Investigacion - composicion ejecutable del orchestrator P1]] · [[Composición ejecutable del orchestrator P1 - beneficios]] · [[Composición ejecutable del orchestrator P1 - decisión]] · [[03-Implementacion/Composición ejecutable del orchestrator P1 - estado de implementación]]
-
