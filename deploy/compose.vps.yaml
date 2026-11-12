@@ -1,0 +1,76 @@
+# Compose para el despliegue del Orchestrator en VPS (Staging / Prod)
+# Se conecta a la red externa 'web' administrada por Caddy en /opt/incubia/proxy
+name: ${COMPOSE_PROJECT_NAME:-incubia-orchestrator}
+
+services:
+  orchestrator:
+    image: ${INCUBIA_IMAGE:-incubia-orchestrator:local}
+    build:
+      context: ..
+      dockerfile: Dockerfile.vps
+    container_name: ${CONTAINER_NAME:-incubia-orchestrator}
+    restart: unless-stopped
+    stop_grace_period: 70s
+    environment:
+      INCUBIA_ORCHESTRATOR_TOKEN: ${INCUBIA_ORCHESTRATOR_TOKEN:?Set INCUBIA_ORCHESTRATOR_TOKEN with at least 32 characters}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL with pooled TLS connection}
+      INCUBIA_DEPLOYMENT_ID: ${INCUBIA_DEPLOYMENT_ID:-incubia-staging}
+      INCUBIA_FAKE_MODE: ${INCUBIA_FAKE_MODE:-0}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      INCUBIA_MODEL: ${INCUBIA_MODEL:-gpt-4o-mini}
+      INCUBIA_BIND_HOST: "0.0.0.0"
+      INCUBIA_PORT: "8080"
+    volumes:
+      - orchestrator-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+          pids: 100
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3).close()"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  migrate:
+    image: ${INCUBIA_IMAGE:-incubia-orchestrator:local}
+    build:
+      context: ..
+      dockerfile: Dockerfile.vps
+    command: ["python", "-m", "incubia_orchestrator.interfaces.http.migrate_all"]
+    environment:
+      DATABASE_URL: ${INCUBIA_MIGRATION_DATABASE_URL:?Set direct non-pooled INCUBIA_MIGRATION_DATABASE_URL for migrations}
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - web
+
+volumes:
+  orchestrator-data:
+
+networks:
+  web:
+    external: true
