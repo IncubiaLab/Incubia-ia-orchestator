@@ -14,8 +14,8 @@ from typing import Any
 
 
 class PooledConnections:
-    def __init__(self, dsn: str, *, max_size: int, min_size: int = 1, timeout: float = 3.0,
-                 connect_timeout: int = 3, max_lifetime: float = 300.0,
+    def __init__(self, dsn: str, *, max_size: int, min_size: int = 1, timeout: float = 10.0,
+                 connect_timeout: int = 10, max_lifetime: float = 300.0,
                  max_idle: float = 30.0, metrics: Any = None, pool: Any = None):
         if not dsn:
             raise ValueError("DATABASE_URL is required")
@@ -27,6 +27,7 @@ class PooledConnections:
             pool = ConnectionPool(
                 dsn, min_size=min_size, max_size=max_size, timeout=timeout,
                 max_lifetime=max_lifetime, max_idle=max_idle, open=False,
+                check=getattr(ConnectionPool, "check_connection", None),
                 # pgbouncer transaction mode: no server-side prepared statements.
                 kwargs={"connect_timeout": connect_timeout, "prepare_threshold": None},
             )

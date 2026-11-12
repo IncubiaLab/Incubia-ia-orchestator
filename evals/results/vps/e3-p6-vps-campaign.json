@@ -1,0 +1,212 @@
+{
+  "campaign": "E3-P6-VPS-OPERATIONAL",
+  "environment": "vps-staging",
+  "target_url": "https://agent-staging.incubialab.com",
+  "started_at": "2026-11-12T01:25:35.600427+00:00",
+  "total_duration_seconds": 235.67,
+  "overall_status": "passed",
+  "slos": {
+    "latency_p95_target_ms": 5000,
+    "latency_p95_observed_burst_ms": 3071.56,
+    "latency_p95_observed_sessions_ms": 3371.7,
+    "p95_slo_met": true,
+    "rto_target_minutes": 60,
+    "rto_observed_minutes": 0.07,
+    "rto_slo_met": true,
+    "rpo_target_hours": 12,
+    "rpo_observed_hours": 0.0,
+    "rpo_slo_met": true
+  },
+  "profiles": {
+    "burst": {
+      "requests": 8,
+      "errors": 0,
+      "latency_ms": {
+        "mean": 2775.46,
+        "p50": 2695.32,
+        "p95": 3071.56,
+        "p99": 3071.56
+      }
+    },
+    "sessions": {
+      "requests": 29,
+      "errors": 0,
+      "latency_ms": {
+        "mean": 2743.49,
+        "p50": 2688.15,
+        "p95": 3371.7,
+        "p99": 4014.74
+      },
+      "revisions_consistent": true
+    }
+  },
+  "faults_and_recovery": {
+    "sigterm_graceful_drain": {
+      "status": "passed",
+      "draining_verified": true,
+      "recovered": true
+    },
+    "n1_rollback_expand_contract": {
+      "status": "passed",
+      "n1_healthy": true,
+      "rollforward_healthy": true
+    },
+    "scoped_backup_restore": {
+      "status": "passed",
+      "export_seconds": 4.196,
+      "content_sha256": "ec408afba556b8c63cd16e54cd97bc0fda5e974609b693db19fea6c0ec36a278",
+      "tables": {
+        "conversations": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "deliveries": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "inbox_events": {
+          "count": 1,
+          "sha256": "0ea64852bee98c718386e8abc3e607e5445cdb94fb6a778e0cb631e6bd5606a6"
+        },
+        "outcomes": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "turns": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "rto_observed_minutes": 0.07,
+      "rto_slo_minutes": 60,
+      "rpo_observed_hours": 0.0,
+      "rpo_slo_hours": 12
+    }
+  },
+  "metrics_before": {
+    "deployment_id": "incubia-staging",
+    "tenant_id": "vps",
+    "requests": 0,
+    "server_errors": 0,
+    "in_flight": 0,
+    "peak_in_flight": 0,
+    "latency_ms_buckets": {
+      "10": 0,
+      "50": 0,
+      "100": 0,
+      "250": 0,
+      "500": 0,
+      "1000": 0,
+      "5000": 0,
+      "+Inf": 0
+    },
+    "db_pool": {
+      "in_use": 0,
+      "max": 10,
+      "waiting": 0,
+      "peak_in_use": 1,
+      "wait_ms_total": 25.413957075215876,
+      "wait_count": 1,
+      "timeouts": 0
+    },
+    "cost": [],
+    "rejections": [],
+    "stage_latency_ms": {
+      "reception_to_outcome": {
+        "buckets": {
+          "10": 0,
+          "50": 0,
+          "100": 0,
+          "250": 0,
+          "500": 0,
+          "1000": 0,
+          "5000": 0,
+          "+Inf": 0
+        },
+        "count": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null
+      },
+      "reception_to_delivery": {
+        "buckets": {
+          "10": 0,
+          "50": 0,
+          "100": 0,
+          "250": 0,
+          "500": 0,
+          "1000": 0,
+          "5000": 0,
+          "+Inf": 0
+        },
+        "count": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null
+      }
+    }
+  },
+  "metrics_after": {
+    "deployment_id": "incubia-staging",
+    "tenant_id": "vps",
+    "requests": 0,
+    "server_errors": 0,
+    "in_flight": 0,
+    "peak_in_flight": 0,
+    "latency_ms_buckets": {
+      "10": 0,
+      "50": 0,
+      "100": 0,
+      "250": 0,
+      "500": 0,
+      "1000": 0,
+      "5000": 0,
+      "+Inf": 0
+    },
+    "db_pool": {
+      "in_use": 0,
+      "max": 10,
+      "waiting": 0,
+      "peak_in_use": 1,
+      "wait_ms_total": 26.242492021992803,
+      "wait_count": 1,
+      "timeouts": 0
+    },
+    "cost": [],
+    "rejections": [],
+    "stage_latency_ms": {
+      "reception_to_outcome": {
+        "buckets": {
+          "10": 0,
+          "50": 0,
+          "100": 0,
+          "250": 0,
+          "500": 0,
+          "1000": 0,
+          "5000": 0,
+          "+Inf": 0
+        },
+        "count": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null
+      },
+      "reception_to_delivery": {
+        "buckets": {
+          "10": 0,
+          "50": 0,
+          "100": 0,
+          "250": 0,
+          "500": 0,
+          "1000": 0,
+          "5000": 0,
+          "+Inf": 0
+        },
+        "count": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null
+      }
+    }
+  }
+}

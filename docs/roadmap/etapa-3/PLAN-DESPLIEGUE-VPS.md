@@ -150,18 +150,18 @@ Orden: `P0 → P1/P2 → P3 → P4 → P5 → P6 → P7`. El inventario P0 y el 
 
 Ante una migración fallida, no arrancar la nueva aplicación. Ante readiness fallida, no admitir tráfico. Ante fuga de datos, pérdida, duplicación o gasto fuera de cuota, detener la prueba y conservar evidencia sanitizada. El rollback de aplicación usa la imagen N-1 si es compatible con el esquema; esquema/datos se recuperan mediante restore validado, sin SQL inverso. En el primer despliegue, si no hay N-1, la recuperación consiste en detener el candidato y restaurar el estado previo necesario.
 
-## Seguimiento inicial
+## Seguimiento y estado final de fases
 
-| Fase | Estado al crear este plan | Evidencia que falta |
+| Fase | Estado | Evidencia y artefactos |
 | --- | --- | --- |
-| P0 | Parcial: acceso y datos básicos del host | Inventario completo y decisiones de entorno |
-| P1 | Pendiente | Composición HTTP completa y contrato probado |
-| P2 | Pendiente | Imagen reproducible, CI y datos recuperables |
-| P3 | Pendiente | Manifiesto VPS y configuración operativa |
-| P4 | Pendiente | Rollout privado registrado |
-| P5 | Pendiente | Smoke integrado y reinicio |
-| P6 | Pendiente | Carga, fallos, rollback y restore medidos |
-| P7 | Pendiente | Aceptación y runbook operativo |
+| P0 | Completado | Inventario del host (`srv2113451`), CPU/RAM/Disco, Docker 29.9.3, Caddy y red `web` documentados en `vault-orchestrator/03-Implementacion/VPS de pruebas - inventario operativo P0.md`. |
+| P1 | Completado | Composición unificada `bootstrap/vps.py`, servidor HTTP `interfaces/http/service.py` con draining y streaming SSE; probado en `tests/unit/test_vps_bootstrap.py`. |
+| P2 | Completado | Runner `migrate_all.py` (001–008), `Dockerfile.vps` multi-stage optimizado, `psycopg_pool` en requirements y gate de contenedor en `.github/workflows/ci.yml`. |
+| P3 | Completado | Manifiesto `deploy/compose.vps.yaml` y plantilla `deploy/vps.env.example` con recursos y seguridad delimitados. |
+| P4 | Completado | Rollout en VPS staging (`agent-staging.incubialab.com`), Caddyfile con reverse_proxy y `flush_interval -1`, y migraciones 001–008 aplicadas en Neon. |
+| P5 | Completado | Smoke E2E en `tests/smoke/test_vps_staging.py` (8/8 gates pasados: health, auth 401, ejecución real LLM, idempotencia, multivuelta, SSE Orbit, métricas y reinicio). |
+| P6 | Completado | Campaña operativa `scripts/e3/run_vps_p6_campaign.py` (SLO p95 ≤ 5s cumplido: ráfaga 3.07s / sostenida 3.37s; SIGTERM drain verificado; rollback N-1 y restore probados); reporte en `evals/results/vps/e3-p6-vps-campaign.json`. |
+| P7 | Completado | Aceptación técnica, [Runbook Operativo VPS](RUNBOOK-VPS-OPERACIONAL.md) entregado y vault sincronizado. |
 
 Fuentes de contraste: `Dockerfile`, `compose.yaml`, `requirements.lock`, `pyproject.toml`, `.github/workflows/ci.yml`, `interfaces/http/migrate.py`, `interfaces/http/orbit_gateway.py`, `bootstrap/composition.py`, `foundation/pg_pool.py`, ADR-ORCH-024/025/027 y VERIFICACION. Esta revisión es documental y de código; no reemplaza las comprobaciones de cada fase.
 
