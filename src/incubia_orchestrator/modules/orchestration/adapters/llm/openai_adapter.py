@@ -114,12 +114,14 @@ class OpenAILLM:
                 raise GenerationFailure("PROVIDER_ERROR")
             try:
                 data = response.json()
-                if data.get("status") != "completed":
+                if data.get("status") not in ("completed", "incomplete"):
                     raise GenerationFailure("PROVIDER_INCOMPLETE")
-                text = "".join(part["text"] for item in data["output"]
+                text = "".join(part["text"] for item in data.get("output", [])
                                if item.get("type") == "message"
                                for part in item.get("content", []) if part.get("type") == "output_text")
                 if not text.strip():
+                    if data.get("status") != "completed":
+                        raise GenerationFailure("PROVIDER_INCOMPLETE")
                     raise GenerationFailure("EMPTY_RESPONSE")
                 raw_usage = data.get("usage")
                 usage = None

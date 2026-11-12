@@ -174,3 +174,99 @@ class ExportTooLargeError(SourceCatalogError):
 
 class UnsupportedExportError(SourceCatalogError):
     """The requested export target MIME type is not supported."""
+
+
+SUPPORTED_DOCUMENT_CONTENT_TYPES: frozenset[str] = frozenset({
+    "text/plain",
+    "text/markdown",
+    "text/csv",
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+})
+MAX_DOCUMENT_BYTES = 20 * 1024 * 1024
+MAX_DOCUMENT_CHUNKS = 200
+
+
+class DocumentKnowledgeError(Exception):
+    """Base error for HTTP document knowledge sync; messages must stay free of signed URLs and content."""
+
+
+class DocumentRejectedError(DocumentKnowledgeError, ValueError):
+    """Document metadata or payload violates contract constraints."""
+
+
+class DocumentDownloadError(DocumentKnowledgeError, RuntimeError):
+    """Downloading from a signed URL failed or exceeded size bounds."""
+
+
+class DocumentExtractionError(DocumentKnowledgeError, ValueError):
+    """Extracting readable text from the document bytes failed."""
+
+
+class KnowledgeStoreUnavailable(DocumentKnowledgeError, RuntimeError):
+    """Knowledge database or embedding backend is unavailable."""
+
+
+class KnowledgeNotConfigured(KnowledgeStoreUnavailable):
+    """Knowledge database configuration is not present in the deployment."""
+
+
+@dataclass(frozen=True)
+class DocumentSyncRequest:
+    request_id: str
+    workspace_id: str
+    deployment_id: str
+    document_id: str
+    source_id: str
+    version: str
+    title: str
+    content_type: str
+    size_bytes: int
+    operation: str
+    download_url: str | None = None
+    content: str | None = None
+    content_base64: str | None = None
+
+    def __post_init__(self):
+        if self.operation not in {"upsert", "revoke"}:
+            raise DocumentRejectedError("Unsupported document operation")
+        if not all((self.request_id.strip(), self.workspace_id.strip(), self.deployment_id.strip(),
+                    self.document_id.strip(), self.source_id.strip(), self.version.strip(),
+                    self.title.strip())):
+            raise DocumentRejectedError("Document metadata fields must be non-empty")
+        base_type = self.content_type.split(";", 1)[0].strip().lower()
+        if base_type not in SUPPORTED_DOCUMENT_CONTENT_TYPES:
+            raise DocumentRejectedError("Unsupported document contentType")
+        if self.size_bytes < 0 or self.size_bytes > MAX_DOCUMENT_BYTES:
+            raise DocumentRejectedError("Document sizeBytes exceeds allowed limit")
+        has_url = bool(self.download_url and self.download_url.strip())
+        has_content = bool(self.content and self.content.strip())
+        has_b64 = bool(self.content_base64 and self.content_base64.strip())
+        if self.operation == "upsert":
+            if self.size_bytes < 1 or (int(has_url) + int(has_content) + int(has_b64) != 1):
+                raise DocumentRejectedError(
+                    "Upsert requires positive sizeBytes and exactly one of downloadUrl, content, or contentBase64"
+                )
+        elif has_url or has_content or has_b64:
+            raise DocumentRejectedError("Revoke requires downloadUrl, content, and contentBase64 to be null")
+
+
+@dataclass(frozen=True)
+class DocumentSyncResult:
+    status: str
+    source_id: str
+    generation_id: str | None = None
+    extracted_text: str | None = None
+
+
+@dataclass(frozen=True)
+class WorkspaceKnowledgeHit:
+    deployment_id: str
+    workspace_id: str
+    document_id: str
+    source_id: str
+    chunk_id: str
+    generation_id: str
+    title: str
+    text: str
+    score: float

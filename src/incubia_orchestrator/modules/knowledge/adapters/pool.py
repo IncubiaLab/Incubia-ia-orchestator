@@ -46,8 +46,17 @@ class KnowledgePools:
                 dsn = self._resolve_dsn(deployment_id)
                 if not dsn:
                     raise ValueError("Unknown Knowledge deployment")
-                pool = ConnectionPool(dsn, min_size=1, max_size=self._max_size,
-                                      kwargs={"connect_timeout": 3}, timeout=3, open=True)
+                pool = ConnectionPool(
+                    dsn,
+                    min_size=1,
+                    max_size=self._max_size,
+                    max_lifetime=300.0,
+                    max_idle=30.0,
+                    check=getattr(ConnectionPool, "check_connection", None),
+                    kwargs={"connect_timeout": 3, "prepare_threshold": None},
+                    timeout=3,
+                    open=True,
+                )
                 self._pools[deployment_id] = pool
         self._report_stats(pool)
         started = monotonic()

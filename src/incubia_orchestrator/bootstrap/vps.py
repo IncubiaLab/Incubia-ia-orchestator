@@ -11,10 +11,11 @@ Integrates:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 import re
 from dataclasses import dataclass
 from time import monotonic
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 from uuid import uuid4
 
 from incubia_orchestrator.foundation.contracts.execution import (
@@ -41,6 +42,12 @@ from incubia_orchestrator.modules.conversation.ports.ledger import (
 from incubia_orchestrator.modules.governance.adapters.policy.in_process.engine import (
     Authority,
     InProcessPolicyEngine,
+)
+from incubia_orchestrator.modules.knowledge.domain import (
+    DocumentSyncRequest,
+    DocumentSyncResult,
+    KnowledgeNotConfigured,
+    WorkspaceKnowledgeHit,
 )
 from incubia_orchestrator.modules.orchestration.adapters.llm.fake import FakeLLM
 from incubia_orchestrator.modules.orchestration.adapters.runtime.langgraph.adapter import (
@@ -80,6 +87,11 @@ class VPSSettings:
     model: str
     history_limit: int = 20
     claim_lease_seconds: int = 120
+    knowledge_runtime_database_url: str = ""
+    knowledge_ingest_database_url: str = ""
+    knowledge_deployment_id: str = ""
+    knowledge_budget_file: str = ""
+    allow_insecure_download_urls: bool = False
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> "VPSSettings":
@@ -95,6 +107,16 @@ class VPSSettings:
         model = e.get("INCUBIA_MODEL", "gpt-4o-mini")
         if not fake_mode and not e.get("OPENAI_API_KEY"):
             raise ValueError("OPENAI_API_KEY is required when not in fake mode")
+        kb_runtime = e.get("INCUBIA_KNOWLEDGE_RUNTIME_DATABASE_URL", "").strip()
+        kb_ingest = e.get("INCUBIA_KNOWLEDGE_INGEST_DATABASE_URL", "").strip()
+        if bool(kb_runtime) != bool(kb_ingest):
+            raise ValueError(
+                "Both INCUBIA_KNOWLEDGE_RUNTIME_DATABASE_URL and "
+                "INCUBIA_KNOWLEDGE_INGEST_DATABASE_URL must be configured together"
+            )
+        kb_deployment = e.get("INCUBIA_KNOWLEDGE_DEPLOYMENT_ID", "").strip() or deployment_id
+        kb_budget_file = e.get("INCUBIA_KNOWLEDGE_EMBEDDING_BUDGET_FILE", "").strip()
+        allow_insecure = e.get("INCUBIA_ALLOW_INSECURE_DOWNLOAD_URLS", "0") == "1"
         return cls(
             database_url=db_url,
             token=token,
@@ -103,6 +125,11 @@ class VPSSettings:
             model=model,
             history_limit=int(e.get("INCUBIA_HISTORY_LIMIT", "20")),
             claim_lease_seconds=int(e.get("INCUBIA_CLAIM_LEASE_SECONDS", "120")),
+            knowledge_runtime_database_url=kb_runtime,
+            knowledge_ingest_database_url=kb_ingest,
+            knowledge_deployment_id=kb_deployment,
+            knowledge_budget_file=kb_budget_file,
+            allow_insecure_download_urls=allow_insecure,
         )
 
 
@@ -120,7 +147,7 @@ class LangGraphOrchestrationRuntime:
         self._profiles = profiles_for(model)
         self._limits = limits
         self._metrics = metrics
-        self._max_output_tokens = limits.eval_e3.max_output_tokens
+        self._max_output_tokens = max(limits.eval_e3.max_output_tokens, 2000)
 
     def execute(self, *, request_id: str, execution_id: str, scope: ExecutionScope,
                 message: str, history: tuple[ConversationTurn, ...]) -> CompletedExecution:
@@ -138,30 +165,88 @@ class LangGraphOrchestrationRuntime:
             input=ExecutionInput(message, history=history),
         ))
         if not isinstance(outcome, CompletedExecution) or outcome.output.kind != "message":
-            raise ExecutionUnavailable(f"Orchestration runtime failed: {outcome.reason if hasattr(outcome, 'reason') else 'unknown'}")
+            reason = getattr(outcome, "error", None) or getattr(outcome, "reason", None) or "unknown"
+            raise ExecutionUnavailable(f"Orchestration runtime failed: {reason}")
         return outcome
 
 
 class VPSService:
     """Core domain service for the VPS orchestrator with durable transactional boundaries."""
 
-    def __init__(self, settings: VPSSettings, ledger: Any, runtime: OrchestrationRuntimePort,
-                 limits: Limits, audit: AuditSinkPort | None = None, metrics: HttpMetrics | None = None):
+    def __init__(
+        self,
+        settings: VPSSettings,
+        ledger: Any,
+        runtime: OrchestrationRuntimePort,
+        limits: Limits,
+        audit: AuditSinkPort | None = None,
+        metrics: HttpMetrics | None = None,
+        *,
+        knowledge_sync: Callable[[DocumentSyncRequest], DocumentSyncResult] | None = None,
+        knowledge_retrieve: Callable[..., tuple[WorkspaceKnowledgeHit, ...]] | None = None,
+        knowledge_ready: Callable[[], bool] | None = None,
+        knowledge_deployment_id: str | None = None,
+        on_close: Callable[[], None] | None = None,
+    ):
         self.settings = settings
         self._ledger = ledger
         self._runtime = runtime
         self._limits = limits
         self._audit = audit
         self._metrics = metrics
+        self._knowledge_sync = knowledge_sync
+        self._knowledge_retrieve = knowledge_retrieve
+        self._knowledge_ready = knowledge_ready
+        self._knowledge_deployment_id = knowledge_deployment_id or settings.knowledge_deployment_id or settings.deployment_id
+        self._on_close = on_close
         self._ready_until = 0.0
 
     READY_CACHE_SECONDS = 3.0
 
+    @property
+    def knowledge_deployment_id(self) -> str:
+        return self._knowledge_deployment_id
+
+    @property
+    def has_knowledge(self) -> bool:
+        return self._knowledge_sync is not None
+
     def ready(self) -> bool:
         try:
-            return bool(self._ledger.ready())
+            if not bool(self._ledger.ready()):
+                return False
+            if self._knowledge_ready is not None and not bool(self._knowledge_ready()):
+                return False
+            return True
         except Exception:
             return False
+
+    def close(self) -> None:
+        if self._on_close is not None:
+            self._on_close()
+
+    def sync_knowledge_document(self, request: DocumentSyncRequest) -> DocumentSyncResult:
+        if self._knowledge_sync is None:
+            raise KnowledgeNotConfigured("Knowledge synchronization is not configured")
+        if not self._ready_for_execute():
+            raise ExecutionUnavailable("Orchestrator persistence is not ready")
+        return self._knowledge_sync(request)
+
+    def retrieve_workspace_knowledge(
+        self,
+        *,
+        workspace_id: str,
+        query: str,
+        top_k: int = 5,
+    ) -> tuple[WorkspaceKnowledgeHit, ...]:
+        if self._knowledge_retrieve is None:
+            return ()
+        return self._knowledge_retrieve(
+            deployment_id=self._knowledge_deployment_id,
+            workspace_id=workspace_id,
+            query=query,
+            top_k=top_k,
+        )
 
     def _ready_for_execute(self) -> bool:
         now = monotonic()
@@ -226,13 +311,14 @@ class VPSService:
         account: str = "http",
         request_id: str | None = None,
         turn_id: str | None = None,
+        max_message_chars: int = 8_000,
     ) -> dict[str, Any]:
         """Execute a conversational turn through durable reservation, claims, graph run, and commit."""
         if not self._ready_for_execute():
             raise ExecutionUnavailable("Orchestrator persistence is not ready")
 
-        if not isinstance(message, str) or not message.strip() or len(message) > 8_000:
-            raise InputRejected("message must be non-empty text up to 8000 characters")
+        if not isinstance(message, str) or not message.strip() or len(message) > max_message_chars:
+            raise InputRejected(f"message must be non-empty text up to {max_message_chars} characters")
         if not isinstance(idempotency_key, str) or not idempotency_key.strip() or len(idempotency_key) > 128:
             raise InputRejected("idempotency_key must be non-empty text up to 128 characters")
 
@@ -368,6 +454,15 @@ class VPSService:
         raise ExecutionInProgress("Conversation revision conflict during commit")
 
 
+def _default_knowledge_budget_path(configured: str) -> Path:
+    if configured:
+        return Path(configured).expanduser()
+    data_dir = Path("/data")
+    if data_dir.is_dir() and os.access(data_dir, os.W_OK):
+        return data_dir / "knowledge-embedding-budget.sqlite"
+    return Path.home() / ".local/state/incubia/knowledge-embedding-budget.sqlite"
+
+
 def create_vps_service(settings: VPSSettings, pool: PooledConnections | None = None) -> tuple[VPSService, PooledConnections]:
     """Factory creating the complete production service graph with shared connection pool."""
     limits = load_runtime_limits()
@@ -390,6 +485,84 @@ def create_vps_service(settings: VPSSettings, pool: PooledConnections | None = N
             retries=0,
         )
 
+    knowledge_sync = None
+    knowledge_retrieve = None
+    knowledge_ready = None
+    kb_deployment = settings.knowledge_deployment_id or settings.deployment_id
+    cleanup_callbacks: list[Callable[[], None]] = []
+
+    if settings.knowledge_runtime_database_url and settings.knowledge_ingest_database_url:
+        from incubia_orchestrator.bootstrap.knowledge_incubialab import (
+            APPROVED_MAX_CALLS,
+            APPROVED_MAX_INPUT_TOKENS,
+            APPROVED_USD_CAP,
+        )
+        from incubia_orchestrator.modules.knowledge.adapters.document_extract import DocumentTextExtractor
+        from incubia_orchestrator.modules.knowledge.adapters.document_http import HttpxDocumentDownloader
+        from incubia_orchestrator.modules.knowledge.adapters.embedding import HashEmbedding
+        from incubia_orchestrator.modules.knowledge.adapters.openai_embedding import EmbeddingBudget, OpenAIEmbedding
+        from incubia_orchestrator.modules.knowledge.adapters.pool import KnowledgePools
+        from incubia_orchestrator.modules.knowledge.adapters.postgres_documents import PostgresOrbitKnowledgeStore
+        from incubia_orchestrator.modules.knowledge.adapters.runtime_dsn import (
+            knowledge_ingest_resolver,
+            knowledge_runtime_resolver,
+        )
+        from incubia_orchestrator.modules.knowledge.application.document_sync import (
+            RetrieveWorkspaceKnowledge,
+            SyncDocumentKnowledge,
+        )
+
+        kb_env = {
+            "INCUBIA_KNOWLEDGE_RUNTIME_DATABASE_URL": settings.knowledge_runtime_database_url,
+            "INCUBIA_KNOWLEDGE_INGEST_DATABASE_URL": settings.knowledge_ingest_database_url,
+        }
+        runtime_resolve = knowledge_runtime_resolver(kb_env, deployment_id=kb_deployment)
+        ingest_resolve = knowledge_ingest_resolver(kb_env, deployment_id=kb_deployment)
+        runtime_pools = KnowledgePools(runtime_resolve, max_size=min(4, limits.pool_max_size))
+        ingest_pools = KnowledgePools(ingest_resolve, max_size=min(2, limits.pool_max_size))
+        store = PostgresOrbitKnowledgeStore(ingest_pools=ingest_pools, runtime_pools=runtime_pools)
+        cleanup_callbacks.append(store.close)
+
+        if settings.fake_mode:
+            kb_embedding = HashEmbedding()
+        else:
+            max_calls = int(os.getenv("INCUBIA_KNOWLEDGE_MAX_CALLS") or str(max(APPROVED_MAX_CALLS, 10_000)))
+            usd_cap = float(os.getenv("INCUBIA_KNOWLEDGE_USD_CAP") or str(max(APPROVED_USD_CAP, 5.0)))
+            budget = EmbeddingBudget(
+                _default_knowledge_budget_path(settings.knowledge_budget_file),
+                max_calls=max_calls,
+                max_input_tokens=APPROVED_MAX_INPUT_TOKENS,
+                usd_cap=usd_cap,
+            )
+            kb_embedding = OpenAIEmbedding(os.getenv("OPENAI_API_KEY", ""), budget)
+            cleanup_callbacks.append(kb_embedding.close)
+
+        downloader = HttpxDocumentDownloader(
+            allow_insecure_urls=settings.allow_insecure_download_urls,
+        )
+        extractor = DocumentTextExtractor()
+        knowledge_sync = SyncDocumentKnowledge(store, downloader, extractor, kb_embedding)
+        knowledge_retrieve = RetrieveWorkspaceKnowledge(store, kb_embedding)
+        knowledge_ready = lambda: store.ready(kb_deployment)
+
+    def _close_all() -> None:
+        for cb in cleanup_callbacks:
+            try:
+                cb()
+            except Exception:
+                pass
+
     runtime = LangGraphOrchestrationRuntime(llm, settings.model, limits)
-    service = VPSService(settings, ledger, runtime, limits, audit=audit)
+    service = VPSService(
+        settings,
+        ledger,
+        runtime,
+        limits,
+        audit=audit,
+        knowledge_sync=knowledge_sync,
+        knowledge_retrieve=knowledge_retrieve,
+        knowledge_ready=knowledge_ready,
+        knowledge_deployment_id=kb_deployment,
+        on_close=_close_all,
+    )
     return service, effective_pool

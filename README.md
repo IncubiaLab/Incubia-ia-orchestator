@@ -70,7 +70,7 @@ El endpoint valida un máximo de 20 elementos y 60 000 caracteres de evidencia, 
 
 ### Knowledge Base de Orbit
 
-La decisión de almacenamiento para Orbit está registrada en [ADR-KB-NEON-OBJECT-STORAGE](../Incubia%20Orbit/ADR-KB-NEON-OBJECT-STORAGE.md): los originales vivirán en el bucket privado `incubia-knowledge` de Neon Object Storage y el índice semántico continuará en Neon Postgres/pgvector. `neon.ts` declara el bucket para las ramas de este proyecto. La carga, lectura S3, extracción de texto e indexación desde el gateway aún requieren implementación; el gateway actual solo consume la evidencia ya autorizada que Orbit adjunta a cada turno.
+La decisión de almacenamiento para Orbit está registrada en [ADR-KB-NEON-OBJECT-STORAGE](../Incubia%20Orbit/ADR-KB-NEON-OBJECT-STORAGE.md): los originales viven en el bucket privado `incubia-knowledge` y el índice semántico en Neon Postgres/pgvector. En el runtime VPS (`src/incubia_orchestrator/interfaces/http/service.py` y `bootstrap/vps.py`), `POST /v1/knowledge/documents` (`upsert`/`revoke` vía URL HTTPS firmada y acotada en tamaño, con guardas SSRF y extracción `.txt`/`.md`/`.csv`/`.pdf`/`.docx`) indexa en Neon bajo roles separados (`incubia_kb_ingestor` para DML e `incubia_kb_runtime` para lectura `SELECT`), y `POST /v1/turns` recupera automáticamente chunks aislados por `workspaceId`. El gateway ligero local (`incubia-orbit-gateway`) continúa consumiendo únicamente la evidencia adjunta en cada turno.
 
 ## Proveedor real
 
@@ -92,4 +92,4 @@ Si la API devuelve `PROVIDER_QUOTA`, revisar el saldo de la **organización/proy
 
 ## Despliegue en el VPS de pruebas
 
-La [planificación de despliegue](docs/roadmap/etapa-3/PLAN-DESPLIEGUE-VPS.md) organiza el trabajo pendiente y su aceptación a partir de [PLAN-VPS](docs/roadmap/etapa-3/PLAN-VPS.md). El acceso al host está verificado; el orchestrator completo aún requiere composición, empaquetado y validación integrada antes del piloto.
+La [planificación de despliegue](docs/roadmap/etapa-3/PLAN-DESPLIEGUE-VPS.md) documenta la composición unificada (`bootstrap/vps.py`), empaquetado (`Dockerfile.vps`), manifiestos (`deploy/compose.vps.yaml`) y pruebas E2E contra el entorno staging (`https://agent-staging.incubialab.com`).

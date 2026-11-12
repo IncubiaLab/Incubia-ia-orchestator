@@ -10,6 +10,7 @@ actualizado: 2026-11-11
 - [[01-Investigacion/Despliegue-VPS/Investigacion - despliegue del orchestrator en VPS]]
 - [[01-Investigacion/Persistencia-y-RAG-Neon/Investigacion - persistencia y RAG en Neon]]
 - [[01-Investigacion/Gobernanza-tools-y-auditoria/Investigacion - gobernanza de tools y auditoría]]
+- [[01-Investigacion/Integracion-Consumidores-Externos/Investigacion - integracion consumidores externos y Orbit]]
 
 ## Convergencias y seguimiento — Despliegue en VPS (PLAN-VPS)
 
@@ -60,3 +61,11 @@ actualizado: 2026-11-11
 - [[02-Decisiones/Gobernanza de tools y auditoría - contras y riesgos]]
 - [[02-Decisiones/Gobernanza de tools y auditoría - decisión]]
 - [[03-Implementacion/Gobernanza de tools y auditoría - estado de implementación]]
+
+## Convergencias y seguimiento — Integración con consumidores externos y Orbit
+
+- [[01-Investigacion/Integracion-Consumidores-Externos/Investigacion - integracion consumidores externos y Orbit]]
+- [[02-Decisiones/Integración consumidores externos y Orbit - beneficios]]
+- [[02-Decisiones/Integración consumidores externos y Orbit - contras y riesgos]]
+- [[02-Decisiones/Integración consumidores externos y Orbit - decisión]]
+- [[03-Implementacion/Integración consumidores externos y Orbit - estado de implementación]]

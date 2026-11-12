@@ -11,6 +11,7 @@ from incubia_orchestrator.modules.knowledge.domain import (
     RetrievalQuery,
     Source,
     SourceRef,
+    WorkspaceKnowledgeHit,
 )
 
 
@@ -65,3 +66,56 @@ class SourceCatalogPort(Protocol):
     def inventory(self, root_id: str) -> tuple[InventoryEntry, ...]: ...
 
     def export_document(self, entry: InventoryEntry) -> ExportResult: ...
+
+
+class DocumentDownloadPort(Protocol):
+    def download(self, url: str, *, declared_size_bytes: int, max_bytes: int) -> bytes: ...
+
+
+class DocumentExtractorPort(Protocol):
+    def extract_text(self, content: bytes, *, content_type: str) -> str: ...
+
+
+class DocumentKnowledgeStorePort(Protocol):
+    def ready(self, deployment_id: str) -> bool: ...
+
+    def is_document_active(
+        self,
+        deployment_id: str,
+        workspace_id: str,
+        document_id: str,
+        version: str,
+        model_version: str,
+    ) -> str | None: ...
+
+    def upsert_document(
+        self,
+        deployment_id: str,
+        workspace_id: str,
+        document_id: str,
+        source_id: str,
+        version: str,
+        title: str,
+        chunks: Sequence[str],
+        embeddings: Sequence[tuple[float, ...]],
+        model_version: str,
+    ) -> tuple[str, str]: ...
+
+    def revoke_document(
+        self,
+        deployment_id: str,
+        workspace_id: str,
+        document_id: str,
+        source_id: str,
+    ) -> tuple[str, str | None]: ...
+
+    def retrieve_workspace(
+        self,
+        deployment_id: str,
+        workspace_id: str,
+        query_vector: Sequence[float],
+        model_version: str,
+        *,
+        top_k: int = 5,
+        query_text: str = "",
+    ) -> tuple[WorkspaceKnowledgeHit, ...]: ...
