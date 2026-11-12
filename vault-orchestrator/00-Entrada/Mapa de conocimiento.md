@@ -15,6 +15,11 @@ actualizado: 2026-11-11
 
 - [Plan de ejecución VPS — fases P0–P7](../../docs/roadmap/etapa-3/PLAN-DESPLIEGUE-VPS.md)
 
+- [[01-Investigacion/Composicion-P1/Investigacion - composicion ejecutable del orchestrator P1]]
+- [[02-Decisiones/Composición ejecutable del orchestrator P1 - beneficios]]
+- [[02-Decisiones/Composición ejecutable del orchestrator P1 - contras y riesgos]]
+- [[02-Decisiones/Composición ejecutable del orchestrator P1 - decisión]]
+- [[03-Implementacion/Composición ejecutable del orchestrator P1 - estado de implementación]]
 - [[03-Implementacion/VPS de pruebas - acceso SSH]]
 - [[03-Implementacion/VPS de pruebas - inventario operativo P0]]
 - [[02-Decisiones/Despliegue del orchestrator en VPS - beneficios]]
