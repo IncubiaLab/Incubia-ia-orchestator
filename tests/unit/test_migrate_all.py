@@ -41,4 +41,3 @@ def test_run_postgres_migrations_applies_with_fake_ledger(monkeypatch, tmp_path)
     applied = run_postgres_migrations("postgresql://incubia_migrator:secret@host/db", root)
     assert len(applied) == 8
     assert applied == applied_files
-

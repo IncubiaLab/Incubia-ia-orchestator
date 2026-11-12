@@ -135,7 +135,7 @@ class LangGraphOrchestrationRuntime:
             request_id=request_id,
             execution_id=execution_id,
             scope=scope,
-            input_data=ExecutionInput(message, history=history),
+            input=ExecutionInput(message, history=history),
         ))
         if not isinstance(outcome, CompletedExecution) or outcome.output.kind != "message":
             raise ExecutionUnavailable(f"Orchestration runtime failed: {outcome.reason if hasattr(outcome, 'reason') else 'unknown'}")
@@ -393,4 +393,3 @@ def create_vps_service(settings: VPSSettings, pool: PooledConnections | None = N
     runtime = LangGraphOrchestrationRuntime(llm, settings.model, limits)
     service = VPSService(settings, ledger, runtime, limits, audit=audit)
     return service, effective_pool
-

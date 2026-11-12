@@ -148,10 +148,21 @@ class VPSRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(encoded)))
         self.send_header("Cache-Control", "no-store")
+        if status.value >= 400:
+            self.close_connection = True
+            self.send_header("Connection", "close")
         for name, value in (headers or {}).items():
             self.send_header(name, value)
         self.end_headers()
         self.wfile.write(encoded)
+
+    def _drain_body(self) -> None:
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            if length > 0:
+                self.rfile.read(min(length, MAX_BODY_BYTES))
+        except Exception:
+            self.close_connection = True
 
     def _read_json(self) -> dict:
         content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
@@ -192,6 +203,7 @@ class VPSRequestHandler(BaseHTTPRequestHandler):
             return
 
         if not self._authorized():
+            self._drain_body()
             self._send_json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
             return
 
@@ -245,7 +257,7 @@ class VPSRequestHandler(BaseHTTPRequestHandler):
         except ExecutionUnavailable:
             self._send_json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "execution_unavailable"})
         except Exception as exc:
-            LOG.error("vps_execution_failed type=%s", type(exc).__name__)
+            LOG.error("vps_execution_failed type=%s: %s", type(exc).__name__, exc, exc_info=True)
             self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "internal_error"})
 
     def _handle_turns(self, raw_body: dict, started: float) -> None:
@@ -356,4 +368,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

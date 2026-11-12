@@ -21,4 +21,3 @@ class AgentDescriptor:
     state: AgentState = AgentState.ENABLED
     execution_mode: str = "sync"
     policy_tags: frozenset[str] = frozenset()
-

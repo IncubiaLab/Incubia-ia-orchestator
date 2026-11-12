@@ -37,4 +37,3 @@ class SpecialtyProfile:
             raise ValueError("A profile needs an id, positive version and instructions")
         if not self.capabilities:
             raise ValueError("A profile needs at least one capability")
-
