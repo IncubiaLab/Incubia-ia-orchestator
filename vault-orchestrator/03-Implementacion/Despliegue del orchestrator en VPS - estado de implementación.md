@@ -15,9 +15,9 @@ fecha: 2026-11-11
 
 ## Plan de ejecución del VPS de pruebas — 2026-11-11
 
-El [plan P0–P7](../../docs/roadmap/etapa-3/PLAN-DESPLIEGUE-VPS.md) contrasta `PLAN-VPS.md` con `main` (`5a7df31`): P0 parcial (acceso y datos básicos), P1–P7 pendientes. Define composición completa, imagen y migraciones, configuración, rollout privado, validación, recuperación y aceptación. No se ejecutó despliegue ni campaña para redactarlo.
-
-Correcciones del diagnóstico: el lock Docker incluye `psycopg`/`psycopg-binary`, pero falta `psycopg_pool`; la plantilla `.env.example` actual no contiene el patrón Telegram señalado históricamente. La revocación histórica y el inventario de recursos siguen sin acreditarse.
+El [plan P0–P7](../../docs/roadmap/etapa-3/PLAN-DESPLIEGUE-VPS.md) contrasta `PLAN-VPS.md` con `main` (`5a7df31`).
+- **P0 Completado (2026-11-11):** Inventario de hardware (4 vCPU, 15 GiB RAM, 188 GiB libres), Docker 29.9 / Compose v5.7, proxy Caddy en red `web`, dominios `agent.incubialab.com` y `agent-staging.incubialab.com` con TLS activo, y directorios operativos en `/opt/incubia/`. Ficha en [[VPS de pruebas - inventario operativo P0]].
+- **P1–P7 en curso/pendientes:** Composición completa, imagen reproducible, configuración y rollout.
 
 ## Pendiente antes del despliegue productivo en VPS (Pasos 2–6 de `PLAN-VPS.md`)
 
