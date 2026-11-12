@@ -13,6 +13,9 @@ actualizado: 2026-11-11
 
 ## Convergencias y seguimiento — Despliegue en VPS (PLAN-VPS)
 
+- [Plan de ejecución VPS — fases P0–P7](../../docs/roadmap/etapa-3/PLAN-DESPLIEGUE-VPS.md)
+
+- [[03-Implementacion/VPS de pruebas - acceso SSH]]
 - [[02-Decisiones/Despliegue del orchestrator en VPS - beneficios]]
 - [[02-Decisiones/Despliegue del orchestrator en VPS - contras y riesgos]]
 - [[02-Decisiones/Despliegue del orchestrator en VPS - decisión]]

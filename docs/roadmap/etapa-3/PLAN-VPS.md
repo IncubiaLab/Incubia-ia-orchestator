@@ -2,6 +2,10 @@
 
 Fecha: 2026-11-09 (America/Bogota). Base: `feat/knowledge-base`, HEAD `38770ed`, incluyendo cambios locales pendientes. Revisión de código y configuración; no se provisionó infraestructura ni se accedió a servicios reales.
 
+## Plan de ejecución asociado
+
+El [plan de despliegue en el VPS de pruebas](PLAN-DESPLIEGUE-VPS.md) contrasta este diagnóstico con `main` (`5a7df31`) al 2026-11-11 y organiza fases P0–P7, entregables, dependencias y aceptación. Este informe conserva su fecha y evidencia originales; las correcciones de estado posteriores se registran en ese plan.
+
 ## Dictamen y alcance corregido
 
 El objetivo es desplegar **el orchestrator completo en el VPS**, con su runtime, lógica de orquestación, políticas, adaptadores y configuración operativa. La API es su interfaz de acceso para los demás aplicativos. El PC de desarrollo no participa en la ejecución productiva ni se necesita un puente hacia él.
@@ -61,6 +65,8 @@ CI usa `uv.lock` con extras `test` y `deployment`; Docker usa otro lock. `uv loc
 10. **Entrega:** hay cambios locales en README, pyproject, CI y Neon, y archivos nuevos Orbit/Fly. Fijar commit revisado y artefacto por digest antes de release; no desplegar un árbol de trabajo mutable.
 
 ## Requisitos propuestos del VPS
+
+El VPS de pruebas de la empresa quedó identificado el 2026-11-11 como `2.24.201.39` (usuario SSH `hector`, hostname observado `srv2113451`, Ubuntu 24.04 `x86_64`). El acceso SSH por clave se verificó; aún no se ha desplegado ni probado allí el orchestrator. La ficha de acceso, huellas observadas y convención de alias están en `vault-orchestrator/03-Implementacion/VPS de pruebas - acceso SSH.md`.
 
 Dimensionamiento inicial estimado para piloto de baja concurrencia, con LLM remoto y base externa: **2 vCPU, 4 GB RAM y 40 GB SSD**. No es capacidad acreditada ni cotización; medir CPU/RSS/disco y p95 antes de contratar capacidad definitiva. Embeddings locales, ingesta intensiva o PostgreSQL autogestionado requieren otro dimensionamiento.
 

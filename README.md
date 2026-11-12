@@ -89,3 +89,7 @@ Un `PROVIDER_QUOTA` indica saldo de API agotado; se distingue de `PROVIDER_RATE_
 El gateway Orbit es una interfaz de servicio acotada, no una API general del Orchestrator. No incluye base de datos propia ni sustituye la autenticación/autorización del BFF. `resume` y aprobaciones están representados en contratos, pero no funcionan en este runtime local. La selección es una primera regla determinista evaluada con un conjunto pequeño de ejemplos, no una validación de calidad en producción.
 
 Si la API devuelve `PROVIDER_QUOTA`, revisar el saldo de la **organización/proyecto de API**, no la fecha de creación ni el gasto mostrado en la lista de claves. Una clave activa con gasto $0.00 puede pertenecer a una organización sin crédito prepago. El [informe](docs/roadmap/etapa-1/VERIFICACION.md) registra el fallo inicial por cuota y las pruebas reales posteriores con saldo.
+
+## Despliegue en el VPS de pruebas
+
+La [planificación de despliegue](docs/roadmap/etapa-3/PLAN-DESPLIEGUE-VPS.md) organiza el trabajo pendiente y su aceptación a partir de [PLAN-VPS](docs/roadmap/etapa-3/PLAN-VPS.md). El acceso al host está verificado; el orchestrator completo aún requiere composición, empaquetado y validación integrada antes del piloto.

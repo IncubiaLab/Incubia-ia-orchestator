@@ -82,3 +82,7 @@ exactos de CPU/memoria se fijarán con las mediciones de la campaña E3-5.
 4. Rollback ejecutado (imagen N-1 y restore) con RPO/RTO medidos. `h1_backup.py` sólo cubre las tablas del ledger conversacional: el restore de audit y Knowledge (base por deployment) requiere un procedimiento adicional por definir.
 5. SLO/RPO/RTO y costo mensual por opción; decisión del responsable registrada en
    VERIFICACION. Si A no cumple SLO, escalar a B con la misma imagen.
+
+## Plan de ejecución vinculado
+
+El [plan VPS de pruebas, P0–P7](../roadmap/etapa-3/PLAN-DESPLIEGUE-VPS.md), fechado 2026-11-11, organiza la implementación y evidencia de esta decisión. Su creación no modifica el estado del ADR ni acredita los gates pendientes.

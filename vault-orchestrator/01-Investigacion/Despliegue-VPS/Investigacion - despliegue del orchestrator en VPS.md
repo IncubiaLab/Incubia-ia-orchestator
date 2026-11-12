@@ -37,7 +37,11 @@ El repositorio implementa un monolito modular en Python 3.12 (`src/incubia_orche
 | `interfaces/cli/bot.py` (`incubia-bot`) | `TelegramRunner`, long-polling, `SqliteLedger`, `compose_scoped` | Usa SQLite local en lugar de `PostgresLedger` y comparte el archivo de `MonthlyCallLimiter`. |
 | `bootstrap/knowledge_incubialab.py` + `scripts/e3/ingest_drive_knowledge.py` | `KnowledgePools` (`incubia_kb_runtime`), ingesta Google Drive con service account y embeddings OpenAI | Job puntual separado; falta enlazar su puerto de retrieval con la entrada HTTP productiva del orchestrator. |
 
-## Hallazgos y fuentes primarias
+## Contraste actualizado para la ejecución — 2026-11-11
+
+El [plan de ejecución P0–P7](../../../docs/roadmap/etapa-3/PLAN-DESPLIEGUE-VPS.md) revisó `main` (`5a7df31`). El lock de Docker sí contiene `psycopg` y `psycopg-binary`; falta `psycopg_pool`. La composición productiva completa, readiness del gateway, migraciones y despliegue siguen pendientes. La plantilla `.env.example` actual ya no contiene el patrón Telegram descrito en los hallazgos históricos. Los recursos propuestos abajo son estimaciones; el host asignado aún necesita inventario. El estado actualizado se registra en [[Despliegue del orchestrator en VPS - estado de implementación]] y el acceso en [[VPS de pruebas - acceso SSH]].
+
+## Hallazgos y fuentes primarias (revisión histórica)
 
 1. **Bloqueo de empaquetado Docker (`requirements.lock` vs `pyproject.toml`):** `Dockerfile` de E3-D0 instala `requirements.lock` y luego `pip install --no-deps .`. `requirements.lock` no incluye `psycopg` ni `psycopg_pool`, requeridos por `PooledConnections` en `foundation/pg_pool.py`.
 2. **Desfase de ramas (`main` vs `feat/knowledge-base`):** la verificación de Etapa 3 (`38770ed`) quedó en `feat/knowledge-base` cuando en GitHub se hizo `Merge branch 'main' into feat/knowledge-base` (`a676e21`) en lugar de fusionar hacia `main`. Reconciliar `main` con `feat/knowledge-base` restablece toda la base E3 verificada.

@@ -35,3 +35,7 @@ La ruta de entrada multicanal usa `HandleInbound`: resuelve capacidad, busca un 
 ## Criterio de documentación
 
 Los docstrings explican la responsabilidad observable, parámetros o resultados que no se deducen de la firma, y condiciones de fallo relevantes. No repiten línea por línea el algoritmo. Las razones de diseño y la historia de implementación viven aquí, en los ADR y en los registros de etapa; al cambiar un comportamiento, actualizar la guía y el docstring de su frontera pública. Para ubicar la evidencia, buscar el identificador de tarea del roadmap en `docs/roadmap/` y las pruebas bajo `tests/`.
+
+## Preparación del despliegue
+
+El [plan de ejecución VPS](../roadmap/etapa-3/PLAN-DESPLIEGUE-VPS.md) contrasta las entradas HTTP, composición, dependencias y migraciones actuales con los entregables pendientes. Las fases P1–P2 especifican la integración que debe probarse antes de instalar el orchestrator completo.
