@@ -4,11 +4,30 @@ from __future__ import annotations
 from collections.abc import Sequence
 from hashlib import sha256
 import json
+import re
 from uuid import uuid4
 
 from incubia_orchestrator.modules.knowledge.adapters.pool import KnowledgePools
 from incubia_orchestrator.modules.knowledge.adapters.postgres import _vector
-from incubia_orchestrator.modules.knowledge.domain import KnowledgeStoreUnavailable, WorkspaceKnowledgeHit
+from incubia_orchestrator.modules.knowledge.domain import AccessTier, KnowledgeStoreUnavailable, WorkspaceKnowledgeHit
+
+
+_KW_STOPWORDS = frozenset({
+    "que", "como", "cual", "cuales", "para", "por", "con", "sin", "los", "las",
+    "del", "una", "uno", "unos", "unas", "sobre", "entre", "esto", "esta", "este",
+    "esos", "esas", "son", "fue", "han", "hay", "resume", "dime", "dame", "the",
+    "and", "for", "with", "what", "how",
+})
+
+
+def _or_tsquery_text(query_text: str) -> str:
+    tokens = [
+        tok for tok in re.findall(r"[A-Za-z0-9]{3,}", query_text.lower())
+        if tok not in _KW_STOPWORDS
+    ]
+    # Deduplicate preserving order, bounded to avoid oversized tsquery.
+    unique = list(dict.fromkeys(tokens))[:12]
+    return " | ".join(unique)
 
 
 def _escape_like(value: str) -> str:
@@ -106,9 +125,12 @@ class PostgresOrbitKnowledgeStore:
         chunks: Sequence[str],
         embeddings: Sequence[tuple[float, ...]],
         model_version: str,
+        *,
+        access_tier: AccessTier = AccessTier.ADMIN_ONLY,
     ) -> tuple[str, str]:
         if not chunks or len(chunks) != len(embeddings):
             raise ValueError("Document chunks and embeddings must be non-empty and aligned")
+        tier_value = AccessTier(access_tier).value
 
         doc_pattern = _document_prefix(workspace_id, document_id)
         public_ref = json.dumps(
@@ -175,15 +197,16 @@ class PostgresOrbitKnowledgeStore:
                     for chunk_src_id, chunk_ver, _text, content_hash, _vec in chunk_rows:
                         cursor.execute(
                             """
-                            INSERT INTO knowledge_sources (source_id, version, content_hash, public_ref, revoked_at)
-                            VALUES (%s, %s, %s, %s, NULL)
+                            INSERT INTO knowledge_sources (source_id, version, content_hash, public_ref, revoked_at, access_tier)
+                            VALUES (%s, %s, %s, %s, NULL, %s)
                             ON CONFLICT (source_id) DO UPDATE SET
                                 version = EXCLUDED.version,
                                 content_hash = EXCLUDED.content_hash,
                                 public_ref = EXCLUDED.public_ref,
-                                revoked_at = NULL
+                                revoked_at = NULL,
+                                access_tier = EXCLUDED.access_tier
                             """,
-                            (chunk_src_id, chunk_ver, content_hash, public_ref),
+                            (chunk_src_id, chunk_ver, content_hash, public_ref, tier_value),
                         )
 
                     surviving_meta: list[tuple[str, str, str]] = []
@@ -400,17 +423,29 @@ class PostgresOrbitKnowledgeStore:
         *,
         top_k: int = 5,
         query_text: str = "",
+        allowed_tiers: frozenset[str] | None = None,
     ) -> tuple[WorkspaceKnowledgeHit, ...]:
+        # Fail-closed: if caller omits allowed_tiers, restrict to workspace_general only.
+        if allowed_tiers is None:
+            tier_filter = [AccessTier.WORKSPACE_GENERAL.value]
+        else:
+            tier_filter = sorted(
+                t for t in allowed_tiers if t in {AccessTier.WORKSPACE_GENERAL.value, AccessTier.ADMIN_ONLY.value}
+            )
+        if not tier_filter:
+            return ()
+
         encoded = _vector(query_vector)
         ws_pattern = _workspace_prefix(workspace_id)
         limit = max(1, min(top_k, 10))
+        or_query = _or_tsquery_text(query_text)
         try:
             with self._runtime_pools.connection(deployment_id) as connection:
                 with connection.cursor() as cursor:
                     cursor.execute(
                         """
                         WITH active_chunks AS MATERIALIZED (
-                            SELECT c.generation_id, c.source_id, c.chunk_id, c.content, c.embedding, s.public_ref
+                            SELECT c.generation_id, c.source_id, c.chunk_id, c.content, c.embedding, s.public_ref, s.access_tier
                             FROM knowledge_chunks c
                             JOIN knowledge_generations g ON g.generation_id = c.generation_id
                             JOIN knowledge_sources s ON s.source_id = c.source_id
@@ -418,17 +453,18 @@ class PostgresOrbitKnowledgeStore:
                               AND g.model_version = %s
                               AND c.source_id LIKE %s ESCAPE '\\'
                               AND s.revoked_at IS NULL
+                              AND s.access_tier = ANY(%s)
                         ),
                         ranked AS (
-                            SELECT generation_id, source_id, chunk_id, content, public_ref,
+                            SELECT generation_id, source_id, chunk_id, content, public_ref, access_tier,
                                    1 - (embedding <=> %s::vector) AS vec_score,
                                    CASE
-                                       WHEN plainto_tsquery('simple', %s) <> ''::tsquery
+                                       WHEN nullif(%s, '') IS NOT NULL
                                             AND to_tsvector('simple', coalesce(public_ref, '') || ' ' || content)
-                                                @@ plainto_tsquery('simple', %s)
+                                                @@ to_tsquery('simple', nullif(%s, ''))
                                        THEN ts_rank_cd(
                                            to_tsvector('simple', coalesce(public_ref, '') || ' ' || content),
-                                           plainto_tsquery('simple', %s)
+                                           to_tsquery('simple', nullif(%s, ''))
                                        )
                                        ELSE 0.0
                                    END AS kw_score,
@@ -438,23 +474,27 @@ class PostgresOrbitKnowledgeStore:
                                    ) AS doc_rank
                             FROM active_chunks
                         )
-                        SELECT generation_id, source_id, chunk_id, content, public_ref,
+                        SELECT generation_id, source_id, chunk_id, content, public_ref, access_tier,
                                LEAST(1.0, vec_score + LEAST(0.35, kw_score * 0.25)) AS score
                         FROM ranked
                         WHERE doc_rank <= 2
                         ORDER BY (vec_score + LEAST(0.35, kw_score * 0.25)) DESC, chunk_id
                         LIMIT %s
                         """,
-                        (model_version, ws_pattern, encoded, query_text, query_text, query_text, encoded, limit),
+                        (model_version, ws_pattern, tier_filter, encoded, or_query, or_query, or_query, encoded, limit),
                     )
                     rows = cursor.fetchall()
         except Exception as exc:
             raise KnowledgeStoreUnavailable("Workspace Knowledge retrieval failed") from exc
 
         hits: list[WorkspaceKnowledgeHit] = []
-        for gen_id, chunk_src_id, chunk_id, content, raw_ref, raw_score in rows:
+        for gen_id, chunk_src_id, chunk_id, content, raw_ref, raw_tier, raw_score in rows:
             source_id, title, doc_id = _parse_public_ref(raw_ref, str(chunk_src_id))
             score = max(0.0, min(1.0, float(raw_score))) if raw_score is not None else 0.0
+            try:
+                hit_tier = AccessTier(str(raw_tier))
+            except ValueError:
+                hit_tier = AccessTier.ADMIN_ONLY
             hits.append(
                 WorkspaceKnowledgeHit(
                     deployment_id=deployment_id,
@@ -466,6 +506,7 @@ class PostgresOrbitKnowledgeStore:
                     title=title,
                     text=str(content),
                     score=score,
+                    access_tier=hit_tier,
                 )
             )
         return tuple(hits)

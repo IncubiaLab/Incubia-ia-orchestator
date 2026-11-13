@@ -18,6 +18,12 @@ class GenerationStatus(StrEnum):
     FAILED = "FAILED"
 
 
+class AccessTier(StrEnum):
+    """3-layer visibility tier for Knowledge documents (fail-closed to ADMIN_ONLY)."""
+    WORKSPACE_GENERAL = "workspace_general"
+    ADMIN_ONLY = "admin_only"
+
+
 @dataclass(frozen=True)
 class Source:
     deployment_id: str
@@ -226,8 +232,14 @@ class DocumentSyncRequest:
     download_url: str | None = None
     content: str | None = None
     content_base64: str | None = None
+    access_tier: AccessTier = AccessTier.ADMIN_ONLY
 
     def __post_init__(self):
+        if not isinstance(self.access_tier, AccessTier):
+            try:
+                object.__setattr__(self, "access_tier", AccessTier(str(self.access_tier)))
+            except ValueError as exc:
+                raise DocumentRejectedError("Unsupported document access_tier") from exc
         if self.operation not in {"upsert", "revoke"}:
             raise DocumentRejectedError("Unsupported document operation")
         if not all((self.request_id.strip(), self.workspace_id.strip(), self.deployment_id.strip(),
@@ -270,3 +282,4 @@ class WorkspaceKnowledgeHit:
     title: str
     text: str
     score: float
+    access_tier: AccessTier = AccessTier.ADMIN_ONLY

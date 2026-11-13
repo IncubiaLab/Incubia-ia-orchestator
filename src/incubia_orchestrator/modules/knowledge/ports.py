@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Protocol, Sequence
 
 from incubia_orchestrator.modules.knowledge.domain import (
+    AccessTier,
     EvidenceItem,
     ExportRequest,
     ExportResult,
@@ -99,6 +100,8 @@ class DocumentKnowledgeStorePort(Protocol):
         chunks: Sequence[str],
         embeddings: Sequence[tuple[float, ...]],
         model_version: str,
+        *,
+        access_tier: AccessTier = AccessTier.ADMIN_ONLY,
     ) -> tuple[str, str]: ...
 
     def revoke_document(
@@ -118,4 +121,5 @@ class DocumentKnowledgeStorePort(Protocol):
         *,
         top_k: int = 5,
         query_text: str = "",
+        allowed_tiers: frozenset[str] | None = None,
     ) -> tuple[WorkspaceKnowledgeHit, ...]: ...

@@ -103,7 +103,20 @@ class InMemoryDocumentStore:
             return self.active_gen
         return None
 
-    def upsert_document(self, deployment_id, workspace_id, document_id, source_id, version, title, chunks, embeddings, model_version):
+    def upsert_document(
+        self,
+        deployment_id,
+        workspace_id,
+        document_id,
+        source_id,
+        version,
+        title,
+        chunks,
+        embeddings,
+        model_version,
+        *,
+        access_tier="admin_only",
+    ):
         if self.is_document_active(deployment_id, workspace_id, document_id, version, model_version):
             return "already_indexed", self.active_gen
         self.chunks = [
@@ -112,11 +125,13 @@ class InMemoryDocumentStore:
         gen_id = f"gen-{uuid4().hex[:12]}"
         self.active_gen = gen_id
         self.model_version = model_version
+        tier_val = str(getattr(access_tier, "value", access_tier))
         self.docs[(workspace_id, document_id)] = {
             "source_id": source_id,
             "version": version,
             "title": title,
             "revoked": False,
+            "access_tier": tier_val,
         }
         for idx, (text, vec) in enumerate(zip(chunks, embeddings, strict=True)):
             self.chunks.append(
@@ -129,6 +144,7 @@ class InMemoryDocumentStore:
                     "title": title,
                     "text": text,
                     "vector": vec,
+                    "access_tier": tier_val,
                 }
             )
         return "indexed", gen_id
@@ -144,10 +160,25 @@ class InMemoryDocumentStore:
         self.active_gen = f"gen-{uuid4().hex[:12]}" if self.chunks else None
         return "revoked", self.active_gen
 
-    def retrieve_workspace(self, deployment_id, workspace_id, query_vector, model_version, *, top_k=5, query_text=""):
+    def retrieve_workspace(
+        self,
+        deployment_id,
+        workspace_id,
+        query_vector,
+        model_version,
+        *,
+        top_k=5,
+        query_text="",
+        allowed_tiers=None,
+    ):
+        effective_tiers = (
+            {"workspace_general"} if allowed_tiers is None else set(allowed_tiers)
+        )
         hits = []
         for chunk in self.chunks:
             if chunk["workspace_id"] != workspace_id:
+                continue
+            if chunk.get("access_tier", "admin_only") not in effective_tiers:
                 continue
             dot = sum(a * b for a, b in zip(query_vector, chunk["vector"], strict=True))
             hits.append(
@@ -171,7 +202,7 @@ class CapturingRuntime:
     def __init__(self):
         self.last_message = ""
 
-    def execute(self, *, request_id, execution_id, scope, message, history):
+    def execute(self, *, request_id, execution_id, scope, message, history, actor_role=None):
         self.last_message = message
         return CompletedExecution(
             request_id,
@@ -382,6 +413,7 @@ def test_http_knowledge_endpoint_and_workspace_scoped_rag_turn(loopback):
                 "contentType": "text/plain",
                 "sizeBytes": len(files["https://cdn.example.com/ws-a-secret.txt"]),
                 "downloadUrl": "https://cdn.example.com/ws-a-secret.txt",
+                "accessTier": "workspace_general",
             },
         }
 

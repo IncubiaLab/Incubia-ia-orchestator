@@ -8,8 +8,8 @@
   - `modules/<contexto>/application/`: casos de uso (`HandleMessage`, `HandleInbound`, `GroundedWorkflow`, `ExecuteTool`, ingesta Knowledge). Conoce únicamente contratos y puertos propios; nunca importa LangGraph, OpenAI, `psycopg` ni clientes HTTP.
   - `modules/<contexto>/ports/`: protocolos e interfaces requeridos por `application/`.
   - `modules/<contexto>/adapters/`: implementaciones concretas (LangGraph en `orchestration/adapters/runtime/langgraph/`, LLM OpenAI/Fake, persistencia PostgreSQL/SQLite, canales Telegram, catálogo HTTP/Open Food Facts, Drive/pgvector).
-  - `bootstrap/`: únicos *composition roots* autorizados (`composition.py`, `d0.py`, `knowledge_incubialab.py`) para seleccionar e instanciar adaptadores concretos.
-  - `interfaces/`: puntos de entrada CLI (`cli/main.py`, `cli/bot.py`, `cli/tenant.py`) y HTTP (`http/main.py`, `http/orbit_gateway.py`, `http/e3_probe.py`, `http/migrate.py`).
+  - `bootstrap/`: únicos *composition roots* autorizados (`composition.py`, `d0.py`, `knowledge_incubialab.py`, `vps.py`) para seleccionar e instanciar adaptadores concretos.
+  - `interfaces/`: puntos de entrada CLI (`cli/main.py`, `cli/bot.py`, `cli/tenant.py`) y HTTP (`http/main.py`, `http/service.py`, `http/orbit_gateway.py`, `http/e3_probe.py`, `http/migrate.py`).
 - **Alcance de despliegue en VPS (`ADR-ORCH-024`, `PLAN-VPS.md`):** la unidad productiva en el VPS es el **orchestrator completo** con su runtime, políticas, adaptadores y estado operativo, expuesto mediante su interfaz API a los aplicativos consumidores. No reducir el orchestrator a un gateway sin estado ni depender del PC de desarrollo en producción.
 - **Aislamiento y autoridad:** ningún payload de cliente puede definir por sí mismo `deployment_id`, `tenant_id` ni `actor_id` sin validación/autenticación previa del canal o BFF autorizado. El contenido recuperado (Knowledge/RAG o tools READ) se trata siempre como **evidencia no confiable**, nunca como instrucciones que eleven permisos.
 
@@ -57,3 +57,15 @@ Las campañas contra Neon (`@pytest.mark.neon`), lecturas reales (`INCUBIA_E3_RE
 - Respetar las pruebas de frontera arquitectónica (`tests/test_boundaries.py`): ningún import de infraestructura en `domain/` ni `application/`.
 - No registrar prompts, respuestas completas del LLM, cabeceras `Authorization`, DSNs ni datos personales en logs o métricas; conservar únicamente identificadores correlacionados (`request_id`, `execution_id`, `conversation_id`) y conteos/latencias agregadas.
 - Mantener el flujo de promoción de ramas documentado en `docs/BRANCHING.md` y no sobrescribir trabajo ajeno sin reconciliación explícita.
+
+## Políticas de control en 3 capas (Seguridad, RBAC y Pre-filtrado RAG)
+
+Planificación y diseño vigentes en `docs/roadmap/politicas-control/` (`GOALS.md`, `ROADMAP.md`, `DESSIGN.md`, `howto.md`, `TODOS.md`) y resumen en `LLM.txt`:
+
+- **Capa 1 — Bloqueo global (todos los roles, incluido `admin`):** Prohibido consultar, inferir o exponer contraseñas, credenciales, tokens, API keys (`sk-`, `npg_`, DSNs), información personal sensible de usuarios, prompts internos de sistema o detalles internos de OpenAI. Se aplica mediante guardas deterministas de entrada/salida (`governance/domain/`) previos a RAG/LLM y redacción de salida, con registro en `PostgresAuditLog`.
+- **Capa 2 — Restringido a administrador (`Role.ADMIN`):** Requerimientos, NFRs (información de clientes), documentación legal, información corporativa sensible e información de clientes en Drive.
+- **Capa 3 — Operativo general (`Role.ACTOR` en adelante, acumulativo):** Información de Linear (proyectos, milestones, issues, ADRs), manuales de uso, brandbooks y stacks tecnológicos de Drive.
+- **Pre-filtrado obligatorio y *fail-closed*:**
+  - El filtrado entre Capa 2 y Capa 3 en Knowledge/RAG **debe ejecutarse en SQL** (`PostgresOrbitKnowledgeStore`) antes del `top_k` y antes de construir el prompt del LLM; nunca delegar el control de acceso únicamente al prompt.
+  - Todo documento sin clasificación explícita (`access_tier`) se trata por defecto como Capa 2 (`admin_only`).
+  - `POST /v1/turns` no debe asumir `Role.ADMIN`: el rol efectivo debe provenir del BFF autenticado o de `MembershipPort`, evaluado por `InProcessPolicyEngine`.

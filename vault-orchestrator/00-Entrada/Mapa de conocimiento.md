@@ -11,6 +11,7 @@ actualizado: 2026-11-11
 - [[01-Investigacion/Persistencia-y-RAG-Neon/Investigacion - persistencia y RAG en Neon]]
 - [[01-Investigacion/Gobernanza-tools-y-auditoria/Investigacion - gobernanza de tools y auditoría]]
 - [[01-Investigacion/Integracion-Consumidores-Externos/Investigacion - integracion consumidores externos y Orbit]]
+- [[01-Investigacion/Politicas-Control-3-Capas/Investigacion - politicas de control en 3 capas]]
 
 ## Convergencias y seguimiento — Despliegue en VPS (PLAN-VPS)
 
@@ -65,7 +66,17 @@ actualizado: 2026-11-11
 ## Convergencias y seguimiento — Integración con consumidores externos y Orbit
 
 - [[01-Investigacion/Integracion-Consumidores-Externos/Investigacion - integracion consumidores externos y Orbit]]
+- [[01-Investigacion/Politicas-Control-3-Capas/Investigacion - politicas de control en 3 capas]]
 - [[02-Decisiones/Integración consumidores externos y Orbit - beneficios]]
 - [[02-Decisiones/Integración consumidores externos y Orbit - contras y riesgos]]
 - [[02-Decisiones/Integración consumidores externos y Orbit - decisión]]
 - [[03-Implementacion/Integración consumidores externos y Orbit - estado de implementación]]
+
+## Convergencias y seguimiento — Políticas de Control en 3 Capas
+
+- [Planificación Políticas de Control](../../docs/roadmap/politicas-control/GOALS.md)
+- [[01-Investigacion/Politicas-Control-3-Capas/Investigacion - politicas de control en 3 capas]]
+- [[02-Decisiones/Politicas de control en 3 capas - beneficios]]
+- [[02-Decisiones/Politicas de control en 3 capas - contras y riesgos]]
+- [[02-Decisiones/Politicas de control en 3 capas - decisión]]
+- [[03-Implementacion/Politicas de control en 3 capas - estado de implementación]]

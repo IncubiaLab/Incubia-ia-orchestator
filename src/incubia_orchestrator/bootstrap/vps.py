@@ -43,6 +43,10 @@ from incubia_orchestrator.modules.governance.adapters.policy.in_process.engine i
     Authority,
     InProcessPolicyEngine,
 )
+from incubia_orchestrator.modules.governance.domain.guardrails import (
+    sanitize_capa1_output,
+)
+from incubia_orchestrator.modules.identity_tenant.domain.principal import Role
 from incubia_orchestrator.modules.knowledge.domain import (
     DocumentSyncRequest,
     DocumentSyncResult,
@@ -135,7 +139,8 @@ class VPSSettings:
 
 class OrchestrationRuntimePort(Protocol):
     def execute(self, *, request_id: str, execution_id: str, scope: ExecutionScope,
-                message: str, history: tuple[ConversationTurn, ...]) -> CompletedExecution:
+                message: str, history: tuple[ConversationTurn, ...],
+                actor_role: Role = Role.ACTOR) -> CompletedExecution:
         ...
 
 
@@ -150,9 +155,15 @@ class LangGraphOrchestrationRuntime:
         self._max_output_tokens = max(limits.eval_e3.max_output_tokens, 2000)
 
     def execute(self, *, request_id: str, execution_id: str, scope: ExecutionScope,
-                message: str, history: tuple[ConversationTurn, ...]) -> CompletedExecution:
+                message: str, history: tuple[ConversationTurn, ...],
+                actor_role: Role = Role.ACTOR) -> CompletedExecution:
         policy = InProcessPolicyEngine(
-            Authority(scope.deployment_id, scope.tenant_id, frozenset({scope.actor_id}))
+            Authority(
+                scope.deployment_id,
+                scope.tenant_id,
+                frozenset({scope.actor_id}),
+                actor_roles={scope.actor_id: actor_role},
+            )
         )
         runtime = LangGraphRuntimeAdapter(build_graph(
             make_node(self._llm, policy, self._max_output_tokens, self._profiles),
@@ -238,6 +249,7 @@ class VPSService:
         workspace_id: str,
         query: str,
         top_k: int = 5,
+        allowed_tiers: frozenset[str] | None = None,
     ) -> tuple[WorkspaceKnowledgeHit, ...]:
         if self._knowledge_retrieve is None:
             return ()
@@ -246,6 +258,7 @@ class VPSService:
             workspace_id=workspace_id,
             query=query,
             top_k=top_k,
+            allowed_tiers=allowed_tiers,
         )
 
     def _ready_for_execute(self) -> bool:
@@ -302,6 +315,32 @@ class VPSService:
             for event in events:
                 self._audit.append(event)
 
+    def audit_policy_denial(
+        self,
+        *,
+        execution_id: str,
+        scope: ExecutionScope,
+        reason_code: str,
+        resource: str = "capa1-guard",
+    ) -> None:
+        """Record a fail-closed policy/guard denial in the durable audit log."""
+        if self._audit is None:
+            return
+        self._audit.append(
+            AuditEvent.now(
+                event_id=str(uuid4()),
+                event_type=AuditEventType.POLICY_DECISION,
+                tool_call_id=f"{execution_id}:policy_denial",
+                execution_id=execution_id,
+                scope=scope,
+                tool_id="capa1-guardrail",
+                resource=resource,
+                decision="deny",
+                status="denied",
+                error_code=reason_code,
+            )
+        )
+
     def execute_turn(
         self,
         *,
@@ -312,6 +351,7 @@ class VPSService:
         request_id: str | None = None,
         turn_id: str | None = None,
         max_message_chars: int = 8_000,
+        actor_role: Role = Role.ACTOR,
     ) -> dict[str, Any]:
         """Execute a conversational turn through durable reservation, claims, graph run, and commit."""
         if not self._ready_for_execute():
@@ -393,12 +433,15 @@ class VPSService:
                 scope=scope,
                 message=message,
                 history=history,
+                actor_role=actor_role,
             )
         except Exception:
             self._return_to_received_safely(reservation.execution_id, scope, event_claim, conversation_claim)
             raise
 
         specialty = completed.output.specialty.value if completed.output.specialty else "general"
+        output_guard = sanitize_capa1_output(completed.output.text)
+        safe_output_text = output_guard.redacted_text if output_guard.redacted_text is not None else completed.output.text
 
         try:
             self._audit_execution(execution_id=exec_id, scope=scope, specialty=specialty)
@@ -420,7 +463,7 @@ class VPSService:
                     "conversation_id": scope.conversation_id,
                     "revision": revision + 1,
                     "specialty": specialty,
-                    "message": completed.output.text,
+                    "message": safe_output_text,
                     "replayed": False,
                 }
 
@@ -437,7 +480,7 @@ class VPSService:
                                 "http_response": response,
                                 "runtime": to_dict(completed),
                             },
-                            turn=ConversationTurn(message, completed.output.text),
+                            turn=ConversationTurn(message, safe_output_text),
                             claim_tokens=(event_claim, conversation_claim),
                         )
                     )

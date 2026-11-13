@@ -158,6 +158,7 @@ class SyncDocumentKnowledge:
             chunks,
             vectors,
             self._embedding.model_version,
+            access_tier=request.access_tier,
         )
         return DocumentSyncResult(
             status=status,
@@ -181,9 +182,12 @@ class RetrieveWorkspaceKnowledge:
         workspace_id: str,
         query: str,
         top_k: int = 5,
+        allowed_tiers: frozenset[str] | None = None,
     ) -> tuple[WorkspaceKnowledgeHit, ...]:
         cleaned = query.strip()
         if not cleaned:
+            return ()
+        if allowed_tiers is not None and not allowed_tiers:
             return ()
         bounded_query = _truncate_utf8(cleaned, 2048)
         try:
@@ -199,6 +203,7 @@ class RetrieveWorkspaceKnowledge:
             self._embedding.model_version,
             top_k=max(1, min(top_k, 10)),
             query_text=bounded_query,
+            allowed_tiers=allowed_tiers,
         )
 
 

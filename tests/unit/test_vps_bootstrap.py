@@ -102,7 +102,7 @@ class FakeLedger:
 
 
 class FakeRuntime:
-    def execute(self, *, request_id, execution_id, scope, message, history):
+    def execute(self, *, request_id, execution_id, scope, message, history, actor_role=None):
         specialty = Specialty.VENTAS if "venta" in message.lower() else Specialty.GENERAL
         return CompletedExecution(
             request_id,
